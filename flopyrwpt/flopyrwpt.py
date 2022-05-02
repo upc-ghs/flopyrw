@@ -72,12 +72,17 @@ class ModpathRwptDispersion( Package ):
         injectioncells    = None, 
         injectionseries   = None, 
         injectionmass     = 1.0,
+        modelkind         = None, # linear, nonlinear
+        betatransverse    = 0.5, 
+        betalongitudinal  = 1,
+        mediumdelta       = 5, 
+        mediumdsize       = 1,
     ):
+
 
         unitnumber = model.next_unit()
 
         super().__init__(model, extension, "DISPERSION", unitnumber)
-
 
         shape = model.shape
         if len(shape) == 3:
@@ -91,7 +96,59 @@ class ModpathRwptDispersion( Package ):
         self.shape3d = shape3d
         #self.parent._generate_heading()
 
-        # Assign dispersion parameters
+
+        # Select modelkind
+        if modelkind is not None: 
+            if modelkind not in ('linear', 'nonlinear'):
+                raise Exception( 'flopyrwpt.py: modelkind ' + modelkind + ' is not allowed: linear or nonlinear' )
+            if modelkind == 'linear':
+                self.modelkind = 1
+            elif modelkind == 'nonlinear':
+                self.modelkind = 2
+        else:
+            self.modelkind = 1
+
+
+        # Assign NONLINEAR dispersion parameters
+        self.betalongitudinal = betalongitudinal
+        self.betatransverse = betatransverse
+        self.mediumdelta = mediumdelta
+        ## Assign NONLINEAR dispersion parameters
+        #self.betalongitudinal = Util3d(
+        #    model,
+        #    shape3d,
+        #    np.float32,
+        #    betalongitudinal,
+        #    name="BETALONGITUDINAL",
+        #    locat=self.unit_number[0],
+        #)
+        #self.betatransverse= Util3d(
+        #    model,
+        #    shape3d,
+        #    np.float32,
+        #    betatransverse,
+        #    name="BETATRANSVERSE",
+        #    locat=self.unit_number[0],
+        #)
+        #self.mediumdelta = Util3d(
+        #    model,
+        #    shape3d,
+        #    np.float32,
+        #    mediumdelta,
+        #    name="MEDIUMDELTA",
+        #    locat=self.unit_number[0],
+        #)
+        self.mediumdsize = Util3d(
+            model,
+            shape3d,
+            np.float32,
+            mediumdsize,
+            name="MEDIUMDSIZE",
+            locat=self.unit_number[0],
+        )
+
+
+        # Assign LINEAR dispersion parameters
         self.longitudinal = Util3d(
             model,
             shape3d,
@@ -177,6 +234,9 @@ class ModpathRwptDispersion( Package ):
             if isinstance(self.injectionmass, (float,int)):
                 self.injectionmass = np.repeat( self.injectionmass, nijs )
 
+
+
+
         self.parent.add_package(self)
 
 
@@ -199,12 +259,35 @@ class ModpathRwptDispersion( Package ):
         f = open(self.fn_path, "w")
         #f.write(f"# {self.heading}\n")
 
-        # Write dispersivities
-        f.write(self.longitudinal.get_file_entry())
-        f.write(self.transverse.get_file_entry())
+        
+        # Select model dispersivity
+        if self.modelkind == 1:
 
-        # Write molecular diffusion
-        f.write(f"{self.molecular:.10f}\n")
+            # Write modelkind
+            f.write(f"{self.modelkind}\n")
+
+            # Write dispersivities
+            f.write(self.longitudinal.get_file_entry())
+            f.write(self.transverse.get_file_entry())
+            # Write molecular diffusion
+            f.write(f"{self.molecular:.16f}\n")
+
+        elif self.modelkind == 2:
+
+            # Write modelkind
+            f.write(f"{self.modelkind}\n")
+
+            # Write nonlinear beta exponents
+            f.write(f"{self.betalongitudinal:.10f}\n") 
+            f.write(f"{self.betatransverse:.10f}\n") 
+            f.write(f"{self.mediumdelta:.10f}\n")
+            #f.write(self.betalongitudinal.get_file_entry())
+            #f.write(self.betatransverse.get_file_entry())
+            #f.write(self.mediumdelta.get_file_entry())
+            f.write(self.mediumdsize.get_file_entry())
+
+            # Write aqueous molecular diffusion
+            f.write(f"{self.molecular:.16f}\n")
 
         # Write time step selection method
         if self.timestep is not None:
