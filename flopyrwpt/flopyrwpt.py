@@ -62,7 +62,8 @@ class ModpathRwptDispersion( Package ):
         dimensions   = 3,
         timestep     = 'courant',
         courant      = 0.1,
-        peclet       = 100.0, 
+        peclet       = 100.0,
+        ctdisp       = 0.1,
         extension    = 'dispersion',
         icbound      = 0,
         initialconditions = None, 
@@ -188,14 +189,15 @@ class ModpathRwptDispersion( Package ):
             raise Exception('flopyrwpt.py: dimensions ' + str(dimensions) + ' is not valid. Use 2 or 3')
         self.dimensions = dimensions
 
-        if ( timestep not in ['courant', 'peclet', 'min'] ):
-            raise Exception('flopyrwpt.py: time step selection model ' + timestep + ' is not valid. courant, peclet, min')
+        if ( timestep not in ['courant', 'peclet', 'min_adv_disp'] ):
+            raise Exception('flopyrwpt.py: time step selection model ' + timestep + ' is not valid. courant, peclet, min_adv_disp')
         self.timestep  = timestep
 
 
         # Trust
         self.courant = courant
         self.peclet  = peclet 
+        self.ctdisp  = ctdisp 
         self.ic = initialconditions
 
 
@@ -297,9 +299,11 @@ class ModpathRwptDispersion( Package ):
             if self.timestep == 'courant': 
                 f.write(f"CONSTANT_CU\n")  
                 f.write(f"{self.courant:.10f}\n")  
-            if self.timestep == 'min':
+            if self.timestep == 'min_adv_disp':
                 # Review this format, it may require both
-                f.write(f"MIN_CU_PE\n")  
+                f.write(f"MIN_ADV_DISP\n")  
+                f.write(f"{self.courant:.10f}\n")  
+                f.write(f"{self.ctdisp:.10f}\n")  
                 #f.write(f"{self.courant:20d}") #? 
 
         # Write advection model
@@ -404,12 +408,14 @@ class ModpathRwptReconstruction( Package ):
     def __init__(
         self,
         model,
-        binsize        = [1,1,1],
-        domainsize     = [1,1,1],
-        domainorigin   = [0,0,0],
-        noptloops      = 10, 
-        outputfilename = 'gpkde.output',
-        extension      = 'gpkde',
+        binsize              = [1,1,1],
+        domainsize           = [1,1,1],
+        domainorigin         = [0,0,0],
+        kerneldatabase       = False, 
+        kerneldatabaseparams = [0.1,0.1,10], # minh/lambda,deltahlambda,maxhlambda
+        noptloops            = 10, 
+        outputfilename       = 'gpkde.output',
+        extension            = 'gpkde',
     ):
 
         unitnumber = model.next_unit()
@@ -428,6 +434,10 @@ class ModpathRwptReconstruction( Package ):
         self.domainsize   = domainsize
         self.domainorigin = domainorigin
         self.noptloops    = noptloops
+
+        self.kerneldatabase       = kerneldatabase       
+        self.kerneldatabaseparams = kerneldatabaseparams 
+
 
         if outputfilename is not None:
             self.outputfilename = outputfilename
@@ -476,11 +486,27 @@ class ModpathRwptReconstruction( Package ):
             else:
                 f.write(f"{b:16f}")
 
-
         # Number of optimization loops 
         f.write(f"{self.noptloops:10d}\n")
 
-        # more to come...
+        # Kernel database reconstruction or direct without database
+        # 1: kerneldatabase
+        # 0: bruteforcedensity
+        if self.kerneldatabase:
+            # Kernel database reconstruction
+            f.write(f"1\n") # 1 for id into fortran
+
+            # Database params: minh/lambda, dealtah/lambda, maxh/lambda
+            for idb, b in enumerate(self.kerneldatabaseparams):
+                if idb == len(self.binsize)-1: 
+                    f.write(f"{b:16f}\n")
+                else:
+                    f.write(f"{b:16f}")
+        else:
+            # Brute force reconstruction
+            f.write(f"0\n") # 0 for id into fortran
+            
+
 
         # And close
         f.close()
