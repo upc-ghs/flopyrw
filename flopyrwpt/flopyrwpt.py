@@ -79,7 +79,7 @@ class ModpathRwptDispersion( Package ):
         mediumdelta       = 5, 
         mediumdsize       = 1,
     ):
-
+    
 
         unitnumber = model.next_unit()
 
@@ -412,10 +412,11 @@ class ModpathRwptReconstruction( Package ):
         domainsize           = [1,1,1],
         domainorigin         = [0,0,0],
         kerneldatabase       = False, 
-        kerneldatabaseparams = [0.1,0.1,10], # minh/lambda,deltahlambda,maxhlambda
+        kerneldatabaseparams = [1,0.1,30], # minh/lambda,deltahlambda,maxhlambda
         noptloops            = 10, 
         outputfilename       = 'gpkde.output',
         extension            = 'gpkde',
+        skiptimeserieswriter = True,
     ):
 
         unitnumber = model.next_unit()
@@ -438,6 +439,7 @@ class ModpathRwptReconstruction( Package ):
         self.kerneldatabase       = kerneldatabase       
         self.kerneldatabaseparams = kerneldatabaseparams 
 
+        self.skiptimeserieswriter = skiptimeserieswriter
 
         if outputfilename is not None:
             self.outputfilename = outputfilename
@@ -459,11 +461,18 @@ class ModpathRwptReconstruction( Package ):
         -------
         None
         """
+
         # Open file for writing
         f = open(self.fn_path, "w")
 
         # Output filename
         f.write(f"{self.outputfilename}\n")
+
+        # Skip timeseries writer 
+        if self.skiptimeserieswriter:
+            f.write(f"1\n") # 1 true, skip TimeseriesWriter
+        else:
+            f.write(f"0\n") # 0 false, write timeseries
 
         # Domain origin
         for idb, b in enumerate(self.domainorigin):
@@ -496,7 +505,7 @@ class ModpathRwptReconstruction( Package ):
             # Kernel database reconstruction
             f.write(f"1\n") # 1 for id into fortran
 
-            # Database params: minh/lambda, dealtah/lambda, maxh/lambda
+            # Database params: minh/lambda, daltah/lambda, maxh/lambda
             for idb, b in enumerate(self.kerneldatabaseparams):
                 if idb == len(self.binsize)-1: 
                     f.write(f"{b:10f}\n")
@@ -506,6 +515,12 @@ class ModpathRwptReconstruction( Package ):
             # Brute force reconstruction
             f.write(f"0\n") # 0 for id into fortran
             
+            # kernel params: minh/lambda, maxh/lambda
+            for idb, b in enumerate(self.kerneldatabaseparams):
+                if idb == 0:
+                    f.write(f"{b:16f}")
+                if idb == 2: 
+                    f.write(f"{b:16f}\n")
 
 
         # And close
