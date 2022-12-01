@@ -430,9 +430,9 @@ class ModpathRwptReconstruction( Package ):
         else:
             shape3d = (1, 1, shape[0])
 
-        self.binsize      = binsize
-        self.domainsize   = domainsize
-        self.domainorigin = domainorigin
+        self.binsize      = np.array(binsize).astype(np.float32)
+        self.domainsize   = np.array(domainsize).astype(np.float32)
+        self.domainorigin = np.array(domainorigin).astype(np.float32)
         self.noptloops    = noptloops
 
         self.kerneldatabase       = kerneldatabase       
@@ -468,23 +468,23 @@ class ModpathRwptReconstruction( Package ):
         # Domain origin
         for idb, b in enumerate(self.domainorigin):
             if idb == len(self.domainorigin)-1: 
-                f.write(f"{b:16f}\n")
+                f.write(f"{b:10f}\n")
             else:
-                f.write(f"{b:16f}")
+                f.write(f"{b:10f}")
 
         # Domain sizes
         for idb, b in enumerate(self.domainsize):
             if idb == len(self.domainsize)-1: 
-                f.write(f"{b:16f}\n")
+                f.write(f"{b:10f}\n")
             else:
-                f.write(f"{b:16f}")
+                f.write(f"{b:10f}")
 
         # Bin sizes
         for idb, b in enumerate(self.binsize):
             if idb == len(self.binsize)-1: 
-                f.write(f"{b:16f}\n")
+                f.write(f"{b:10f}\n")
             else:
-                f.write(f"{b:16f}")
+                f.write(f"{b:10f}")
 
         # Number of optimization loops 
         f.write(f"{self.noptloops:10d}\n")
@@ -499,9 +499,9 @@ class ModpathRwptReconstruction( Package ):
             # Database params: minh/lambda, dealtah/lambda, maxh/lambda
             for idb, b in enumerate(self.kerneldatabaseparams):
                 if idb == len(self.binsize)-1: 
-                    f.write(f"{b:16f}\n")
+                    f.write(f"{b:10f}\n")
                 else:
-                    f.write(f"{b:16f}")
+                    f.write(f"{b:10f}")
         else:
             # Brute force reconstruction
             f.write(f"0\n") # 0 for id into fortran
