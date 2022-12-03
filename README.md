@@ -33,6 +33,9 @@ python setup.py install
 
 Package extends from the `flopy` classes for writing `modpath` input files. For `modpath-rw`, additional classes are considered for writing dispersion, reconstruction and other configuration files required for the program. 
 
+More to complete...
+
+
 ## Resources
 
 * [MODPATH](https://www.usgs.gov/software/modpath-particle-tracking-model-modflow)
