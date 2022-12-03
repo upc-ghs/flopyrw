@@ -1,44 +1,41 @@
-# flopyrwpt
+## flopyrwpt
+`python` interface for writing input files and postprocessing tools for transport models based on MODPATH-RW
 
 
+## Install
 
-## Getting started
+Clone reposistory and install as dependency in your environment. Suggested process is 
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+``
+git clone https://gitlab.com/upc-ghs/flopyrwpt.git
+``
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+Change directory to the package
 
-## Add your files
+``
+cd flopyrwpt
+``
 
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/ee/gitlab-basics/add-file.html#add-a-file-using-the-command-line) or push an existing Git repository with the following command:
+Activate the `python` environment
 
-```
-cd existing_repo
-git remote add origin https://gitlab.com/rodrperez/flopyrwpt.git
-git branch -M main
-git push -uf origin main
-```
+``
+source /path/to/env/bin/activate
+``
 
-## Integrate with your tools
+And install
 
-- [ ] [Set up project integrations](https://gitlab.com/rodrperez/flopyrwpt/-/settings/integrations)
+``
+python setup.py install
+``
 
-## Collaborate with your team
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Automatically merge when pipeline succeeds](https://docs.gitlab.com/ee/user/project/merge_requests/merge_when_pipeline_succeeds.html)
+## Writing MODPATH-RW input files
 
-## Test and Deploy
+Package extends from the `flopy` classes for writing `modpath` input files. For `modpath-rw`, additional classes are considered for writing dispersion, reconstruction and other configuration files required for the program. 
 
-Use the built-in continuous integration in GitLab.
+## Resources
 
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/index.html)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing(SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
-
+* [MODPATH](https://www.usgs.gov/software/modpath-particle-tracking-model-modflow)
+* [modpath-v7 repository](https://github.com/MODFLOW-USGS/modpath-v7)
+* [modpath-omp repository](https://github.com/MARSoluT/modpath-omp)
+* [flopy](https://github.com/modflowpy/flopy)

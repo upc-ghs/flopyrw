@@ -381,6 +381,8 @@ class ModpathRwptDispersion( Package ):
         f.close()
 
 
+
+
 class ModpathRwptReconstruction( Package ):
     """
     MODPATH RWPT Dispersion Package Class.
@@ -650,6 +652,7 @@ class simType(Enum):
 mp7.simType = simType
 
 
+
 # Class for RWPT sims
 class ModpathRwptSim( flopy.modpath.Modpath7Sim ):
     '''
@@ -811,6 +814,8 @@ class ModpathRwptSim( flopy.modpath.Modpath7Sim ):
 
         # RWPT
         if self.simulationtype > 4:
+
+            # Dispersion filename
             f.write(f"{self.dispersionfilename}\n")
 
             if self.reconstruction: 
