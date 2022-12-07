@@ -55,17 +55,17 @@ class ModpathRwptDispersion( Package ):
     def __init__(
         self,
         model,
-        longitudinal = 1,
-        transverse   = 0.1,
-        molecular    = 0.0,
-        advection    = 'eulerian',
-        dimensions   = 3,
-        timestep     = 'courant',
-        courant      = 0.1,
-        peclet       = 100.0,
-        ctdisp       = 0.1,
-        extension    = 'dispersion',
-        icbound      = 0,
+        longitudinal      = 1,
+        transverse        = 0.1,
+        molecular         = 0.0,
+        advection         = 'eulerian',
+        dimensions        = 3,
+        timestep          = 'courant',
+        courant           = 0.1,
+        peclet            = 100.0,
+        ctdisp            = 0.1,
+        extension         = 'dispersion',
+        icbound           = 0,
         initialconditions = None, 
         mass              = 1.0,
         icformat          = 2, # 1: density, 2: classic particles
@@ -629,9 +629,67 @@ class ModpathRwptReconstruction( Package ):
 #        f.close()
 
 
+class ModpathRwptObs( Package ):
+    """
+    MODPATH RWPT Observation Package Class.
+    Parameters
+    ----------
+    model : model object
+        The model object (of type :class:`flopy.modpath.Modpath7`) to which
+        this package will be added.
+    """
+    
+    baseid = 0
+
+    def __init__(
+        self,
+        model,
+        id             = None,
+        kind           = 0,
+        basefilename   = 'mpathrwobs_',
+        filename       = None,
+        extension      = '.obs',
+    ):
+        """
+        Initializer function
+        """
+        
+
+        self.kind = kind
+        if (id is not None): 
+            self.id = id
+        else:
+            self.id = self.baseid
+            self.baseid += 1
+
+        self.filename = basefilename+str(self.id)+extension
 
 
 
+
+    def write(self, f=None):
+        """
+        Write the package file
+        Parameters
+        ----------
+        Returns
+        -------
+        None
+        """
+
+        if f is None:
+            raise Exception('ModpathRwptObs: requires file pointer f. Is None.')
+
+        # Write obs kind
+        f.write(f"{self.kind}\n")
+
+        # Write obs id
+        f.write(f"{self.id}\n")
+
+        # Write obs filename
+        f.write(f"{self.filename}\n")
+
+        return
 
 
 
@@ -663,6 +721,7 @@ class ModpathRwptSim( flopy.modpath.Modpath7Sim ):
             reconstruction=False,
             dispersionfilename=None,
             reconstructionfilename=None,
+            observations=None,
             **kwargs
         ):
 
@@ -679,6 +738,23 @@ class ModpathRwptSim( flopy.modpath.Modpath7Sim ):
                 reconstructionfilename = f"{model.name}.gpkde"
             self.reconstructionfilename = reconstructionfilename
         self.reconstruction = reconstruction
+
+        if observations is not None:
+            if isinstance(observations,list):
+                for pobs in observations:
+                    if not isinstance(pobs, ModpathRwptObs):
+                        raise TypeError('Object in list is type ', type(pobs), '. Expected ModpathRwptObs.')
+                # Survived so continue
+                self.nobs = len(observations)
+                self.observations = observations
+            elif isinstance( observations, ModpathRwptObs ):
+                self.nobs = 1
+                self.observations = [observations]
+            else:
+                raise TypeError('Observations argument should be of type list or ModpathRwptObs. ', type(observations), ' given.')
+        else:
+            self.nobs = 0
+            self.observations = None
 
         # done!
 
@@ -826,7 +902,16 @@ class ModpathRwptSim( flopy.modpath.Modpath7Sim ):
                 f.write(f"{self.reconstructionfilename}\n")
             else:
                 f.write(f"0\n")
-       
+      
+
+            if len(self.observations) > 0:
+                f.write(f"{len(self.observations)}\n")
+                # Write each
+                for obs in self.observations:
+                    obs.write(f=f)
+            else:
+                pass
+
 
         # And close
         f.close()
