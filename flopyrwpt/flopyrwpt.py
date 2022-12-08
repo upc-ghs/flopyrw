@@ -661,6 +661,7 @@ class ModpathRwptObs( Package ):
 
         self.kind = kind
         self.celloption = celloption
+        self.timeoption = timeoption
         self.structured = structured
 
         if cells is None:
@@ -725,10 +726,12 @@ class ModpathRwptObs( Package ):
                 f.write(f"{len(self.cells)}\n")
                 fmts = []
                 if self.structured:
+                    f.write(f"1\n") # To indicate structured
                     fmts.append("{:9d}") # lay
                     fmts.append("{:9d}") # row
                     fmts.append("{:9d}") # col
                 else:
+                    f.write(f"2\n") # To indicate cell ids
                     fmts.append("{:9d}") # cellid
                 fmt = " " + " ".join(fmts) + "\n"
                 for oc in self.cells:
