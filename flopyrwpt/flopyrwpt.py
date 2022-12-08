@@ -645,7 +645,11 @@ class ModpathRwptObs( Package ):
         self,
         model,
         id             = None,
-        kind           = 0,
+        kind           = 1,
+        celloption     = 1,
+        cells          = None,
+        timeoption     = 1,
+        structured     = True, 
         basefilename   = 'mpathrwobs_',
         filename       = None,
         extension      = '.obs',
@@ -656,6 +660,18 @@ class ModpathRwptObs( Package ):
         
 
         self.kind = kind
+        self.celloption = celloption
+        self.structured = structured
+
+        if cells is None:
+            self.cells = []
+        else:
+            if not isinstance( cells, (list,np.ndarray,np.array) ):
+                raise Exception( 'Cells parameter should be a list or numpy array')
+            # Myabe some sanity check about data structure or the same 
+            # used for partlocs
+            self.cells = cells
+
         if (id is not None): 
             self.id = id
         else:
@@ -677,17 +693,63 @@ class ModpathRwptObs( Package ):
         None
         """
 
+
         if f is None:
             raise Exception('ModpathRwptObs: requires file pointer f. Is None.')
 
-        # Write obs kind
-        f.write(f"{self.kind}\n")
+        # validate that a valid file object was passed
+        if not hasattr(f, "write"):
+            raise ValueError(
+                "{}: cannot write data for template without passing a valid "
+                "file object ({}) open for writing".format(self.name, f)
+            )
+
 
         # Write obs id
         f.write(f"{self.id}\n")
 
         # Write obs filename
         f.write(f"{self.filename}\n")
+
+        # Write the obs kind
+        f.write(f"{self.kind}\n")
+
+        # Write the celloption param
+        f.write(f"{self.celloption}\n")
+
+        if self.celloption == 1:
+            # Should write a cell number
+            if len( self.cells ) == 0: 
+                raise Exception('Observation cells is empty. Specify a list of cells for the observation id ', self.id)
+            else:
+                f.write(f"{len(self.cells)}\n")
+                fmts = []
+                if self.structured:
+                    fmts.append("{:9d}") # lay
+                    fmts.append("{:9d}") # row
+                    fmts.append("{:9d}") # col
+                else:
+                    fmts.append("{:9d}") # cellid
+                fmt = " " + " ".join(fmts) + "\n"
+                for oc in self.cells:
+                    woc = np.array(oc).astype(np.int32)+1 # Correct the zero-based indexes
+                    f.write(fmt.format(*woc))
+
+        elif self.celloption == 2:
+            # Should write an array
+            # with the distribution of the observation
+            pass
+
+
+        # Write timeoption params
+        f.write(f"{self.timeoption}\n")
+        if self.timeoption == 1:
+            pass
+        elif self.timeoption == 2:
+            pass
+
+
+
 
         return
 
@@ -904,7 +966,7 @@ class ModpathRwptSim( flopy.modpath.Modpath7Sim ):
                 f.write(f"0\n")
       
 
-            if len(self.observations) > 0:
+            if self.nobs > 0:
                 f.write(f"{len(self.observations)}\n")
                 # Write each
                 for obs in self.observations:
