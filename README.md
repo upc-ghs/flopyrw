@@ -1,6 +1,15 @@
-## flopyrwpt
-`python` interface for writing input files and postprocessing tools for transport models based on MODPATH-RW
+# flopyrwpt
+`python` interface for writing input files for solute transport models based on MODPATH-RW, based in `flopy`.
 
+## Overview
+Package provides classes inherited from `flopy/modpath` module. These include
+    
+* ModpathRwptDispersion
+* ModpathRwptReconstruction
+* ModpathRwptObs
+* ModpathRwptSim
+
+Similar to `flopy`, these classes group parameters and input file writing logic for the different model options.
 
 ## Install
 
@@ -30,10 +39,8 @@ python setup.py install
 
 
 ## Writing MODPATH-RW input files
+Package extends from the `flopy` classes for writing `modpath` input files. For `modpath-rw`, additional classes are considered for writing dispersion, reconstruction and other configuration files required for the program. Workflow for applying these packages follows the same logic than a `modpath-v7` simulation in `flopy`. 
 
-Package extends from the `flopy` classes for writing `modpath` input files. For `modpath-rw`, additional classes are considered for writing dispersion, reconstruction and other configuration files required for the program. 
-
-More to complete...
 
 
 ## Resources
