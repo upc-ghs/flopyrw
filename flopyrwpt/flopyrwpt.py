@@ -654,24 +654,58 @@ class ModpathRwptObs( Package ):
         filename       = None,
         extension      = '.obs',
     ):
-        """
-        Initializer function
-        """
         
+        unitnumber = model.next_unit()
+        super().__init__(model, extension, "OBSCELLS", unitnumber)
 
         self.kind = kind
-        self.celloption = celloption
         self.timeoption = timeoption
         self.structured = structured
 
-        if cells is None:
-            self.cells = []
-        else:
-            if not isinstance( cells, (list,np.ndarray,np.array) ):
-                raise Exception( 'Cells parameter should be a list or numpy array')
-            # Myabe some sanity check about data structure or the same 
-            # used for partlocs
-            self.cells = cells
+        if ( celloption not in [1,2] ):
+            raise ValueError('Invalid celloption ',
+                    celloption, '. Allowed values are 1 (list of cellids) or 2 (modelgrid like array)')
+        self.celloption = celloption
+
+        # Write a list of cellids
+        if self.celloption == 1:
+            if cells is None:
+                self.cells = []
+            else:
+                if not isinstance( cells, (list,np.ndarray,np.array) ):
+                    raise Exception( 'Cells parameter should be a list or numpy array')
+                # Maybe some sanity check about data structure or the same 
+                # used for partlocs
+                self.cells = cells
+
+        # Write obs cells as 3D array
+        if self.celloption == 2: 
+
+            # This was already done right?
+            shape = model.shape
+            if len(shape) == 3:
+                shape3d = shape
+            elif len(shape) == 2:
+                shape3d = (shape[0], 1, shape[1])
+            else:
+                shape3d = (1, 1, shape[0])
+            self.model   = model
+            self.shape3d = shape3d
+
+            if cells is None:
+                self.cells = []
+            else:
+                if not isinstance( cells, (list,np.ndarray) ):
+                    raise Exception( 'Cells parameter should be a list or numpy array')
+                self.cells = Util3d(
+                    model,
+                    shape3d,
+                    np.int32,
+                    cells,
+                    name="OBSCELLS",
+                    locat=self.unit_number[0],
+                )
+
 
         if (id is not None): 
             self.id = id
@@ -741,7 +775,7 @@ class ModpathRwptObs( Package ):
         elif self.celloption == 2:
             # Should write an array
             # with the distribution of the observation
-            pass
+            f.write(self.cells.get_file_entry())
 
 
         # Write timeoption params
