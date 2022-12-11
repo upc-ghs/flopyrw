@@ -805,7 +805,7 @@ class ModpathRwptObs( Package ):
 
 class ModpathRwptSolute( Package ):
     """
-    MODPATH RWPT Observation Package Class.
+    MODPATH RWPT Solute Package Class.
     Parameters
     ----------
     model : model object
@@ -826,10 +826,11 @@ class ModpathRwptSolute( Package ):
         displong = None,
         disptranh= None,
         disptranv= None,
+        extension='.sol',
     ):
         
         unitnumber = model.next_unit()
-        super().__init__(model, extension, "OBSCELLS", unitnumber)
+        super().__init__(model, extension, "SOLUTE", unitnumber)
 
         self.kind     = kind
         self.daqueous = daqueous
