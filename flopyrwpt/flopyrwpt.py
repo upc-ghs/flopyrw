@@ -629,6 +629,13 @@ class ModpathRwptReconstruction( Package ):
 #        f.close()
 
 
+def count_instances(method):
+    def wrapper(self, *args, **kw):
+        self.__class__.COUNTER += 1
+        return method(self, *args, **kw)
+    return wrapper
+
+
 class ModpathRwptObs( Package ):
     """
     MODPATH RWPT Observation Package Class.
@@ -638,9 +645,11 @@ class ModpathRwptObs( Package ):
         The model object (of type :class:`flopy.modpath.Modpath7`) to which
         this package will be added.
     """
-    
-    baseid = 0
 
+
+    COUNTER = 0
+
+    @count_instances
     def __init__(
         self,
         model,
@@ -706,16 +715,19 @@ class ModpathRwptObs( Package ):
                     locat=self.unit_number[0],
                 )
 
-
+        # Define obs id
+        # It could be more useful some kind of random 
+        # integer
         if (id is not None): 
             self.id = id
         else:
-            self.id = self.baseid
-            self.baseid += 1
+            self.id = self.__class__.COUNTER
+
 
         self.filename = basefilename+str(self.id)+extension
 
 
+        return
 
 
     def write(self, f=None):
