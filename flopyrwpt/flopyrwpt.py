@@ -803,6 +803,233 @@ class ModpathRwptObs( Package ):
         return
 
 
+class ModpathRwptSolute( Package ):
+    """
+    MODPATH RWPT Observation Package Class.
+    Parameters
+    ----------
+    model : model object
+        The model object (of type :class:`flopy.modpath.Modpath7`) to which
+        this package will be added.
+    """
+
+    COUNTER = 0
+
+    @count_instances
+    def __init__(
+        self,
+        model,
+        id       = None,
+        stringid = None,
+        kind     = 1,
+        daqueous = 0.0,
+        displong = None,
+        disptranh= None,
+        disptranv= None,
+    ):
+        
+        unitnumber = model.next_unit()
+        super().__init__(model, extension, "OBSCELLS", unitnumber)
+
+        self.kind     = kind
+        self.daqueous = daqueous
+       
+        # Assign LINEAR dispersion parameters
+        self.displong = Util3d(
+            model,
+            shape3d,
+            np.float32,
+            longitudinal,
+            name="LONGITUDINAL",
+            locat=self.unit_number[0],
+        )
+        if(
+           ( disptranh is None ) and 
+           ( disptranv is not None ) ):
+            self.disptranh = disptranv
+        else:
+            self.disptranh= Util3d(
+                model,
+                shape3d,
+                np.float32,
+                disptranh,
+                name="TRANSVERSEH",
+                locat=self.unit_number[0],
+            )
+        if(
+           ( disptranv is None ) and 
+           ( disptranh is not None ) ):
+            self.disptranv = self.disptranh
+        else:
+            self.disptranv= Util3d(
+                model,
+                shape3d,
+                np.float32,
+                disptranv,
+                name="TRANSVERSEV",
+                locat=self.unit_number[0],
+            )
+
+
+        # Define obs id
+        # It could be more useful some kind of random 
+        # integer
+        if (id is not None): 
+            self.id = id
+        else:
+            self.id = self.__class__.COUNTER
+
+        if (stringid is not None): 
+            self.stringid = stringid
+        else:
+            self.stringid = 's'+str(self.__class__.COUNTER)
+
+
+        return
+
+
+    def write(self, f=None):
+        """
+        Write the package file
+        Parameters
+        ----------
+        Returns
+        -------
+        None
+        """
+
+
+        if f is None:
+            raise Exception('ModpathRwptObs: requires file pointer f. Is None.')
+
+        # validate that a valid file object was passed
+        if not hasattr(f, "write"):
+            raise ValueError(
+                "{}: cannot write data for template without passing a valid "
+                "file object ({}) open for writing".format(self.name, f)
+            )
+
+
+        # Write obs id
+        f.write(f"{self.id}\n")
+
+        # Write obs filename
+        f.write(f"{self.filename}\n")
+
+        # Write the obs kind
+        f.write(f"{self.kind}\n")
+
+        # Write the celloption param
+        f.write(f"{self.celloption}\n")
+
+        if self.celloption == 1:
+            # Should write a cell number
+            if len( self.cells ) == 0: 
+                raise Exception('Observation cells is empty. Specify a list of cells for the observation id ', self.id)
+            else:
+                f.write(f"{len(self.cells)}\n")
+                fmts = []
+                if self.structured:
+                    f.write(f"1\n") # To indicate structured
+                    fmts.append("{:9d}") # lay
+                    fmts.append("{:9d}") # row
+                    fmts.append("{:9d}") # col
+                else:
+                    f.write(f"2\n") # To indicate cell ids
+                    fmts.append("{:9d}") # cellid
+                fmt = " " + " ".join(fmts) + "\n"
+                for oc in self.cells:
+                    woc = np.array(oc).astype(np.int32)+1 # Correct the zero-based indexes
+                    f.write(fmt.format(*woc))
+
+        elif self.celloption == 2:
+            # Should write an array
+            # with the distribution of the observation
+            f.write(self.cells.get_file_entry())
+
+
+        # Write timeoption params
+        f.write(f"{self.timeoption}\n")
+        if self.timeoption == 1:
+            pass
+        elif self.timeoption == 2:
+            pass
+
+
+
+
+        return
+
+
+
+from flopy.modpath.mp7particlegroup import  (
+        ParticleGroup,
+        ParticleGroupLRCTemplate,
+        ParticleGroupNodeTemplate,
+    )
+mp7ParticleGroup = ParticleGroup
+mp7ParticleGroupLRCTemplate = ParticleGroupLRCTemplate
+mp7ParticleGroupNodeTemplate = ParticleGroupNodeTemplate
+class ParticleGroupLRCTemplate( ParticleGroup ): 
+
+    def __init__( self, *args, mass=1.0, **kwargs ):
+        # Call parent constructor
+        super().__init__(*args,**kwargs) 
+        
+        if mass != 0:
+            self.mass = mass
+        else:
+            raise ValueError('Mass for the particle group is zero')
+
+    def write( self, fp=None, ws="."): 
+        # Call base class write method to write common data
+        super().write(fp, ws)
+
+        # Write the particle mass
+        fp.write(f"{self.mass:.16f}\n")
+
+        return
+
+class ParticleGroupLRCTemplate( mp7ParticleGroupLRCTemplate ): 
+
+    def __init__( self, *args, mass=1.0, **kwargs ):
+        # Call parent constructor
+        super().__init__(*args,**kwargs) 
+        
+        if mass != 0:
+            self.mass = mass
+        else:
+            raise ValueError('Mass for the particle group is zero')
+
+    def write( self, fp=None, ws="."): 
+        # Call base class write method to write common data
+        super().write(fp, ws)
+
+        # Write the particle mass
+        fp.write(f"{self.mass:.16f}\n")
+
+        return
+
+class ParticleGroupNodeTemplate( mp7ParticleGroupNodeTemplate ): 
+
+    def __init__( self, *args, mass=1.0, **kwargs ):
+        # Call parent constructor
+        super().__init__(*args,**kwargs) 
+        
+        if mass != 0:
+            self.mass = mass
+        else:
+            raise ValueError('Mass for the particle group is zero')
+
+    def write( self, fp=None, ws="."): 
+        # Call base class write method to write common data
+        super().write(fp, ws)
+
+        # Write the particle mass
+        fp.write(f"{self.mass:.16f}\n")
+
+        return
+
 
 # Updates enumeration of available simulations
 import flopy.modpath.mp7sim as mp7
