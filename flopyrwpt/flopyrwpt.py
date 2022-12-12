@@ -78,6 +78,8 @@ class ModpathRwptDispersion( Package ):
         betalongitudinal  = 1,
         mediumdelta       = 5, 
         mediumdsize       = 1,
+        solutesoption     = 1, 
+        solutes           = None, 
     ):
     
 
@@ -97,6 +99,12 @@ class ModpathRwptDispersion( Package ):
         self.shape3d = shape3d
         #self.parent._generate_heading()
 
+        if solutesoption not in [1,2]:
+            raise ValueError('Solutes option shoud be 1 or 2. Given ', solutesoption)
+        self.solutesoption = solutesoption
+
+        # Needs some health checking
+        self.solutes = solutes 
 
         # Select modelkind
         if modelkind is not None: 
@@ -243,8 +251,6 @@ class ModpathRwptDispersion( Package ):
 
 
 
-
-
     def write_file(self, check=False):
         """
         Write the package file
@@ -261,35 +267,51 @@ class ModpathRwptDispersion( Package ):
         f = open(self.fn_path, "w")
         #f.write(f"# {self.heading}\n")
 
+        # Depending on the solutes option 
+        # is how to continue writing the file
+        if self.solutesoption == 1:
+            # Single virtual solute, all 
+            # pgroups are displaced with the 
+            # same dispersion properties
+            f.write("1\n")
+
+            # Select model dispersivity
+            if self.modelkind == 1:
+
+                # Write modelkind
+                f.write(f"{self.modelkind}\n")
+
+                # Write molecular diffusion
+                f.write(f"{self.molecular:.16f}\n")
+
+                # Write dispersivities
+                f.write(self.longitudinal.get_file_entry())
+                f.write(self.transverse.get_file_entry())
+
+            elif self.modelkind == 2:
+
+                # Write modelkind
+                f.write(f"{self.modelkind}\n")
+
+                # Write nonlinear beta exponents
+                f.write(f"{self.betalongitudinal:.10f}\n") 
+                f.write(f"{self.betatransverse:.10f}\n") 
+                f.write(f"{self.mediumdelta:.10f}\n")
+                #f.write(self.betalongitudinal.get_file_entry())
+                #f.write(self.betatransverse.get_file_entry())
+                #f.write(self.mediumdelta.get_file_entry())
+                f.write(self.mediumdsize.get_file_entry())
+
+                # Write aqueous molecular diffusion
+                f.write(f"{self.molecular:.16f}\n")
+
+
+        elif self.solutesoption == 2:
+
+            # Multiple solutes
+            for ns, sol in enumerate(self.solutes):
+                sol.write(f=f)
         
-        # Select model dispersivity
-        if self.modelkind == 1:
-
-            # Write modelkind
-            f.write(f"{self.modelkind}\n")
-
-            # Write dispersivities
-            f.write(self.longitudinal.get_file_entry())
-            f.write(self.transverse.get_file_entry())
-            # Write molecular diffusion
-            f.write(f"{self.molecular:.16f}\n")
-
-        elif self.modelkind == 2:
-
-            # Write modelkind
-            f.write(f"{self.modelkind}\n")
-
-            # Write nonlinear beta exponents
-            f.write(f"{self.betalongitudinal:.10f}\n") 
-            f.write(f"{self.betatransverse:.10f}\n") 
-            f.write(f"{self.mediumdelta:.10f}\n")
-            #f.write(self.betalongitudinal.get_file_entry())
-            #f.write(self.betatransverse.get_file_entry())
-            #f.write(self.mediumdelta.get_file_entry())
-            f.write(self.mediumdsize.get_file_entry())
-
-            # Write aqueous molecular diffusion
-            f.write(f"{self.molecular:.16f}\n")
 
         # Write time step selection method
         if self.timestep is not None:
@@ -822,25 +844,40 @@ class ModpathRwptSolute( Package ):
         id       = None,
         stringid = None,
         kind     = 1,
+        dispmodel= 1,
         daqueous = 0.0,
         displong = None,
         disptranh= None,
         disptranv= None,
+        pgroups  = None,
         extension='.sol',
     ):
         
         unitnumber = model.next_unit()
         super().__init__(model, extension, "SOLUTE", unitnumber)
 
+        shape = model.shape
+        if len(shape) == 3:
+            shape3d = shape
+        elif len(shape) == 2:
+            shape3d = (shape[0], 1, shape[1])
+        else:
+            shape3d = (1, 1, shape[0])
+
+        self.model = model
+        self.shape3d = shape3d
+
         self.kind     = kind
         self.daqueous = daqueous
+        
+        self.dispmodel = dispmodel
        
         # Assign LINEAR dispersion parameters
         self.displong = Util3d(
             model,
             shape3d,
             np.float32,
-            longitudinal,
+            displong,
             name="LONGITUDINAL",
             locat=self.unit_number[0],
         )
@@ -872,6 +909,12 @@ class ModpathRwptSolute( Package ):
             )
 
 
+        if not isinstance( pgroups, (list, np.ndarray)):
+            raise TypeError('pgroups should be a list or array, given ', type(pgroups))
+        self.pgroups = pgroups
+
+
+
         # Define obs id
         # It could be more useful some kind of random 
         # integer
@@ -883,7 +926,7 @@ class ModpathRwptSolute( Package ):
         if (stringid is not None): 
             self.stringid = stringid
         else:
-            self.stringid = 's'+str(self.__class__.COUNTER)
+            self.stringid = 'S'+str(self.__class__.COUNTER)
 
 
         return
@@ -911,52 +954,33 @@ class ModpathRwptSolute( Package ):
             )
 
 
-        # Write obs id
+        # Write id
         f.write(f"{self.id}\n")
 
-        # Write obs filename
-        f.write(f"{self.filename}\n")
+        # Write stringid
+        f.write(f"{self.stringid}\n")
 
-        # Write the obs kind
-        f.write(f"{self.kind}\n")
+        # Write the number of groups
+        f.write(f"{len(self.pgroups)}\n")
 
-        # Write the celloption param
-        f.write(f"{self.celloption}\n")
+        for pg in self.pgroups:
+            # Write the pgroup id in the list of pgroups
+            f.write(f"{pg}\n")
 
-        if self.celloption == 1:
-            # Should write a cell number
-            if len( self.cells ) == 0: 
-                raise Exception('Observation cells is empty. Specify a list of cells for the observation id ', self.id)
-            else:
-                f.write(f"{len(self.cells)}\n")
-                fmts = []
-                if self.structured:
-                    f.write(f"1\n") # To indicate structured
-                    fmts.append("{:9d}") # lay
-                    fmts.append("{:9d}") # row
-                    fmts.append("{:9d}") # col
-                else:
-                    f.write(f"2\n") # To indicate cell ids
-                    fmts.append("{:9d}") # cellid
-                fmt = " " + " ".join(fmts) + "\n"
-                for oc in self.cells:
-                    woc = np.array(oc).astype(np.int32)+1 # Correct the zero-based indexes
-                    f.write(fmt.format(*woc))
+        if self.dispmodel == 1:
 
-        elif self.celloption == 2:
-            # Should write an array
-            # with the distribution of the observation
-            f.write(self.cells.get_file_entry())
+            # Write modelkind
+            f.write(f"{self.dispmodel}\n")
 
+            # Write effetive molecular diffusion
+            f.write(f"{self.daqueous:.16f}\n")
 
-        # Write timeoption params
-        f.write(f"{self.timeoption}\n")
-        if self.timeoption == 1:
+            # Write dispersivities
+            f.write(self.displong.get_file_entry())
+            f.write(self.disptranh.get_file_entry())
+
+        elif self.dispmodel == 2:
             pass
-        elif self.timeoption == 2:
-            pass
-
-
 
 
         return
@@ -968,7 +992,7 @@ mp7ParticleGroupLRCTemplate = ParticleGroupLRCTemplate
 mp7ParticleGroupNodeTemplate = ParticleGroupNodeTemplate
 class ParticleGroup( mp7ParticleGroup ): 
 
-    def __init__( self, *args, mass=1.0, **kwargs ):
+    def __init__( self, *args, mass=1.0, solute=0, **kwargs ):
         # Call parent constructor
         super().__init__(*args,**kwargs) 
         
@@ -977,7 +1001,9 @@ class ParticleGroup( mp7ParticleGroup ):
         else:
             raise ValueError('Mass for the particle group is zero')
 
-    def write( self, fp=None, ws=".", mass=False): 
+        self.solute = solute
+
+    def write( self, fp=None, ws=".", mass=False, solute=False): 
         # Call base class write method to write common data
         super().write(fp, ws)
 
@@ -985,11 +1011,14 @@ class ParticleGroup( mp7ParticleGroup ):
             # Write the particle mass
             fp.write(f"{self.mass:.16f}\n")
 
+        if solute:
+            # Write the solute id 
+            fp.write(f"{self.solute:9df}\n")
         return
 
 class ParticleGroupLRCTemplate( mp7ParticleGroupLRCTemplate ): 
 
-    def __init__( self, *args, mass=1.0, **kwargs ):
+    def __init__( self, *args, mass=1.0, solute=0, **kwargs ):
         # Call parent constructor
         super().__init__(*args,**kwargs) 
         
@@ -998,7 +1027,9 @@ class ParticleGroupLRCTemplate( mp7ParticleGroupLRCTemplate ):
         else:
             raise ValueError('Mass for the particle group is zero')
 
-    def write( self, fp=None, ws=".", mass=False): 
+        self.solute = solute
+
+    def write( self, fp=None, ws=".", mass=False, solute=False): 
         # Call base class write method to write common data
         super().write(fp, ws)
 
@@ -1006,11 +1037,14 @@ class ParticleGroupLRCTemplate( mp7ParticleGroupLRCTemplate ):
             # Write the particle mass
             fp.write(f"{self.mass:.16f}\n")
 
+        if solute:
+            # Write the solute id 
+            fp.write(f"{self.solute:9df}\n")
         return
 
 class ParticleGroupNodeTemplate( mp7ParticleGroupNodeTemplate ): 
 
-    def __init__( self, *args, mass=1.0, **kwargs ):
+    def __init__( self, *args, mass=1.0, solute=0, **kwargs ):
         # Call parent constructor
         super().__init__(*args,**kwargs) 
         
@@ -1019,13 +1053,18 @@ class ParticleGroupNodeTemplate( mp7ParticleGroupNodeTemplate ):
         else:
             raise ValueError('Mass for the particle group is zero')
 
-    def write( self, fp=None, ws=".", mass=False): 
+        self.solute = solute
+
+    def write( self, fp=None, ws=".", mass=False, solute=False): 
         # Call base class write method to write common data
         super().write(fp, ws)
 
         if mass:
             # Write the particle mass
             fp.write(f"{self.mass:.16f}\n")
+        if solute:
+            # Write the solute id 
+            fp.write(f"{self.solute:9df}\n")
 
         return
 
@@ -1057,10 +1096,12 @@ class ModpathRwptSim( flopy.modpath.Modpath7Sim ):
     def __init__( self, *args,
             timeseriesoutputoption=0,
             particlesmassoption=0,
+            solutesoption=1,
             reconstruction=False,
             dispersionfilename=None,
             reconstructionfilename=None,
             observations=None,
+            solutes=None,
             **kwargs
         ):
 
@@ -1071,9 +1112,12 @@ class ModpathRwptSim( flopy.modpath.Modpath7Sim ):
         if (timeseriesoutputoption not in [0,1]):
             raise ValueError('Timeseries output option should be 0 or 1. Given :', str(timeseriesoutputoption) )
         self.timeseriesoutputoption = timeseriesoutputoption
-        if (particlesmassoption not in [0,1]):
-            raise ValueError('Particles mass option should be 0 or 1. Given :', str(particlesmassoption) )
+        if (particlesmassoption not in [0,1,2]):
+            raise ValueError('Particles mass option should be 0, 1 or 2. Given :', str(particlesmassoption) )
         self.particlesmassoption = particlesmassoption
+        if (solutesoption not in [1,2]):
+            raise ValueError('Solutes option should be 0 or 1. Given :', str(solutesoption) )
+        self.solutesoption = solutesoption
 
         # Extract model and assign default filenames
         model = args[0]
@@ -1240,6 +1284,9 @@ class ModpathRwptSim( flopy.modpath.Modpath7Sim ):
         elif ( self.particlesmassoption == 1):
             for pg in self.particlegroups:
                 pg.write(f, ws=self.parent.model_ws, mass=True)
+        elif ( self.particlesmassoption == 2):
+            for pg in self.particlegroups:
+                pg.write(f, ws=self.parent.model_ws, mass=True, solute=True)
    
 
         # RWPT
