@@ -962,16 +962,11 @@ class ModpathRwptSolute( Package ):
         return
 
 
-
-from flopy.modpath.mp7particlegroup import  (
-        ParticleGroup,
-        ParticleGroupLRCTemplate,
-        ParticleGroupNodeTemplate,
-    )
+# Update particle groups classes
 mp7ParticleGroup = ParticleGroup
 mp7ParticleGroupLRCTemplate = ParticleGroupLRCTemplate
 mp7ParticleGroupNodeTemplate = ParticleGroupNodeTemplate
-class ParticleGroupLRCTemplate( ParticleGroup ): 
+class ParticleGroup( mp7ParticleGroup ): 
 
     def __init__( self, *args, mass=1.0, **kwargs ):
         # Call parent constructor
@@ -982,12 +977,13 @@ class ParticleGroupLRCTemplate( ParticleGroup ):
         else:
             raise ValueError('Mass for the particle group is zero')
 
-    def write( self, fp=None, ws="."): 
+    def write( self, fp=None, ws=".", mass=False): 
         # Call base class write method to write common data
         super().write(fp, ws)
 
-        # Write the particle mass
-        fp.write(f"{self.mass:.16f}\n")
+        if mass:
+            # Write the particle mass
+            fp.write(f"{self.mass:.16f}\n")
 
         return
 
@@ -1002,12 +998,13 @@ class ParticleGroupLRCTemplate( mp7ParticleGroupLRCTemplate ):
         else:
             raise ValueError('Mass for the particle group is zero')
 
-    def write( self, fp=None, ws="."): 
+    def write( self, fp=None, ws=".", mass=False): 
         # Call base class write method to write common data
         super().write(fp, ws)
 
-        # Write the particle mass
-        fp.write(f"{self.mass:.16f}\n")
+        if mass:
+            # Write the particle mass
+            fp.write(f"{self.mass:.16f}\n")
 
         return
 
@@ -1022,12 +1019,13 @@ class ParticleGroupNodeTemplate( mp7ParticleGroupNodeTemplate ):
         else:
             raise ValueError('Mass for the particle group is zero')
 
-    def write( self, fp=None, ws="."): 
+    def write( self, fp=None, ws=".", mass=False): 
         # Call base class write method to write common data
         super().write(fp, ws)
 
-        # Write the particle mass
-        fp.write(f"{self.mass:.16f}\n")
+        if mass:
+            # Write the particle mass
+            fp.write(f"{self.mass:.16f}\n")
 
         return
 
@@ -1057,6 +1055,8 @@ class ModpathRwptSim( flopy.modpath.Modpath7Sim ):
     '''
 
     def __init__( self, *args,
+            timeseriesoutputoption=0,
+            particlesmassoption=0,
             reconstruction=False,
             dispersionfilename=None,
             reconstructionfilename=None,
@@ -1066,6 +1066,14 @@ class ModpathRwptSim( flopy.modpath.Modpath7Sim ):
 
         # Call parent constructor
         super().__init__(*args,**kwargs, extension='mprwpt') 
+
+        # New options
+        if (timeseriesoutputoption not in [0,1]):
+            raise ValueError('Timeseries output option should be 0 or 1. Given :', str(timeseriesoutputoption) )
+        self.timeseriesoutputoption = timeseriesoutputoption
+        if (particlesmassoption not in [0,1]):
+            raise ValueError('Particles mass option should be 0 or 1. Given :', str(particlesmassoption) )
+        self.particlesmassoption = particlesmassoption
 
         # Extract model and assign default filenames
         model = args[0]
@@ -1078,6 +1086,7 @@ class ModpathRwptSim( flopy.modpath.Modpath7Sim ):
             self.reconstructionfilename = reconstructionfilename
         self.reconstruction = reconstruction
 
+        # Observations
         if observations is not None:
             if isinstance(observations,list):
                 for pobs in observations:
@@ -1121,13 +1130,15 @@ class ModpathRwptSim( flopy.modpath.Modpath7Sim ):
         f.write(f"{self.listingfilename}\n")
         # item 3
         f.write(
-            "{} {} {} {} {} {}\n".format(
+            "{} {} {} {} {} {} {} {}\n".format(
                 self.simulationtype,
                 self.trackingdirection,
                 self.weaksinkoption,
                 self.weaksourceoption,
                 self.budgetoutputoption,
                 self.tracemode,
+                self.timeseriesoutputoption,
+                self.particlesmassoption,
             )
         )
         # item 4
@@ -1223,8 +1234,12 @@ class ModpathRwptSim( flopy.modpath.Modpath7Sim ):
     
         # item 25
         f.write(f"{len(self.particlegroups)}\n")
-        for pg in self.particlegroups:
-            pg.write(f, ws=self.parent.model_ws)
+        if ( self.particlesmassoption == 0):
+            for pg in self.particlegroups:
+                pg.write(f, ws=self.parent.model_ws)
+        elif ( self.particlesmassoption == 1):
+            for pg in self.particlegroups:
+                pg.write(f, ws=self.parent.model_ws, mass=True)
    
 
         # RWPT
