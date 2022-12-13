@@ -308,6 +308,10 @@ class ModpathRwptDispersion( Package ):
 
         elif self.solutesoption == 2:
 
+            f.write("2\n")
+
+            f.write(f"{len(self.solutes)}\n")
+
             # Multiple solutes
             for ns, sol in enumerate(self.solutes):
                 sol.write(f=f)
@@ -963,9 +967,10 @@ class ModpathRwptSolute( Package ):
         # Write the number of groups
         f.write(f"{len(self.pgroups)}\n")
 
-        for pg in self.pgroups:
+        for idpg, pg in enumerate(self.pgroups):
             # Write the pgroup id in the list of pgroups
-            f.write(f"{pg}\n")
+            # Assuming python zero based 
+            f.write(f"{pg+1}\n")
 
         if self.dispmodel == 1:
 
