@@ -79,7 +79,7 @@ class ModpathRwptDispersion( Package ):
         mediumdelta       = 5, 
         mediumdsize       = 1,
         solutesoption     = 1, 
-        solutes           = None, 
+        solutes             = None, 
     ):
     
 
@@ -245,8 +245,6 @@ class ModpathRwptDispersion( Package ):
                 self.injectionmass = np.repeat( self.injectionmass, nijs )
 
 
-
-
         self.parent.add_package(self)
 
 
@@ -314,7 +312,7 @@ class ModpathRwptDispersion( Package ):
 
             # Multiple solutes
             for ns, sol in enumerate(self.solutes):
-                sol.write(f=f)
+                sol.write(f=f, particlesmassoption=self.particlesmassoption)
         
 
         # Write time step selection method
@@ -936,7 +934,8 @@ class ModpathRwptSolute( Package ):
         return
 
 
-    def write(self, f=None):
+    def write(self, f=None, particlesmassoption=0):
+
         """
         Write the package file
         Parameters
@@ -964,13 +963,15 @@ class ModpathRwptSolute( Package ):
         # Write stringid
         f.write(f"{self.stringid}\n")
 
-        # Write the number of groups
-        f.write(f"{len(self.pgroups)}\n")
+        # Need to write the related groups 
+        # only if particlesmassoption not equal 2 
+        if ( particlesmassoption != 2 ):
+            # Write the number of groups
+            f.write(f"{len(self.pgroups)}\n")
 
-        for idpg, pg in enumerate(self.pgroups):
-            # Write the pgroup id in the list of pgroups
-            # Assuming python zero based 
-            f.write(f"{pg+1}\n")
+            for idpg, pg in enumerate(self.pgroups):
+                # Write the pgroup id in the list of pgroups
+                f.write(f"{pg+1}\n")
 
         if self.dispmodel == 1:
 
@@ -1069,7 +1070,7 @@ class ParticleGroupNodeTemplate( mp7ParticleGroupNodeTemplate ):
             fp.write(f"{self.mass:.16f}\n")
         if solute:
             # Write the solute id 
-            fp.write(f"{self.solute:9df}\n")
+            fp.write(f"{self.solute:9d}\n")
 
         return
 
@@ -1124,6 +1125,15 @@ class ModpathRwptSim( flopy.modpath.Modpath7Sim ):
             raise ValueError('Solutes option should be 0 or 1. Given :', str(solutesoption) )
         self.solutesoption = solutesoption
 
+
+        # Inform dispersion package about 
+        # particlesmassoption
+        if self.simulationtype > 4: 
+            disp = self.parent.get_package('DISPERSION')
+            if disp is None:
+                raise Exception('Requires a dispersion package')
+            disp.particlesmassoption = self.particlesmassoption
+
         # Extract model and assign default filenames
         model = args[0]
         if dispersionfilename is None:
@@ -1134,6 +1144,8 @@ class ModpathRwptSim( flopy.modpath.Modpath7Sim ):
                 reconstructionfilename = f"{model.name}.gpkde"
             self.reconstructionfilename = reconstructionfilename
         self.reconstruction = reconstruction
+
+
 
         # Observations
         if observations is not None:
