@@ -17,6 +17,71 @@ from flopy.modpath.mp7particlegroup import (
 )
 
 
+class ModpathRW( flopy.modpath.Modpath7 ):
+    
+    def __init__(self, *args, **kwargs):
+        # Call parent constructor
+        super().__init__(*args,**kwargs)
+
+
+
+
+class ModpathRWDsp( Package ):
+    """
+    MODPATH RWPT Dispersion Package Class.
+    Parameters
+    ----------
+    model : model object
+        The model object (of type :class:`flopy.modpath.Modpath7`) to which
+        this package will be added.
+    longitudinal : float or array of floats (nlay, nrow, ncol)
+        The longitudinal dispersivity array (the default is XX).
+    transverse : float or array of floats (nlay, nrow, ncol)
+        The transverse dispersivity array (the default is XX).
+    molecular : float 
+        Molecular diffusion corrected by tortuosity effects
+        The transverse dispersivity array (the default is 0).
+    advection : str
+        Advection model ot be used for advective component in RWPT integration.
+        Could be set to 'eulerian' or 'exponential' (the default is 'eulerian').
+    dimensions : int
+        Define whether RWPT displacement should be done in 2D or 3D. 
+        For 2D models, layers should be related to z direction and specify 2.
+        (the default is 3).
+    timestep : str
+        Define method for computing particles time step. Can be courant, peclet or min. 
+        The latter selects the minimum estimated between courant and peclet. For each 
+        kind, it is expected that courant and/or peclet parameters are specified.
+        (the default is courant with courant = 0.1)
+    courant  : float
+        Courant number that will be used at each cell for computing time step 
+    peclet   :  float 
+        Peclet number occupied for computing time step
+    extension : str, optional
+        File extension (default is 'dispersion').
+    """
+
+    def __init__(
+        self,
+        model,
+        displong          = 0.0  ,
+        disptranh         = 0.0  ,
+        disptranv         = 0.0  ,
+        diffaqueous       = 0.0  ,
+        diffeff           = 0.0  , # corrected by tortuosity
+        modelkind         = None , # linear, nonlinear
+        betatransverse    = 0.5  , 
+        betalongitudinal  = 1    ,
+        mediumdelta       = 5    , 
+        mediumdsize       = 1    ,
+        extension         = 'dsp',
+    ):
+
+        pass
+
+
+
+
 class ModpathRwptDispersion( Package ):
     """
     MODPATH RWPT Dispersion Package Class.
@@ -66,9 +131,9 @@ class ModpathRwptDispersion( Package ):
         ctdisp            = 0.1,
         extension         = 'dispersion',
         icbound           = 0,
-        initialconditions = None, 
         mass              = 1.0,
-        icformat          = 2, # 1: density, 2: classic particles
+        #initialconditions = None, 
+        #icformat          = 2, # 1: density, 2: classic particles
         massformat        = 1, # 1:
         injectioncells    = None, 
         injectionseries   = None, 
@@ -78,13 +143,11 @@ class ModpathRwptDispersion( Package ):
         betalongitudinal  = 1,
         mediumdelta       = 5, 
         mediumdsize       = 1,
-        solutesoption     = 1, 
         solutes             = None, 
     ):
     
 
         unitnumber = model.next_unit()
-
         super().__init__(model, extension, "DISPERSION", unitnumber)
 
         shape = model.shape
@@ -94,14 +157,8 @@ class ModpathRwptDispersion( Package ):
             shape3d = (shape[0], 1, shape[1])
         else:
             shape3d = (1, 1, shape[0])
-
         self.model = model
         self.shape3d = shape3d
-        #self.parent._generate_heading()
-
-        if solutesoption not in [1,2]:
-            raise ValueError('Solutes option shoud be 1 or 2. Given ', solutesoption)
-        self.solutesoption = solutesoption
 
         # Needs some health checking
         self.solutes = solutes 
@@ -116,7 +173,6 @@ class ModpathRwptDispersion( Package ):
                 self.modelkind = 2
         else:
             self.modelkind = 1
-
 
         # Assign NONLINEAR dispersion parameters
         self.betalongitudinal = betalongitudinal
@@ -206,21 +262,21 @@ class ModpathRwptDispersion( Package ):
         self.courant = courant
         self.peclet  = peclet 
         self.ctdisp  = ctdisp 
-        self.ic = initialconditions
 
 
-        # EXPECTED TO HAVE THE SAME LENGTH
-        if self.ic is not None:
-            nics = len(self.ic)
-            self.mass     = mass 
-            self.icformat = icformat
-            self.massformat = massformat
-            if isinstance(self.mass, (float,int)):
-                self.mass = np.repeat( self.mass, nics )
-            if isinstance(self.icformat, (float,int)):
-                self.icformat = np.repeat( self.icformat, nics ) 
-            if isinstance(self.massformat, (float,int)):
-                self.massformat = np.repeat( self.massformat, nics ) 
+        #self.ic      = initialconditions
+        ## If any initial condition
+        #if self.ic is not None:
+        #    nics            = len(self.ic)
+        #    self.mass       = mass 
+        #    self.icformat   = icformat
+        #    self.massformat = massformat
+        #    if isinstance(self.mass, (float,int)):
+        #        self.mass = np.repeat( self.mass, nics )
+        #    if isinstance(self.icformat, (float,int)):
+        #        self.icformat = np.repeat( self.icformat, nics ) 
+        #    if isinstance(self.massformat, (float,int)):
+        #        self.massformat = np.repeat( self.massformat, nics ) 
 
 
         # INJECTION BOUNDARY CONDITIONS
@@ -263,15 +319,67 @@ class ModpathRwptDispersion( Package ):
 
         # Open file for writing
         f = open(self.fn_path, "w")
-        #f.write(f"# {self.heading}\n")
+
+
+        # Write initial conditions (IC)
+        if self.nics > 0:
+            # How many ics
+            f.write(f"{self.nics}\n")
+
+            # Loop over ic, notice pg
+            for idic, ic in enumerate(self.initialconditions):
+                # Write the initial condition
+                ic.write(
+                  f=f,
+                  particlesmassoption=self.particlesmassoption,
+                  solutesoption=self.solutesoption,
+                )
+        else:
+            f.write(f"0\n")
+
+
+        # Write prescribed flux (PF) boundaries
+        if self.injectioncells is not None:
+            # Write injection cells information
+            f.write(f"{len(self.injectioncells)}\n")
+            for idpg, pg in enumerate(self.injectioncells):
+                f.write(f"{self.injectionformat[idpg]}\n")    # FORMAT
+                f.write(f"PFPG{idpg}\n")                       # NAME
+                f.write(f"{self.injectioncells[idpg][0]}\n")  # CELLNUMBER
+                f.write(f"{self.injectionmass[idpg]:.10f}\n") # INJECTIONMASS
+                if self.injectionformat[idpg] == 1:
+                    f.write(f"{self.injectioncells[idpg][1]}\n")  # CONCENTRATION
+                    # SOMETHING LIKE A FINAL TIME OR SOMETHING
+                    # INITiALTIME AND FINALTIME
+                elif self.injectionformat[idpg] == 2: # AS TIMESERIES
+                    f.write(f"{len(self.injectionseries[idpg][0])}\n")  # CONCENTRATION
+                    df = pd.DataFrame()
+                    df['time'] = self.injectionseries[idpg][0] 
+                    df['conc'] = self.injectionseries[idpg][1]
+                    filename   = 'injcell'+str(idpg)+'_timeseries.csv'
+                    df.to_csv(os.path.join(
+                        self.model.model_ws, filename),
+                        header=None,
+                        index=False,
+                        sep=' ', 
+                        float_format="%.10f"
+                    )
+                    f.write(f"{filename}\n")
+        else:
+            f.write(f"0\n")
+
+
+        # Write icbound
+        f.write(self.icbound.get_file_entry())
+
 
         # Depending on the solutes option 
         # is how to continue writing the file
-        if self.solutesoption == 1:
+        # self.solutesoption is assigned in ModpathRwpSim
+        if self.solutesoption == 0:
             # Single virtual solute, all 
             # pgroups are displaced with the 
             # same dispersion properties
-            f.write("1\n")
 
             # Select model dispersivity
             if self.modelkind == 1:
@@ -304,9 +412,7 @@ class ModpathRwptDispersion( Package ):
                 f.write(f"{self.molecular:.16f}\n")
 
 
-        elif self.solutesoption == 2:
-
-            f.write("2\n")
+        elif self.solutesoption ==1:
 
             f.write(f"{len(self.solutes)}\n")
 
@@ -336,70 +442,7 @@ class ModpathRwptDispersion( Package ):
         # Write number of dimensions for RWPT displacement
         f.write(f"{self.dimensions:1d}D\n")  
 
-        # Write icbound
-        f.write(self.icbound.get_file_entry())
 
-        # Write initial conditions
-        if self.ic is not None:
-            f.write(f"{len(self.ic)}\n")
-            for idpg, pg in enumerate(self.ic):
-                f.write(f"{self.icformat[idpg]}\n")
-
-                if self.icformat[idpg] == 1:
-                    f.write(f"MPG{idpg}\n")
-                    f.write(f"{self.massformat[idpg]}\n")
-
-                    if self.massformat[idpg] == 1:
-                        f.write(f"{self.mass[idpg]:.10f}\n")      # pggroup should carry this
-                        icarray = Util3d(
-                            self.model,
-                            self.shape3d,
-                            np.float32,
-                            pg,
-                            name="IC"+str(idpg),
-                            locat=self.unit_number[0],
-                        )
-
-                        # Write icarray
-                        f.write(icarray.get_file_entry())
-                    else:
-                        pass
-
-                elif self.icformat[idpg] == 2:
-                    pg.write(f, ws=self.parent.model_ws)
-                    f.write(f"{self.mass[idpg]:.10f}\n")      # pggroup should carry this
-        else:
-            f.write(f"0\n")
-
-
-        if self.injectioncells is not None:
-            # Write injection cells information
-            f.write(f"{len(self.injectioncells)}\n")
-            for idpg, pg in enumerate(self.injectioncells):
-                f.write(f"{self.injectionformat[idpg]}\n")    # FORMAT
-                f.write(f"IPG{idpg}\n")                       # NAME
-                f.write(f"{self.injectioncells[idpg][0]}\n")  # CELLNUMBER
-                f.write(f"{self.injectionmass[idpg]:.10f}\n") # INJECTIONMASS
-                if self.injectionformat[idpg] == 1:
-                    f.write(f"{self.injectioncells[idpg][1]}\n")  # CONCENTRATION
-                    # SOMETHING LIKE A FINAL TIME OR SOMETHING
-                    # INITiALTIME AND FINALTIME
-                elif self.injectionformat[idpg] == 2: # AS TIMESERIES
-                    f.write(f"{len(self.injectionseries[idpg][0])}\n")  # CONCENTRATION
-                    df = pd.DataFrame()
-                    df['time'] = self.injectionseries[idpg][0] 
-                    df['conc'] = self.injectionseries[idpg][1]
-                    filename   = 'injcell'+str(idpg)+'_timeseries.csv'
-                    df.to_csv(os.path.join(
-                        self.model.model_ws, filename),
-                        header=None,
-                        index=False,
-                        sep=' ', 
-                        float_format="%.10f"
-                    )
-                    f.write(f"{filename}\n")
-        else:
-            f.write(f"0\n")
 
         # And close
         f.close()
@@ -554,103 +597,6 @@ class ModpathRwptReconstruction( Package ):
 
 
 
-#class ModpathRwptInitialCondition( Package ):
-#    """
-#    MODPATH RWPT InitialCondition Package Class.
-#    Parameters
-#    ----------
-#    model : model object
-#        The model object (of type :class:`flopy.modpath.Modpath7`) to which
-#        this package will be added.
-#    binsize : list [sx,sy,sz]
-#        List with cell size employed for reconstruction process 
-#    domainsize : list [sx,sy,sz]
-#        List with domain sizes. These are used for computing reconstruction 
-#        grid dimensions using given binsize.
-#    noptloops: int
-#        The number of optimization loops for determinin smoothing conditions
-#    outputfilename: str
-#        Filename that will be used for writing reconstruction output. Contains 
-#        cell id, density and both time step and particle group identification.
-#    extension : str, optional
-#        File extension (default is 'dispersion').
-#    """
-#
-#    def __init__(
-#        self,
-#        model,
-#        binsize        = [1,1,1],
-#        domainsize     = [1,1,1],
-#        noptloops      = 10, 
-#        outputfilename = 'gpkde.output',
-#        extension      = 'gpkde',
-#    ):
-#
-#        unitnumber = model.next_unit()
-#
-#        super().__init__(model, extension, "IC", unitnumber)
-#
-#        shape = model.shape
-#        if len(shape) == 3:
-#            shape3d = shape
-#        elif len(shape) == 2:
-#            shape3d = (shape[0], 1, shape[1])
-#        else:
-#            shape3d = (1, 1, shape[0])
-#
-#        # Parameters assignment
-#        self.binsize    = binsize
-#        self.domainsize = domainsize
-#        self.noptloops  = noptloops
-#
-#        if outputfilename is not None:
-#            self.outputfilename = outputfilename
-#        else:
-#            raise Exception('requires outputfilename for reconstruction output')
-#
-#        self.parent.add_package(self)
-#
-#        
-#
-#    def write_file(self, check=False):
-#        """
-#        Write the package file
-#        Parameters
-#        ----------
-#        check : boolean
-#            Check package data for common errors. (default False)
-#        Returns
-#        -------
-#        None
-#        """
-#        # Open file for writing
-#        f = open(self.fn_path, "w")
-#
-#        # Output filename
-#        f.write(f"{self.outputfilename}\n")
-#
-#        # Domain sizes
-#        for idb, b in enumerate(self.domainsize):
-#            if idb == len(self.domainsize)-1: 
-#                f.write(f"{b:16f}\n")
-#            else:
-#                f.write(f"{b:16f}")
-#
-#        # Bin sizes
-#        for idb, b in enumerate(self.binsize):
-#            if idb == len(self.binsize)-1: 
-#                f.write(f"{b:16f}\n")
-#            else:
-#                f.write(f"{b:16f}")
-#
-#
-#        # Number of optimization loops 
-#        f.write(f"{self.noptloops:10d}\n")
-#
-#        # more to come...
-#
-#        # And close
-#        f.close()
 
 
 def count_instances(method):
@@ -992,6 +938,132 @@ class ModpathRwptSolute( Package ):
         return
 
 
+class ModpathRwptIc( Package ):
+    """
+    MODPATH RWPT Initial Condition Package Class.
+    Parameters
+    ----------
+    model : model object
+        The model object (of type :class:`flopy.modpath.Modpath7`) to which
+        this package will be added.
+    """
+
+    COUNTER = 0
+
+    @count_instances
+    def __init__(
+        self,
+        model,
+        id            = None,
+        stringid      = None,
+        kind          = 1,
+        mass          = 1,
+        massformat    = 1,
+        concentration = None,
+        soluteid      = 1,
+        extension     = '.ic',
+    ):
+        
+        unitnumber = model.next_unit()
+        super().__init__(model, extension, "RWIC", unitnumber)
+
+        shape = model.shape
+        if len(shape) == 3:
+            shape3d = shape
+        elif len(shape) == 2:
+            shape3d = (shape[0], 1, shape[1])
+        else:
+            shape3d = (1, 1, shape[0])
+
+        self.model = model
+        self.shape3d = shape3d
+
+        # Determines how to write the initial condition
+        if (kind not in [1,2]): 
+            raise ValueError('ModpathRWIc: Invalid value for kind, should be 1 or 2. Given ', str(kind) )
+        self.kind = kind
+
+        self.mass = mass
+        self.massformat = massformat
+
+        self.soluteid = soluteid
+
+
+        # Generic 
+        # id
+        if (id is not None): 
+            self.id = id
+        else:
+            self.id = self.__class__.COUNTER
+        # stringid 
+        if (stringid is not None): 
+            self.stringid = stringid
+        else:
+            self.stringid = 'IC'+str(self.__class__.COUNTER)
+
+        if (
+            ( concentration is not None ) and 
+            ( self.kind == 1 )
+        ):
+            if not isinstance( concentration, np.ndarray ):
+                raise TypeError('ModpathRWIc: concentration should be an np.ndarray')
+            self.concentration = Util3d(
+                self.model,
+                self.shape3d,
+                np.float32,
+                concentration,
+                name=self.stringid,
+                locat=self.unit_number[0],
+            )
+        elif ( (self.kind ==1) and (concentration is None) ):
+            raise ValueError('ModpathRWIc: kind 1 requires concentration array, None given.')
+        
+        return
+
+
+    def write(self, f=None, particlesmassoption=0, solutesoption=0):
+
+        """
+        Write the package file
+        Parameters
+        ----------
+        Returns
+        -------
+        None
+        """
+
+
+        # validate that a valid file object was passed
+        if not hasattr(f, "write"):
+            raise ValueError(
+                "{}: cannot write data for template without passing a valid "
+                "file object ({}) open for writing".format(self.name, f)
+            )
+
+        # Write string id 
+        f.write(f"{self.stringid}\n")
+
+        # Kind/format of initial condition 
+        f.write(f"{self.kind}\n")
+
+        # 1: resident concentration array  
+        if self.kind == 1:
+
+            # Give particles mass 
+            f.write(f"{self.mass:.10f}\n")
+
+            # If solutes are being specified, do it
+            if( (particlesmassoption == 2) or (solutesoption == 1)):
+                f.write(f"{self.soluteid}\n")
+
+            # And concentration distribution
+            f.write(self.concentration.get_file_entry())
+
+        return
+
+
+
+
 # Update particle groups classes
 mp7ParticleGroup = ParticleGroup
 mp7ParticleGroupLRCTemplate = ParticleGroupLRCTemplate
@@ -1102,17 +1174,21 @@ class ModpathRwptSim( flopy.modpath.Modpath7Sim ):
     def __init__( self, *args,
             timeseriesoutputoption=0,
             particlesmassoption=0,
-            solutesoption=1,
+            solutesoption=0,
             reconstruction=False,
             dispersionfilename=None,
             reconstructionfilename=None,
             observations=None,
             solutes=None,
+            initialconditions=None,
+            prescribedfluxconditions=None,
             **kwargs
         ):
 
+
         # Call parent constructor
-        super().__init__(*args,**kwargs, extension='mprwpt') 
+        super().__init__(*args,**kwargs, extension='mprw') 
+
 
         # New options
         if (timeseriesoutputoption not in [0,1]):
@@ -1121,31 +1197,57 @@ class ModpathRwptSim( flopy.modpath.Modpath7Sim ):
         if (particlesmassoption not in [0,1,2]):
             raise ValueError('Particles mass option should be 0, 1 or 2. Given :', str(particlesmassoption) )
         self.particlesmassoption = particlesmassoption
-        if (solutesoption not in [1,2]):
+        if (solutesoption not in [0,1]):
             raise ValueError('Solutes option should be 0 or 1. Given :', str(solutesoption) )
         self.solutesoption = solutesoption
 
 
+        # Initial conditions
+        if initialconditions is not None:
+            if isinstance(observations,list):
+                for pic in initialconditions:
+                    if not isinstance(pic, ModpathRwptIc):
+                        raise TypeError('Object in list is type ', type(pic), '. Expected ModpathRwptIc.')
+                # Survived so continue
+                self.nics = len(initialconditions)
+                self.initialconditions = initialconditions
+            elif isinstance( initialconditions, ModpathRwptIc ):
+                self.nics = 1
+                self.initialconditions = [initialconditions]
+            else:
+                raise TypeError('Initial conditions argument should be of type list or ModpathRwptIc. ', type(initialconditions), ' given.')
+        else:
+            self.nics = 0
+            self.initialconditions = None
+
+
         # Inform dispersion package about 
         # particlesmassoption
+        # solutesoption
         if self.simulationtype > 4: 
             disp = self.parent.get_package('DISPERSION')
             if disp is None:
                 raise Exception('Requires a dispersion package')
             disp.particlesmassoption = self.particlesmassoption
+            disp.solutesoption = self.solutesoption
+            # This is in the meantime that ics are read from 
+            # what was originally called the dispersion file
+            disp.initialconditions = self.initialconditions
+            disp.nics = self.nics
 
         # Extract model and assign default filenames
         model = args[0]
         if dispersionfilename is None:
-            dispersionfilename = f"{model.name}.dispersion"
+            # .rw extension makes more sense 
+            # as in fact this file contains most of the 
+            # config for rwpt, besides dispersion
+            dispersionfilename = f"{model.name}.rw"
         self.dispersionfilename = dispersionfilename
         if reconstruction:
             if reconstructionfilename is None:
                 reconstructionfilename = f"{model.name}.gpkde"
             self.reconstructionfilename = reconstructionfilename
         self.reconstruction = reconstruction
-
-
 
         # Observations
         if observations is not None:
@@ -1165,6 +1267,7 @@ class ModpathRwptSim( flopy.modpath.Modpath7Sim ):
             self.nobs = 0
             self.observations = None
 
+
         # done!
 
 
@@ -1179,7 +1282,7 @@ class ModpathRwptSim( flopy.modpath.Modpath7Sim ):
         -------
         None
 
-        DEV: same as upstream file but with specific management of rwpt options
+        Note: mostly the same as classic modpath but with management of rwpt options
         """
     
         f = open(self.fn_path, "w")
@@ -1191,7 +1294,7 @@ class ModpathRwptSim( flopy.modpath.Modpath7Sim ):
         f.write(f"{self.listingfilename}\n")
         # item 3
         f.write(
-            "{} {} {} {} {} {} {} {}\n".format(
+            "{} {} {} {} {} {} {} {} {}\n".format(
                 self.simulationtype,
                 self.trackingdirection,
                 self.weaksinkoption,
@@ -1200,6 +1303,7 @@ class ModpathRwptSim( flopy.modpath.Modpath7Sim ):
                 self.tracemode,
                 self.timeseriesoutputoption,
                 self.particlesmassoption,
+                self.solutesoption,
             )
         )
         # item 4
@@ -1306,10 +1410,10 @@ class ModpathRwptSim( flopy.modpath.Modpath7Sim ):
                 pg.write(f, ws=self.parent.model_ws, mass=True, solute=True)
    
 
-        # RWPT
+        # MODPATH-RW
         if self.simulationtype > 4:
 
-            # Dispersion filename
+            # RWPT config filename
             f.write(f"{self.dispersionfilename}\n")
 
             if self.reconstruction: 
