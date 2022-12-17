@@ -439,7 +439,10 @@ class ModpathRwptReconstruction( Package ):
         noptloops            = 10, 
         outputfilename       = 'gpkde.output',
         extension            = 'gpkde',
-        skiptimeserieswriter = True,
+        skiptimeserieswriter = False,
+        minhlambda           = None,
+        maxhlambda           = None,
+        deltahlambda         = None,
     ):
 
         unitnumber = model.next_unit()
