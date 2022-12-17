@@ -238,7 +238,14 @@ class ModpathRwptDispersion( Package ):
                 locat=self.unit_number[0],
             )
         else:
-            self.icbound = 0
+            self.icbound= Util3d(
+                model,
+                shape3d,
+                np.int32,
+                0,
+                name="ICBOUND",
+                locat=self.unit_number[0],
+            )
 
 
         # Minor checkings for given parameters 
@@ -318,10 +325,7 @@ class ModpathRwptDispersion( Package ):
 
 
         # Write icbound
-        if self.icbound == 0:
-            f.write(f"0\n")
-        else:
-            f.write(self.icbound.get_file_entry())
+        f.write(self.icbound.get_file_entry())
 
 
         # Depending on the solutes option 
@@ -1449,7 +1453,7 @@ class ModpathRwptSim( flopy.modpath.Modpath7Sim ):
             # .rw extension makes more sense 
             # as in fact this file contains most of the 
             # config for rwpt, besides dispersion
-            dispersionfilename = f"{model.name}.rw"
+            dispersionfilename = f"{model.name}.dispersion"
         self.dispersionfilename = dispersionfilename
         if reconstruction:
             if reconstructionfilename is None:
@@ -1561,8 +1565,6 @@ class ModpathRwptSim( flopy.modpath.Modpath7Sim ):
         if self.stoptimeoption == 3:
             # item 15
             f.write(f"{self.stoptime:g}\n")
-            # ORIGINAL
-            #f.write(f"{self.stoptime + 1:g}\n")
     
         # item 16
         if (
