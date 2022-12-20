@@ -1,4 +1,4 @@
-# flopyrwpt
+# flopyrw
 `python` interface for writing input files for solute transport models based on MODPATH-RW, based in `flopy`.
 
 ## Overview
@@ -16,13 +16,13 @@ Similar to `flopy`, these classes group parameters and input file writing logic 
 Clone reposistory and install as dependency in your environment. Suggested process is 
 
 ```
-git clone https://gitlab.com/upc-ghs/flopyrwpt.git
+git clone https://gitlab.com/upc-ghs/flopyrw.git
 ```
 
 Change directory to the package
 
 ```
-cd flopyrwpt
+cd flopyrw
 ```
 
 Activate the `python` environment
@@ -40,10 +40,10 @@ python setup.py install
 Another alternative would be to directly install the cloned repository once the `python` environment is activated. This is done with the command
 
 ```
-pip install -e /the/path/to/flopyrwpt/
+pip install -e /the/path/to/flopyrw/
 ```
 
-Then, published changes in the central repository can be integrated by regularly checking the output of the command (executed inside the cloned `flopyrwpt` repository)
+Then, published changes in the central repository can be integrated by regularly checking the output of the command (executed inside the cloned `flopyrw` repository)
 
 ```
 git fetch 
