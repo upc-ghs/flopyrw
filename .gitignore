@@ -1,3 +1,7 @@
 *.pyc
 *__pycache_*
 env/
+flopyrwpt.egg-info/
+*.swp
+*.swn
+*.swo
