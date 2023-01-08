@@ -479,21 +479,21 @@ class ModpathRwptReconstruction( Package ):
             if idb == len(self.domainorigin)-1: 
                 f.write(f"{b:10f}\n")
             else:
-                f.write(f"{b:10f}")
+                f.write(f"{b:10f}\t")
 
         # Domain sizes
         for idb, b in enumerate(self.domainsize):
             if idb == len(self.domainsize)-1: 
                 f.write(f"{b:10f}\n")
             else:
-                f.write(f"{b:10f}")
+                f.write(f"{b:10f}\t")
 
         # Bin sizes
         for idb, b in enumerate(self.binsize):
             if idb == len(self.binsize)-1: 
                 f.write(f"{b:10f}\n")
             else:
-                f.write(f"{b:10f}")
+                f.write(f"{b:10f}\t")
 
         # Number of optimization loops 
         f.write(f"{self.noptloops:10d}\n")
@@ -510,7 +510,7 @@ class ModpathRwptReconstruction( Package ):
                 if idb == len(self.binsize)-1: 
                     f.write(f"{b:10f}\n")
                 else:
-                    f.write(f"{b:10f}")
+                    f.write(f"{b:10f\t}")
         else:
             # Brute force reconstruction
             f.write(f"0\n") # 0 for id into fortran
@@ -518,7 +518,7 @@ class ModpathRwptReconstruction( Package ):
             # kernel params: minh/lambda, maxh/lambda
             for idb, b in enumerate(self.kerneldatabaseparams):
                 if idb == 0:
-                    f.write(f"{b:16f}")
+                    f.write(f"{b:16f}\t")
                 if idb == 2: 
                     f.write(f"{b:16f}\n")
 
