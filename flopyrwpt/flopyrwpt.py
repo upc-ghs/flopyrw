@@ -17,19 +17,36 @@ from flopy.modpath.mp7particlegroup import (
 )
 
 
+from flopy.modpath.mp7particledata import (
+    ParticleData,
+)
+
+
 
 class ModpathRW( flopy.modpath.Modpath7 ):
-    
+    '''
+    MODPATH-RW Main class 
+    Simply extends flopy.modpath.Modpath7
+    '''
+    def __init__(self, *args, **kwargs):
+        # Call parent constructor
+        super().__init__(*args,**kwargs)
+
+
+class ModpathRWBas( flopy.modpath.Modpath7Bas ):
+    '''
+    MODPATH-RW Main class 
+    Simply extends flopy.modpath.Modpath7
+    '''
     def __init__(self, *args, **kwargs):
         # Call parent constructor
         super().__init__(*args,**kwargs)
 
 
 
-
 class ModpathRWDsp( Package ):
     """
-    MODPATH RWPT Dispersion Package Class.
+    MODPATH RW Dispersion Package Class.
     Parameters
     ----------
     model : model object
@@ -65,9 +82,9 @@ class ModpathRWDsp( Package ):
     def __init__(
         self,
         model,
-        displong          = 0.0  ,
-        disptranh         = 0.0  ,
-        disptranv         = 0.0  ,
+        displong          = 0.0  , # xx
+        disptranh         = 0.0  , # yy
+        disptranv         = 0.0  , # zz
         diffaqueous       = 0.0  ,
         diffeff           = 0.0  , # corrected by tortuosity
         modelkind         = None , # linear, nonlinear
@@ -81,6 +98,224 @@ class ModpathRWDsp( Package ):
         pass
 
 
+
+class ModpathRWOptions( Package ):
+    """
+    MODPATH-RW Options Package Class.
+    Parameters
+    ----------
+    model : model object
+        The model object (of type :class:`flopy.modpath.Modpath7`) to which
+        this package will be added.
+    longitudinal : float or array of floats (nlay, nrow, ncol)
+        The longitudinal dispersivity array (the default is XX).
+    transverse : float or array of floats (nlay, nrow, ncol)
+        The transverse dispersivity array (the default is XX).
+    molecular : float 
+        Molecular diffusion corrected by tortuosity effects
+        The transverse dispersivity array (the default is 0).
+    advection : str
+        Advection model ot be used for advective component in RWPT integration.
+        Could be set to 'eulerian' or 'exponential' (the default is 'eulerian').
+    dimensions : int
+        Define whether RWPT displacement should be done in 2D or 3D. 
+        For 2D models, layers should be related to z direction and specify 2.
+        (the default is 3).
+    timestep : str
+        Define method for computing particles time step. Can be courant, peclet or min. 
+        The latter selects the minimum estimated between courant and peclet. For each 
+        kind, it is expected that courant and/or peclet parameters are specified.
+        (the default is courant with courant = 0.1)
+    courant  : float
+        Courant number that will be used at each cell for computing time step 
+    peclet   :  float 
+        Peclet number occupied for computing time step
+    extension : str, optional
+        File extension (default is 'dispersion').
+    """
+
+    def __init__(
+        self,
+        model,
+        dimensionmask     = [1,1,1],
+        timestep          = 'courant',
+        courant           = 0.1,
+        ctdisp            = 0.1,
+        advection         = 'eulerian',
+    ):
+    
+
+        unitnumber = model.next_unit()
+        super().__init__(model, extension, "RWOPTS", unitnumber)
+
+        shape = model.shape
+        if len(shape) == 3:
+            shape3d = shape
+        elif len(shape) == 2:
+            shape3d = (shape[0], 1, shape[1])
+        else:
+            shape3d = (1, 1, shape[0])
+        self.model = model
+        self.shape3d = shape3d
+
+        
+        self.dimensionmask = dimensionmask
+
+
+
+
+        # Minor checkings for given parameters 
+        if ( advection not in ['eulerian','exponential'] ):
+            raise Exception('flopyrwpt.py: advection model ' + advection + ' is not valid. Use eulerian or exponential')
+        self.advection  = advection
+
+        if ( dimensions not in [2,3] ):
+            raise Exception('flopyrwpt.py: dimensions ' + str(dimensions) + ' is not valid. Use 2 or 3')
+        self.dimensions = dimensions
+
+        if ( timestep not in ['courant', 'peclet', 'min_adv_disp'] ):
+            raise Exception('flopyrwpt.py: time step selection model ' + timestep + ' is not valid. courant, peclet, min_adv_disp')
+        self.timestep  = timestep
+
+
+        # Trust
+        self.courant = courant
+        self.peclet  = peclet 
+        self.ctdisp  = ctdisp 
+
+
+        self.parent.add_package(self)
+
+
+        return
+
+
+    def write_file(self, check=False):
+        """
+        Write the package file
+        Parameters
+        ----------
+        check : boolean
+            Check package data for common errors. (default False)
+        Returns
+        -------
+        None
+        """
+
+        # Open file for writing
+        f = open(self.fn_path, "w")
+
+
+        # Write initial conditions (IC)
+        if self.nics > 0:
+            # How many ics
+            f.write(f"{self.nics}\n")
+
+            # Loop over ic, notice pg
+            for idic, ic in enumerate(self.initialconditions):
+                # Write the initial condition
+                ic.write(
+                  f=f,
+                  particlesmassoption=self.particlesmassoption,
+                  solutesoption=self.solutesoption,
+                )
+        else:
+            f.write(f"0\n")
+
+
+        # Write prescribed flux boundaries
+        if self.npfs > 0:
+            # How many ics
+            f.write(f"{self.npfs}\n")
+
+            # Loop over pf
+            for idpf, pf in enumerate(self.fluxconditions):
+                # Write the flux condition 
+                pf.write(
+                  f=f,
+                  particlesmassoption=self.particlesmassoption,
+                  solutesoption=self.solutesoption,
+                )
+        else:
+            f.write(f"0\n")
+
+
+        # Write icbound
+        f.write(self.icbound.get_file_entry())
+
+
+        # Depending on the solutes option 
+        # is how to continue writing the file
+        # self.solutesoption is assigned in ModpathRwpSim
+        if self.solutesoption == 0:
+            # Single virtual solute, all 
+            # pgroups are displaced with the 
+            # same dispersion properties
+
+            # Select model dispersivity
+            if self.modelkind == 1:
+
+                # Write modelkind
+                f.write(f"{self.modelkind}\n")
+
+                # Write molecular diffusion
+                f.write(f"{self.molecular:.16f}\n")
+
+                # Write dispersivities
+                f.write(self.longitudinal.get_file_entry())
+                f.write(self.transverse.get_file_entry())
+
+            elif self.modelkind == 2:
+
+                # Write modelkind
+                f.write(f"{self.modelkind}\n")
+
+                # Write nonlinear beta exponents
+                f.write(f"{self.betalongitudinal:.10f}\n") 
+                f.write(f"{self.betatransverse:.10f}\n") 
+                f.write(f"{self.mediumdelta:.10f}\n")
+                #f.write(self.betalongitudinal.get_file_entry())
+                #f.write(self.betatransverse.get_file_entry())
+                #f.write(self.mediumdelta.get_file_entry())
+                f.write(self.mediumdsize.get_file_entry())
+
+                # Write aqueous molecular diffusion
+                f.write(f"{self.molecular:.16f}\n")
+
+
+        elif self.solutesoption ==1:
+
+            f.write(f"{len(self.solutes)}\n")
+
+            # Multiple solutes
+            for ns, sol in enumerate(self.solutes):
+                sol.write(f=f, particlesmassoption=self.particlesmassoption)
+        
+
+        # Write time step selection method
+        if self.timestep is not None:
+            if self.timestep == 'peclet': 
+                f.write(f"CONSTANT_PE\n")
+                f.write(f"{self.peclet:.10f}\n")  
+            if self.timestep == 'courant': 
+                f.write(f"CONSTANT_CU\n")  
+                f.write(f"{self.courant:.10f}\n")  
+            if self.timestep == 'min_adv_disp':
+                # Review this format, it may require both
+                f.write(f"MIN_ADV_DISP\n")  
+                f.write(f"{self.courant:.10f}\n")  
+                f.write(f"{self.ctdisp:.10f}\n")  
+                #f.write(f"{self.courant:20d}") #? 
+
+        # Write advection model
+        f.write(f"{self.advection.upper():20s}\n")  
+
+        # Write number of dimensions for RWPT displacement
+        f.write(f"{self.dimensions:1d}D\n")  
+
+
+        # And close
+        f.close()
 
 
 class ModpathRwptDispersion( Package ):
@@ -903,6 +1138,9 @@ class ModpathRwptIc( Package ):
     model : model object
         The model object (of type :class:`flopy.modpath.Modpath7`) to which
         this package will be added.
+    concentration : ndarray
+        Interpreted as resident concentration, that is, the product beween porosity and
+        dissolved concentration. 
     """
 
     COUNTER = 0
@@ -1048,6 +1286,9 @@ class ModpathRwptFlux( Package ):
         cellid        = None,
         structured    = True,
         nparticles    = None,
+        rowsubdiv     = 1,
+        colsubdiv     = 1,
+        laysubdiv     = 1,
         soluteid      = 1,
         filename      = None,
         extension     = '.flux',
@@ -1148,6 +1389,12 @@ class ModpathRwptFlux( Package ):
             self.filename = self.stringid + '_timeseries.csv'
 
 
+
+        self.rowsubdiv = rowsubdiv
+        self.colsubdiv = colsubdiv
+        self.laysubdiv = laysubdiv
+
+
         return
 
 
@@ -1177,10 +1424,7 @@ class ModpathRwptFlux( Package ):
         f.write(f"{self.kind}\n")
 
         if self.kind == 1:
-            # Cells, concentration and some more 
-            # related aspects to determination of number of 
-            # particles, massoption
-            fmts = []
+            # Cell
             if self.structured:
                 f.write(f"1\n") # To indicate structured
                 fmts.append("{:9d}") # lay
@@ -1211,11 +1455,19 @@ class ModpathRwptFlux( Package ):
             fmt = " " + " ".join(fmts) + "\n"
             woc = [self.releasecount,self.starttime,self.dtrelease]
             f.write(fmt.format(*woc))
+
+            fmt = " {} {} {}\n"
+            line = fmt.format(
+                self.colsubdiv,
+                self.rowsubdiv,
+                self.laysubdiv,
+            )
+            f.write(line)
             
 
         # A injection series
         if self.kind == 2:
-            # Should write a cell number
+            # Write a cell number
             fmts = []
             if self.structured:
                 f.write(f"1\n") # To indicate structured
@@ -1384,6 +1636,12 @@ class ModpathRwptSim( flopy.modpath.Modpath7Sim ):
         super().__init__(*args,**kwargs, extension='mprw') 
 
 
+        # Override interpretation of particlegroups, allows None
+        if 'particlegroups' not in kwargs.keys():
+            particlegroups = None
+        self.particlegroups = particlegroups
+
+
         # New options
         if (timeseriesoutputoption not in [0,1]):
             raise ValueError('Timeseries output option should be 0 or 1. Given :', str(timeseriesoutputoption) )
@@ -1398,7 +1656,7 @@ class ModpathRwptSim( flopy.modpath.Modpath7Sim ):
 
         # Initial conditions
         if initialconditions is not None:
-            if isinstance(observations,list):
+            if isinstance(initialconditions,list):
                 for pic in initialconditions:
                     if not isinstance(pic, ModpathRwptIc):
                         raise TypeError('Object in list is type ', type(pic), '. Expected ModpathRwptIc.')
@@ -1611,16 +1869,19 @@ class ModpathRwptSim( flopy.modpath.Modpath7Sim ):
             f.write(self.retardation.get_file_entry())
     
         # item 25
-        f.write(f"{len(self.particlegroups)}\n")
-        if ( self.particlesmassoption == 0):
-            for pg in self.particlegroups:
-                pg.write(f, ws=self.parent.model_ws)
-        elif ( self.particlesmassoption == 1):
-            for pg in self.particlegroups:
-                pg.write(f, ws=self.parent.model_ws, mass=True)
-        elif ( self.particlesmassoption == 2):
-            for pg in self.particlegroups:
-                pg.write(f, ws=self.parent.model_ws, mass=True, solute=True)
+        if self.particlegroups is None:
+            f.write(f"0\n")
+        else:
+            f.write(f"{len(self.particlegroups)}\n")
+            if ( self.particlesmassoption == 0):
+                for pg in self.particlegroups:
+                    pg.write(f, ws=self.parent.model_ws)
+            elif ( self.particlesmassoption == 1):
+                for pg in self.particlegroups:
+                    pg.write(f, ws=self.parent.model_ws, mass=True)
+            elif ( self.particlesmassoption == 2):
+                for pg in self.particlegroups:
+                    pg.write(f, ws=self.parent.model_ws, mass=True, solute=True)
    
 
         # MODPATH-RW
