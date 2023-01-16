@@ -843,8 +843,10 @@ class ModpathRwptObs( Package ):
             if cells is None:
                 self.cells = []
             else:
-                if not isinstance( cells, (list,np.ndarray,np.array) ):
-                    raise Exception( 'Cells parameter should be a list or numpy array')
+                if not isinstance( cells, (list,np.ndarray,tuple) ):
+                    raise Exception( 'Cells parameter should be a list or numpy array, is ', type( cells ))
+                if ( isinstance( cells, tuple ) and len(cells)==1 ):
+                    cells = cells[0]
                 # Maybe some sanity check about data structure or the same 
                 # used for partlocs
                 self.cells = cells
@@ -944,7 +946,10 @@ class ModpathRwptObs( Package ):
                 fmt = " " + " ".join(fmts) + "\n"
                 for oc in self.cells:
                     woc = np.array(oc).astype(np.int32)+1 # Correct the zero-based indexes
-                    f.write(fmt.format(*woc))
+                    if self.structured:
+                        f.write(fmt.format(*woc))
+                    else:
+                        f.write(fmt.format(woc))
 
         elif self.celloption == 2:
             # Should write an array
@@ -1639,7 +1644,7 @@ class ModpathRwptSim( flopy.modpath.Modpath7Sim ):
         # Override interpretation of particlegroups, allows None
         if 'particlegroups' not in kwargs.keys():
             particlegroups = None
-        self.particlegroups = particlegroups
+            self.particlegroups = particlegroups
 
 
         # New options
