@@ -2,35 +2,534 @@
 Implement classes and methods for configuring mpathrwpt sims with flopy
 '''
 
-
-import flopy 
-from flopy.pakbase import Package
-from flopy.utils import Util2d, Util3d
-from enum import Enum
+# Python
+import os
 import numpy as np
 import pandas as pd
-import os
+from enum import Enum
+
+# Flopy
+import flopy
+import flopy.modpath.mp7sim as mp7
+from flopy.pakbase import Package
+from flopy.utils import Util2d, Util3d
 from flopy.modpath.mp7particlegroup import (
     ParticleGroup,
     ParticleGroupLRCTemplate,
     ParticleGroupNodeTemplate,
 )
-
-
 from flopy.modpath.mp7particledata import (
     ParticleData,
 )
 
 
+# Utils
+def count_instances(method):
+    '''
+    Util for counting class instances. 
+    Rely on the class having a COUNTER variable
+    '''
+    def wrapper(self, *args, **kw):
+        self.__class__.COUNTER += 1
+        return method(self, *args, **kw)
+    return wrapper
+
+
+# Updates enumeration of available simulations
+class simType(Enum):
+    """
+    Enumeration of different simulation types
+    """
+    
+    endpoint       = 1
+    pathline       = 2
+    timeseries     = 3
+    combined       = 4
+    rwpttimeseries = 5
+    rwptcombined   = 6
+    rwptendpoint   = 7
+mp7.simType = simType
+
+
+# Update particle groups classes
+# Extend interfaces to understand mass and solute
+mp7ParticleGroup = ParticleGroup
+mp7ParticleGroupLRCTemplate = ParticleGroupLRCTemplate
+mp7ParticleGroupNodeTemplate = ParticleGroupNodeTemplate
+class ParticleGroup( mp7ParticleGroup ): 
+
+    def __init__( self, *args, mass=1.0, solute=0, **kwargs ):
+        # Call parent constructor
+        super().__init__(*args,**kwargs) 
+        
+        if mass != 0:
+            self.mass = mass
+        else:
+            raise ValueError('Mass for the particle group is zero')
+
+        self.solute = solute
+
+    def write( self, fp=None, ws=".", mass=False, solute=False): 
+        # Call base class write method to write common data
+        super().write(fp, ws)
+
+        if mass:
+            # Write the particle mass
+            fp.write(f"{self.mass:.16f}\n")
+
+        if solute:
+            # Write the solute id 
+            fp.write(f"{self.solute:9df}\n")
+        return
+
+class ParticleGroupLRCTemplate( mp7ParticleGroupLRCTemplate ): 
+
+    def __init__( self, *args, mass=1.0, solute=0, **kwargs ):
+        # Call parent constructor
+        super().__init__(*args,**kwargs) 
+        
+        if mass != 0:
+            self.mass = mass
+        else:
+            raise ValueError('Mass for the particle group is zero')
+
+        self.solute = solute
+
+    def write( self, fp=None, ws=".", mass=False, solute=False): 
+        # Call base class write method to write common data
+        super().write(fp, ws)
+
+        if mass:
+            # Write the particle mass
+            fp.write(f"{self.mass:.16f}\n")
+
+        if solute:
+            # Write the solute id 
+            fp.write(f"{self.solute:9df}\n")
+        return
+
+class ParticleGroupNodeTemplate( mp7ParticleGroupNodeTemplate ): 
+
+    def __init__( self, *args, mass=1.0, solute=0, **kwargs ):
+        # Call parent constructor
+        super().__init__(*args,**kwargs) 
+        
+        if mass != 0:
+            self.mass = mass
+        else:
+            raise ValueError('Mass for the particle group is zero')
+
+        self.solute = solute
+
+    def write( self, fp=None, ws=".", mass=False, solute=False): 
+        # Call base class write method to write common data
+        super().write(fp, ws)
+
+        if mass:
+            # Write the particle mass
+            fp.write(f"{self.mass:.16f}\n")
+        if solute:
+            # Write the solute id 
+            fp.write(f"{self.solute:9d}\n")
+
+        return
+
 
 class ModpathRW( flopy.modpath.Modpath7 ):
     '''
-    MODPATH-RW Main class 
-    Simply extends flopy.modpath.Modpath7
+    MODPATH-RW class 
+
+    Extends flopy.modpath.Modpath7
+    Overloads write_name_file
     '''
     def __init__(self, *args, **kwargs):
         # Call parent constructor
         super().__init__(*args,**kwargs)
+
+        # Following filenames are generated
+        # after parent constructor
+        #   - mpbas_file
+        #   - dis_file
+        #   - grbdis_file
+        #   - tdis_file
+        #   - headfilename
+        #   - budgetfilename
+
+        # Following filenames are expected 
+        # to be generated based on parameter
+        # passed to ModpathRWSim class
+        self.dspfilename    = None
+        self.rwoptsfilename = None
+        self.gpkdefilename  = None
+        self.icfilename     = None
+        self.fluxfilename   = None
+        self.obsfilename    = None
+
+
+    # Overload the write_name_file method
+    def write_name_file(self):
+        """
+        Write the name file
+
+        Returns
+        -------
+        None
+
+        """
+        fpth = os.path.join(self.model_ws, self.mpnamefile)
+        f = open(fpth, "w")
+        f.write(f"{self.heading}\n")
+        if self.mpbas_file is not None:
+            f.write(f"MPBAS      {self.mpbas_file}\n")
+        if self.dis_file is not None:
+            f.write(f"DIS        {self.dis_file}\n")
+        if self.grbdis_file is not None:
+            f.write(f"{self.grbtag:10s} {self.grbdis_file}\n")
+        if self.tdis_file is not None:
+            f.write(f"TDIS       {self.tdis_file}\n")
+        if self.headfilename is not None:
+            f.write(f"HEAD       {self.headfilename}\n")
+        if self.budgetfilename is not None:
+            f.write(f"BUDGET     {self.budgetfilename}\n")
+        # MODPATH-RW specifc files
+        #if self.budgetfilename is not None:
+        #    f.write(f"DSP     {self.budgetfilename}\n")
+        #if self.budgetfilename is not None:
+        #    f.write(f"RWOPTS  {self.budgetfilename}\n")
+        if self.gpkdefilename is not None:
+            f.write(f"GPKDE      {self.gpkdefilename}\n")
+        #if self.budgetfilename is not None:
+        #    f.write(f"IC    {self.budgetfilename}\n")
+        #if self.budgetfilename is not None:
+        #    f.write(f"FLUX    {self.budgetfilename}\n")
+        if self.obsfilename is not None:
+            f.write(f"OBS        {self.obsfilename}\n")
+        # ICBOUND ?
+        f.close()
+
+
+
+class ModpathRWSim( flopy.modpath.Modpath7Sim ):
+    '''
+    MODPATH-RW Simulation File Package Class. 
+
+    Extends from hould extend mp7sim to create mp7rwptsim
+    '''
+
+    def __init__( self, *args,
+            timeseriesoutputoption=0,
+            particlesmassoption=0,
+            solutesoption=0,
+            reconstruction=False,
+            dispersionfilename=None,
+            observations=None,
+            solutes=None,
+            initialconditions=None,
+            fluxconditions=None,
+            **kwargs
+        ):
+
+
+        # Call parent constructor
+        super().__init__(*args,**kwargs, extension='mprw')
+
+
+        # Extract model
+        model = args[0]
+
+
+        # Override interpretation of particlegroups, allows None
+        if 'particlegroups' not in kwargs.keys():
+            particlegroups = None
+            self.particlegroups = particlegroups
+
+
+        # New options
+        if (timeseriesoutputoption not in [0,1,2]):
+            raise ValueError('Timeseries output option should be 0, 1 or 2. Given :', str(timeseriesoutputoption) )
+        self.timeseriesoutputoption = timeseriesoutputoption
+        if (particlesmassoption not in [0,1,2]):
+            raise ValueError('Particles mass option should be 0, 1 or 2. Given :', str(particlesmassoption) )
+        self.particlesmassoption = particlesmassoption
+        if (solutesoption not in [0,1]):
+            raise ValueError('Solutes option should be 0 or 1. Given :', str(solutesoption) )
+        self.solutesoption = solutesoption
+
+
+        # Initial conditions
+        if initialconditions is not None:
+            if isinstance(initialconditions,list):
+                for pic in initialconditions:
+                    if not isinstance(pic, ModpathRwptIc):
+                        raise TypeError('Object in list is type ', type(pic), '. Expected ModpathRwptIc.')
+                # Survived so continue
+                self.nics = len(initialconditions)
+                self.initialconditions = initialconditions
+            elif isinstance( initialconditions, ModpathRwptIc ):
+                self.nics = 1
+                self.initialconditions = [initialconditions]
+            else:
+                raise TypeError('Initial conditions argument should be of type list or ModpathRwptIc. ', type(initialconditions), ' given.')
+        else:
+            self.nics = 0
+            self.initialconditions = None
+
+
+        # Prescribed flux conditions
+        if fluxconditions is not None:
+            if isinstance(observations,list):
+                for pic in fluxconditions:
+                    if not isinstance(pic, ModpathRwptFlux):
+                        raise TypeError('Object in list is type ', type(pic), '. Expected ModpathRwptFlux.')
+                # Survived so continue
+                self.npfs = len(fluxconditions)
+                self.fluxconditions = fluxconditions
+            elif isinstance( fluxconditions, ModpathRwptFlux ):
+                self.npfs = 1
+                self.fluxconditions = [fluxconditions]
+            else:
+                raise TypeError('Initial conditions argument should be of type list or ModpathRwptFlux. ', type(fluxconditions), ' given.')
+        else:
+            self.npfs = 0
+            self.fluxconditions = None
+
+
+        # Inform dispersion package about 
+        # particlesmassoption
+        # solutesoption
+        if self.simulationtype > 4: 
+            disp = self.parent.get_package('DISPERSION')
+            if disp is None:
+                raise Exception('Requires a dispersion package')
+            disp.particlesmassoption = self.particlesmassoption
+            disp.solutesoption = self.solutesoption
+            # This is in the meantime that ics are read from 
+            # what was originally called the dispersion file
+            disp.initialconditions = self.initialconditions
+            disp.nics = self.nics
+            disp.fluxconditions = self.fluxconditions
+            disp.npfs = self.npfs
+
+
+        # Extract model and assign default filenames
+        if dispersionfilename is None:
+            # .rw extension makes more sense 
+            # as in fact this file contains most of the 
+            # config for rwpt, besides dispersion
+            dispersionfilename = f"{model.name}.dispersion"
+        self.dispersionfilename = dispersionfilename
+
+
+        # GPKDE reconstruction
+        if reconstruction:
+            gpkdefilename = f"{model.name}.gpkde"
+            self._parent.gpkdefilename  = gpkdefilename
+            self.reconstructionfilename = gpkdefilename # DEPRECATE
+        self.reconstruction = reconstruction
+
+
+        # Observations
+        if observations is not None:
+            if isinstance(observations,list):
+                for pobs in observations:
+                    if not isinstance(pobs, ModpathRWObs):
+                        raise TypeError('Object in list is type ', type(pobs), '. Expected ModpathRWObs.')
+                # Survived so continue
+                self.nobs = len(observations)
+                self.observations = observations
+            elif isinstance( observations, ModpathRWObs ):
+                self.nobs = 1
+                self.observations = [observations]
+            else:
+                raise TypeError('Observations argument should be of type list or ModpathRWObs. ', type(observations), ' given.')
+            self._parent.obsfilename  = f"{model.name}.obs"
+            self.obsfilepath = os.path.join( self._parent.model_ws, self._parent.obsfilename )
+        else:
+            self.nobs = 0
+            self.observations = None
+
+
+        # Done!
+
+
+    def write_file(self, check=False):
+        """
+        Write the package file
+        Parameters
+        ----------
+        check : boolean
+            Check package data for common errors. (default False)
+        Returns
+        -------
+        None
+
+        Note: mostly the same as classic modpath but with management of rwpt options
+        """
+    
+        f = open(self.fn_path, "w")
+        # item 0
+        f.write(f"{self.heading}\n")
+        # item 1
+        f.write(f"{self.mp_name_file}\n")
+        # item 2
+        f.write(f"{self.listingfilename}\n")
+        # item 3
+        f.write(
+            "{} {} {} {} {} {} {} {} {}\n".format(
+                self.simulationtype,
+                self.trackingdirection,
+                self.weaksinkoption,
+                self.weaksourceoption,
+                self.budgetoutputoption,
+                self.tracemode,
+                self.timeseriesoutputoption,
+                self.particlesmassoption,
+                self.solutesoption,
+            )
+        )
+        # item 4
+        f.write(f"{self.endpointfilename}\n")
+        # item 5
+        if self.simulationtype == 2 or self.simulationtype == 4 or self.simulationtype == 6 :
+            f.write(f"{self.pathlinefilename}\n")
+        # item 6
+        if self.simulationtype == 3 or self.simulationtype == 4 or self.simulationtype == 5 or self.simulationtype == 6:
+            f.write(f"{self.timeseriesfilename}\n")
+        # item 7 and 8
+        if self.tracemode == 1:
+            f.write(f"{self.tracefilename}\n")
+            f.write(
+                f"{self.traceparticlegroup + 1} {self.traceparticleid + 1}\n"
+            )
+        # item 9
+        f.write(f"{self.BudgetCellCount}\n")
+        # item 10
+        if self.BudgetCellCount > 0:
+            v = Util2d(
+                self.parent,
+                (self.BudgetCellCount,),
+                np.int32,
+                self.budgetcellnumbers.array + 1,
+                name="temp",
+                locat=self.unit_number[0],
+            )
+            f.write(v.string)
+    
+        # item 11
+        f.write(f"{self.referencetimeOption}\n")
+        if self.referencetimeOption == 1:
+            # item 12
+            f.write(f"{self.referencetime[0]:g}\n")
+        elif self.referencetimeOption == 2:
+            # item 13
+            f.write(
+                "{:d} {:d} {:g}\n".format(
+                    self.referencetime[0] + 1,
+                    self.referencetime[1] + 1,
+                    self.referencetime[2],
+                )
+            )
+        # item 14
+        f.write(f"{self.stoptimeoption}\n")
+        if self.stoptimeoption == 3:
+            # item 15
+            f.write(f"{self.stoptime:g}\n")
+    
+        # item 16
+        if (
+                self.simulationtype == 3 or
+                self.simulationtype == 4 or
+                self.simulationtype == 5 or
+                self.simulationtype == 6 ):
+            f.write(f"{self.timepointoption}\n")
+            if self.timepointoption == 1:
+                # item 17
+                f.write(
+                    f"{self.timepointdata[0]} {self.timepointdata[1][0]}\n"
+                )
+            elif self.timepointoption == 2:
+                # item 18
+                f.write(f"{self.timepointdata[0]}\n")
+                # item 19
+                tp = self.timepointdata[1]
+                v = Util2d(
+                    self.parent,
+                    (tp.shape[0],),
+                    np.float32,
+                    tp,
+                    name="temp",
+                    locat=self.unit_number[0],
+                )
+                f.write(v.string)
+    
+        # item 20
+        f.write(f"{self.zonedataoption}\n")
+        if self.zonedataoption == 2:
+            # item 21
+            f.write(f"{self.stopzone}\n")
+            # item 22
+            f.write(self.zones.get_file_entry())
+    
+        # item 23
+        f.write(f"{self.retardationfactoroption}\n")
+        if self.retardationfactoroption == 2:
+            # item 24
+            f.write(self.retardation.get_file_entry())
+    
+        # item 25
+        if self.particlegroups is None:
+            f.write(f"0\n")
+        else:
+            f.write(f"{len(self.particlegroups)}\n")
+            if ( self.particlesmassoption == 0):
+                for pg in self.particlegroups:
+                    pg.write(f, ws=self.parent.model_ws)
+            elif ( self.particlesmassoption == 1):
+                for pg in self.particlegroups:
+                    pg.write(f, ws=self.parent.model_ws, mass=True)
+            elif ( self.particlesmassoption == 2):
+                for pg in self.particlegroups:
+                    pg.write(f, ws=self.parent.model_ws, mass=True, solute=True)
+   
+
+        # MODPATH-RW
+        if self.simulationtype > 4:
+
+            # RWPT config filename
+            f.write(f"{self.dispersionfilename}\n")
+
+            #if self.reconstruction: 
+            #    # Possibly requires timeseries 
+            #    #if self.simulationtype == 7:
+            #    #    raise Exception('')
+            #    f.write(f"1\n")
+            #    f.write(f"{self.reconstructionfilename}\n")
+            #else:
+            #    f.write(f"0\n")
+            f.write(f"0\n")
+      
+            # Write observations to obs file
+            if self.nobs > 0:
+                fobs = open(self.obsfilepath, "w")
+                fobs.write(f"{len(self.observations)}\n")
+                # Write each
+                for obs in self.observations:
+                    obs.write(f=fobs)
+                fobs.close()
+
+                ## DEPRECATE
+                #f.write(f"{len(self.observations)}\n")
+                ## Write each
+                #for obs in self.observations:
+                #    obs.write(f=f)
+                ## END DEPRECATE
+            else:
+                pass
+
+
+        # And close
+        f.close()
+
 
 
 class ModpathRWBas( flopy.modpath.Modpath7Bas ):
@@ -46,7 +545,7 @@ class ModpathRWBas( flopy.modpath.Modpath7Bas ):
 
 class ModpathRWDsp( Package ):
     """
-    MODPATH RW Dispersion Package Class.
+    MODPATH-RW Dispersion Package Class.
     Parameters
     ----------
     model : model object
@@ -318,6 +817,1056 @@ class ModpathRWOptions( Package ):
         f.close()
 
 
+
+class ModpathRWGpkde( Package ):
+    """
+    MODPATH-RW GPKDE Package Class.
+    Parameters
+    ----------
+    model : model object
+        The model object (of type :class:`flopy.modpath.Modpath7`) to which
+        this package will be added.
+    binsize : list [sx,sy,sz]
+        List with cell size employed for reconstruction process 
+    domainsize : list [sx,sy,sz]
+        List with domain sizes. These are used for computing reconstruction 
+        grid dimensions using given binsize.
+    domainorigin : list [ox,oy,oz]
+        List with domain origin. 
+    noptloops: int
+        The number of optimization loops for determinin smoothing conditions
+    outputfilename: str
+        Filename that will be used for writing reconstruction output. Contains 
+        cell id, density and both time step and particle group identification.
+    extension : str, optional
+        File extension (default is 'dispersion').
+    """
+
+    def __init__(
+        self,
+        model,
+        binsize              = [1,1,1],
+        domainsize           = [1,1,1],
+        domainorigin         = [0,0,0],
+        minhlambda           = 1.0 ,
+        maxhlambda           = 0.1 ,
+        deltahlambda         = 10.0,
+        kerneldatabase       = False, 
+        noptloops            = 2, 
+        outputfilename       = None,
+        extension            = 'gpkde',
+        kerneldatabaseparams = [1,0.1,30], # minh/lambda,deltahlambda,maxhlambda # TO BE DEPRECATED
+    ):
+
+        unitnumber = model.next_unit()
+
+        super().__init__(model, extension, "GPKDE", unitnumber)
+
+        shape = model.shape
+        if len(shape) == 3:
+            shape3d = shape
+        elif len(shape) == 2:
+            shape3d = (shape[0], 1, shape[1])
+        else:
+            shape3d = (1, 1, shape[0])
+
+        self.binsize              = np.array(binsize).astype(np.float32)
+        self.domainsize           = np.array(domainsize).astype(np.float32)
+        self.domainorigin         = np.array(domainorigin).astype(np.float32)
+        self.noptloops            = noptloops
+        self.kerneldatabase       = kerneldatabase       
+        self.minhlambda           = minhlambda
+        self.maxhlambda           = maxhlambda
+        self.deltahlambda         = deltahlambda
+        self.kerneldatabaseparams = kerneldatabaseparams # TO BE DEPRECATED 
+
+        if outputfilename is not None:
+            self.outputfilename = outputfilename
+        else:
+            self.outputfilename = f"{model.name}.gpkde.out"
+
+        self.parent.add_package(self)
+
+        # Done
+        
+
+    def write_file(self, check=False):
+        """
+        Write the package file
+        Parameters
+        ----------
+        check : boolean
+            Check package data for common errors. (default False)
+        Returns
+        -------
+        None
+        """
+
+        # Open file for writing
+        f = open(self.fn_path, "w")
+
+        # Output filename
+        f.write(f"{self.outputfilename}\n")
+
+        # Domain origin
+        for idb, b in enumerate(self.domainorigin):
+            if idb == len(self.domainorigin)-1: 
+                f.write(f"{b:10f}\n")
+            else:
+                f.write(f"{b:10f}\t")
+
+        # Domain sizes
+        for idb, b in enumerate(self.domainsize):
+            if idb == len(self.domainsize)-1: 
+                f.write(f"{b:10f}\n")
+            else:
+                f.write(f"{b:10f}\t")
+
+        # Bin sizes
+        for idb, b in enumerate(self.binsize):
+            if idb == len(self.binsize)-1: 
+                f.write(f"{b:10f}\n")
+            else:
+                f.write(f"{b:10f}\t")
+
+        # Number of optimization loops 
+        f.write(f"{self.noptloops:10d}\n")
+
+        # Reconstruction with kernel database or brute force
+        # 1: kerneldatabase
+        # 0: bruteforcedensity
+        if self.kerneldatabase:
+            # Kernel database reconstruction
+            f.write(f"1\n") # 1 for id into fortran
+
+            # Database params: minh/lambda, daltah/lambda, maxh/lambda
+            f.write(f"{self.minhlambda:10f}\t")
+            f.write(f"{self.deltahlambda:10f}\t")
+            f.write(f"{self.maxhlambda:10f}\n")
+
+        else:
+            # Brute force reconstruction
+            f.write(f"0\n") # 0 for id into fortran
+            
+            # kernel params: minh/lambda, maxh/lambda
+            f.write(f"{self.minhlambda:10f}\t")
+            f.write(f"{self.maxhlambda:10f}\n")
+
+        # And close
+        f.close()
+
+
+
+class ModpathRWObs( Package ):
+    """
+    MODPATH-RW Observation Package Class.
+    Parameters
+    ----------
+    model : model object
+        The model object (of type :class:`flopy.modpath.Modpath7`) to which
+        this package will be added.
+    """
+
+
+    COUNTER = 0
+
+    @count_instances
+    def __init__(
+        self,
+        model,
+        id             = None,
+        kind           = 1,
+        celloption     = 1,
+        cells          = None,
+        timeoption     = 1,
+        structured     = True, 
+        basefilename   = 'mpathrwobs_',
+        filename       = None,
+        extension      = '.obs',
+    ):
+        
+        unitnumber = model.next_unit()
+        super().__init__(model, extension, "OBSCELLS", unitnumber)
+
+        self.kind = kind
+        self.timeoption = timeoption
+        self.structured = structured
+
+        if ( celloption not in [1,2] ):
+            raise ValueError('Invalid celloption ',
+                    celloption, '. Allowed values are 1 (list of cellids) or 2 (modelgrid like array)')
+        self.celloption = celloption
+
+        # Write a list of cellids
+        if self.celloption == 1:
+            if cells is None:
+                self.cells = []
+            else:
+                if not isinstance( cells, (list,np.ndarray,tuple) ):
+                    raise Exception( 'Cells parameter should be a list or numpy array, is ', type( cells ))
+                if ( isinstance( cells, tuple ) and len(cells)==1 ):
+                    cells = cells[0]
+                # Maybe some sanity check about data structure or the same 
+                # used for partlocs
+                self.cells = cells
+
+        # Write obs cells as 3D array
+        if self.celloption == 2: 
+
+            # This was already done right?
+            shape = model.shape
+            if len(shape) == 3:
+                shape3d = shape
+            elif len(shape) == 2:
+                shape3d = (shape[0], 1, shape[1])
+            else:
+                shape3d = (1, 1, shape[0])
+            self.model   = model
+            self.shape3d = shape3d
+
+            if cells is None:
+                self.cells = []
+            else:
+                if not isinstance( cells, (list,np.ndarray) ):
+                    raise Exception( 'Cells parameter should be a list or numpy array')
+                self.cells = Util3d(
+                    model,
+                    shape3d,
+                    np.int32,
+                    cells,
+                    name="OBSCELLS",
+                    locat=self.unit_number[0],
+                )
+
+        # Define obs id
+        # It could be more useful some kind of random 
+        # integer
+        if (id is not None): 
+            self.id = id
+        else:
+            self.id = self.__class__.COUNTER
+
+
+        # Filename for this observation
+        self.filename = basefilename+str(self.id)+extension
+
+
+        return
+
+
+    def write(self, f=None):
+        """
+        Write the package file
+        Parameters
+        ----------
+        Returns
+        -------
+        None
+        """
+
+
+        if f is None:
+            raise Exception('ModpathRwptObs: requires file pointer f. Is None.')
+
+        # validate that a valid file object was passed
+        if not hasattr(f, "write"):
+            raise ValueError(
+                "{}: cannot write data for template without passing a valid "
+                "file object ({}) open for writing".format(self.name, f)
+            )
+
+
+        # Write obs id
+        f.write(f"{self.id}\n")
+
+        # Write obs filename
+        f.write(f"{self.filename}\n")
+
+        # Write the obs kind
+        f.write(f"{self.kind}\n")
+
+        # Write the celloption param
+        f.write(f"{self.celloption}\n")
+
+        if self.celloption == 1:
+            # Should write a cell number
+            if len( self.cells ) == 0: 
+                raise Exception('Observation cells is empty. Specify a list of cells for the observation id ', self.id)
+            else:
+                f.write(f"{len(self.cells)}\n")
+                fmts = []
+                if self.structured:
+                    f.write(f"1\n") # To indicate structured
+                    fmts.append("{:9d}") # lay
+                    fmts.append("{:9d}") # row
+                    fmts.append("{:9d}") # col
+                else:
+                    f.write(f"2\n") # To indicate cell ids
+                    fmts.append("{:9d}") # cellid
+                fmt = " " + " ".join(fmts) + "\n"
+                for oc in self.cells:
+                    woc = np.array(oc).astype(np.int32)+1 # Correct the zero-based indexes
+                    if self.structured:
+                        f.write(fmt.format(*woc))
+                    else:
+                        f.write(fmt.format(woc))
+
+        elif self.celloption == 2:
+            # Should write an array
+            # with the distribution of the observation
+            f.write(self.cells.get_file_entry())
+
+
+        # Write timeoption params
+        f.write(f"{self.timeoption}\n")
+        if self.timeoption == 1:
+            pass
+        elif self.timeoption == 2:
+            pass
+
+
+
+
+        return
+
+
+class ModpathRWObs( Package ):
+    """
+    MODPATH-RW Observation Package Class.
+    Parameters
+    ----------
+    model : model object
+        The model object (of type :class:`flopy.modpath.Modpath7`) to which
+        this package will be added.
+    """
+
+
+    COUNTER = 0
+
+    @count_instances
+    def __init__(
+        self,
+        model,
+        id             = None,
+        kind           = 1,
+        celloption     = 1,
+        cells          = None,
+        timeoption     = 1,
+        structured     = True, 
+        basefilename   = 'mpathrwobs_',
+        filename       = None,
+        extension      = '.obs',
+    ):
+        
+        unitnumber = model.next_unit()
+        super().__init__(model, extension, "OBSCELLS", unitnumber)
+
+        self.kind = kind
+        self.timeoption = timeoption
+        self.structured = structured
+
+        if ( celloption not in [1,2] ):
+            raise ValueError('Invalid celloption ',
+                    celloption, '. Allowed values are 1 (list of cellids) or 2 (modelgrid like array)')
+        self.celloption = celloption
+
+        # Write a list of cellids
+        if self.celloption == 1:
+            if cells is None:
+                self.cells = []
+            else:
+                if not isinstance( cells, (list,np.ndarray,tuple) ):
+                    raise Exception( 'Cells parameter should be a list or numpy array, is ', type( cells ))
+                if ( isinstance( cells, tuple ) and len(cells)==1 ):
+                    cells = cells[0]
+                # Maybe some sanity check about data structure or the same 
+                # used for partlocs
+                self.cells = cells
+
+        # Write obs cells as 3D array
+        if self.celloption == 2: 
+
+            # This was already done right?
+            shape = model.shape
+            if len(shape) == 3:
+                shape3d = shape
+            elif len(shape) == 2:
+                shape3d = (shape[0], 1, shape[1])
+            else:
+                shape3d = (1, 1, shape[0])
+            self.model   = model
+            self.shape3d = shape3d
+
+            if cells is None:
+                self.cells = []
+            else:
+                if not isinstance( cells, (list,np.ndarray) ):
+                    raise Exception( 'Cells parameter should be a list or numpy array')
+                self.cells = Util3d(
+                    model,
+                    shape3d,
+                    np.int32,
+                    cells,
+                    name="OBSCELLS",
+                    locat=self.unit_number[0],
+                )
+
+        # Define obs id
+        # It could be more useful some kind of random 
+        # integer
+        if (id is not None): 
+            self.id = id
+        else:
+            self.id = self.__class__.COUNTER
+
+
+        self.filename = basefilename+str(self.id)+extension
+
+
+        return
+
+
+    def write(self, f=None):
+        """
+        Write the package file
+        Parameters
+        ----------
+        Returns
+        -------
+        None
+        """
+
+
+        if f is None:
+            raise Exception('ModpathRwptObs: requires file pointer f. Is None.')
+
+        # validate that a valid file object was passed
+        if not hasattr(f, "write"):
+            raise ValueError(
+                "{}: cannot write data for template without passing a valid "
+                "file object ({}) open for writing".format(self.name, f)
+            )
+
+
+        # Write obs id
+        f.write(f"{self.id}\n")
+
+        # Write obs filename
+        f.write(f"{self.filename}\n")
+
+        # Write the obs kind
+        f.write(f"{self.kind}\n")
+
+        # Write the celloption param
+        f.write(f"{self.celloption}\n")
+
+        if self.celloption == 1:
+            # Should write a cell number
+            if len( self.cells ) == 0: 
+                raise Exception('Observation cells is empty. Specify a list of cells for the observation id ', self.id)
+            else:
+                f.write(f"{len(self.cells)}\n")
+                fmts = []
+                if self.structured:
+                    f.write(f"1\n") # To indicate structured
+                    fmts.append("{:9d}") # lay
+                    fmts.append("{:9d}") # row
+                    fmts.append("{:9d}") # col
+                else:
+                    f.write(f"2\n") # To indicate cell ids
+                    fmts.append("{:9d}") # cellid
+                fmt = " " + " ".join(fmts) + "\n"
+                for oc in self.cells:
+                    woc = np.array(oc).astype(np.int32)+1 # Correct the zero-based indexes
+                    if self.structured:
+                        f.write(fmt.format(*woc))
+                    else:
+                        f.write(fmt.format(woc))
+
+        elif self.celloption == 2:
+            # Should write an array
+            # with the distribution of the observation
+            f.write(self.cells.get_file_entry())
+
+
+        # Write timeoption params
+        f.write(f"{self.timeoption}\n")
+        if self.timeoption == 1:
+            pass
+        elif self.timeoption == 2:
+            pass
+
+
+
+
+        return
+
+
+
+
+
+
+# DEPRECATION WARNING ?
+class ModpathRwptSolute( Package ):
+    """
+    MODPATH RWPT Solute Package Class.
+    Parameters
+    ----------
+    model : model object
+        The model object (of type :class:`flopy.modpath.Modpath7`) to which
+        this package will be added.
+    """
+
+    COUNTER = 0
+
+    @count_instances
+    def __init__(
+        self,
+        model,
+        id       = None,
+        stringid = None,
+        kind     = 1,
+        dispmodel= 1,
+        daqueous = 0.0,
+        displong = None,
+        disptranh= None,
+        disptranv= None,
+        pgroups  = None,
+        extension='.sol',
+    ):
+        
+        unitnumber = model.next_unit()
+        super().__init__(model, extension, "SOLUTE", unitnumber)
+
+        shape = model.shape
+        if len(shape) == 3:
+            shape3d = shape
+        elif len(shape) == 2:
+            shape3d = (shape[0], 1, shape[1])
+        else:
+            shape3d = (1, 1, shape[0])
+
+        self.model = model
+        self.shape3d = shape3d
+
+        self.kind     = kind
+        self.daqueous = daqueous
+        
+        self.dispmodel = dispmodel
+       
+        # Assign LINEAR dispersion parameters
+        self.displong = Util3d(
+            model,
+            shape3d,
+            np.float32,
+            displong,
+            name="LONGITUDINAL",
+            locat=self.unit_number[0],
+        )
+        if(
+           ( disptranh is None ) and 
+           ( disptranv is not None ) ):
+            self.disptranh = disptranv
+        else:
+            self.disptranh= Util3d(
+                model,
+                shape3d,
+                np.float32,
+                disptranh,
+                name="TRANSVERSEH",
+                locat=self.unit_number[0],
+            )
+        if(
+           ( disptranv is None ) and 
+           ( disptranh is not None ) ):
+            self.disptranv = self.disptranh
+        else:
+            self.disptranv= Util3d(
+                model,
+                shape3d,
+                np.float32,
+                disptranv,
+                name="TRANSVERSEV",
+                locat=self.unit_number[0],
+            )
+
+
+        if not isinstance( pgroups, (list, np.ndarray)):
+            raise TypeError('pgroups should be a list or array, given ', type(pgroups))
+        self.pgroups = pgroups
+
+
+
+        # Define obs id
+        # It could be more useful some kind of random 
+        # integer
+        if (id is not None): 
+            self.id = id
+        else:
+            self.id = self.__class__.COUNTER
+
+        if (stringid is not None): 
+            self.stringid = stringid
+        else:
+            self.stringid = 'S'+str(self.__class__.COUNTER)
+
+
+        return
+
+
+    def write(self, f=None, particlesmassoption=0):
+
+        """
+        Write the package file
+        Parameters
+        ----------
+        Returns
+        -------
+        None
+        """
+
+
+        if f is None:
+            raise Exception('ModpathRwptObs: requires file pointer f. Is None.')
+
+        # validate that a valid file object was passed
+        if not hasattr(f, "write"):
+            raise ValueError(
+                "{}: cannot write data for template without passing a valid "
+                "file object ({}) open for writing".format(self.name, f)
+            )
+
+
+        # Write id
+        f.write(f"{self.id}\n")
+
+        # Write stringid
+        f.write(f"{self.stringid}\n")
+
+        # Need to write the related groups 
+        # only if particlesmassoption not equal 2 
+        if ( particlesmassoption != 2 ):
+            # Write the number of groups
+            f.write(f"{len(self.pgroups)}\n")
+
+            for idpg, pg in enumerate(self.pgroups):
+                # Write the pgroup id in the list of pgroups
+                f.write(f"{pg+1}\n")
+
+        if self.dispmodel == 1:
+
+            # Write modelkind
+            f.write(f"{self.dispmodel}\n")
+
+            # Write effetive molecular diffusion
+            f.write(f"{self.daqueous:.16f}\n")
+
+            # Write dispersivities
+            f.write(self.displong.get_file_entry())
+            f.write(self.disptranh.get_file_entry())
+
+        elif self.dispmodel == 2:
+            pass
+
+
+        return
+
+
+class ModpathRWIc( Package ):
+    """
+    MODPATH-RW Initial Condition Package Class.
+    Parameters
+    ----------
+    model : model object
+        The model object (of type :class:`flopy.modpath.Modpath7`) to which
+        this package will be added.
+    concentration : ndarray
+        Interpreted as resident concentration, that is, the product beween porosity and
+        dissolved concentration. 
+    """
+
+    COUNTER = 0
+
+    @count_instances
+    def __init__(
+        self,
+        model,
+        id            = None,
+        stringid      = None,
+        kind          = 1,
+        mass          = 1,
+        massformat    = 1,
+        concentration = None,
+        soluteid      = 1,
+        extension     = '.ic',
+    ):
+        
+        unitnumber = model.next_unit()
+        super().__init__(model, extension, "RWIC", unitnumber)
+
+        shape = model.shape
+        if len(shape) == 3:
+            shape3d = shape
+        elif len(shape) == 2:
+            shape3d = (shape[0], 1, shape[1])
+        else:
+            shape3d = (1, 1, shape[0])
+
+        self.model = model
+        self.shape3d = shape3d
+
+        # Determines how to write the initial condition
+        if (kind not in [1]): 
+            raise ValueError('ModpathRWIc: Invalid value for kind, should be 1. Given ', str(kind) )
+        self.kind = kind
+
+        self.mass = mass
+        self.massformat = massformat
+
+        self.soluteid = soluteid
+
+
+        # Generic 
+        # id
+        if (id is not None): 
+            self.id = id
+        else:
+            self.id = self.__class__.COUNTER
+        # stringid 
+        if (stringid is not None): 
+            self.stringid = stringid
+        else:
+            self.stringid = 'IC'+str(self.__class__.COUNTER)
+
+        if (
+            ( concentration is not None ) and 
+            ( self.kind == 1 )
+        ):
+            if not isinstance( concentration, np.ndarray ):
+                raise TypeError('ModpathRWIc: concentration should be an np.ndarray')
+            self.concentration = Util3d(
+                self.model,
+                self.shape3d,
+                np.float32,
+                concentration,
+                name=self.stringid,
+                locat=self.unit_number[0],
+            )
+        elif ( (self.kind ==1) and (concentration is None) ):
+            raise ValueError('ModpathRWIc: kind 1 requires concentration array, None given.')
+        
+        return
+
+
+    def write(self, f=None, particlesmassoption=0, solutesoption=0):
+
+        """
+        Write the package file
+        Parameters
+        ----------
+        Returns
+        -------
+        None
+        """
+
+
+        # validate that a valid file object was passed
+        if not hasattr(f, "write"):
+            raise ValueError(
+                "{}: cannot write data for template without passing a valid "
+                "file object ({}) open for writing".format(self.name, f)
+            )
+
+        # Write string id 
+        f.write(f"{self.stringid}\n")
+
+        # Kind/format of initial condition 
+        f.write(f"{self.kind}\n")
+
+        # 1: resident concentration array  
+        if self.kind == 1:
+
+            # Give particles mass 
+            f.write(f"{self.mass:.10f}\n")
+
+            # If solutes are being specified, do it
+            if( (particlesmassoption == 2) or (solutesoption == 1)):
+                f.write(f"{self.soluteid}\n")
+
+            # And concentration distribution
+            f.write(self.concentration.get_file_entry())
+
+        return
+
+
+class ModpathRWFlux( Package ): # Ssm ?
+    """
+    MODPATH RWPT Flux Package Class.
+    Parameters
+    ----------
+    model : model object
+        The model object (of type :class:`flopy.modpath.Modpath7`) to which
+        this package will be added.
+    """
+
+    COUNTER = 0
+
+    @count_instances
+    def __init__(
+        self,
+        model,
+        id            = None,
+        stringid      = None,
+        kind          = 1,
+        mass          = 1,
+        massformat    = 1,   # could be used eventually
+        starttime     = None, 
+        endtime       = None,
+        dtrelease     = None,
+        times         = None,
+        concentration = None,
+        cellid        = None,
+        structured    = True,
+        nparticles    = None,
+        rowsubdiv     = 1,
+        colsubdiv     = 1,
+        laysubdiv     = 1,
+        soluteid      = 1,
+        filename      = None,
+        extension     = '.flux',
+    ):
+        
+        unitnumber = model.next_unit()
+        super().__init__(model, extension, "FLUX", unitnumber)
+
+        shape = model.shape
+        if len(shape) == 3:
+            shape3d = shape
+        elif len(shape) == 2:
+            shape3d = (shape[0], 1, shape[1])
+        else:
+            shape3d = (1, 1, shape[0])
+
+        self.model = model
+        self.shape3d = shape3d
+
+        # Determines how to write the initial condition
+        if (kind not in [1,2]): 
+            raise ValueError(self.__class__.__name__,': Invalid value for kind, should be 1,2. Given ', str(kind) )
+        # Concentration timeseries
+        if kind == 2:
+            if ( times is None ):
+                raise ValueError(self.__class__.__name__,': Format 2 for injection requires times, but None was given.' )
+            if not isinstance( times, (list,np.ndarray) ):
+                raise ValueError(self.__class__.__name__,': Format 2 requires times as list or np.ndarray. Given ', type(times) )
+            if ( concentration is None ):
+                raise ValueError(self.__class__.__name__,': Format 2 for injection requires concentrations, but None was given.' )
+            if not isinstance( concentration, (list,np.ndarray) ):
+                raise ValueError(self.__class__.__name__,': Format 2 requires concentrations as list or np.ndarray. Given ', type(times) )
+            if len(concentration) != len(times):
+                raise ValueError(self.__class__.__name__,': Format 2 requires concentrations to have the same size than times. ' )
+        self.kind = kind
+
+        self.soluteid = soluteid
+        self.structured = structured
+
+
+        if cellid is None: 
+            raise ValueError(self.__class__.__name__,': Requires cellid. Given ', str(cellid) )
+        if isinstance(cellid, (list,np.ndarray)):
+            if ( self.structured and (len(cellid)!=3) ):
+                raise ValueError(self.__class__.__name__,': Structured cellid should follow [lay,row,col] format. Given ', str(cellid) )
+            elif ( (not self.structured) and (len(cellid)!=1) ): 
+                raise ValueError(self.__class__.__name__,': Structured cellid should follow [lay,row,col] format. Given ', str(cellid) )
+        elif isinstance(cellid, (int)):
+            if ( self.structured ): 
+                raise ValueError(self.__class__.__name__,': Structured cellid requires [lay,row,col] format. Given ', str(cellid) )
+        else:
+            raise TypeError(self.__class__.__name__,': Cellid should be a list, ndarray or integer depending on structured parameter.' )
+        self.cellid = cellid
+
+        # Assign mass format
+        if (massformat not in [1]): 
+            raise ValueError(self.__class__.__name__,': Invalid value for massformat, should be 1. Given ', str(massformat) )
+        self.massformat = massformat
+        if self.massformat == 1:
+            self.mass = mass
+        #elif self.massformat == 2: # requires nparticles
+        #    # Compute mass based on dtrelease, concentration, flow-rate
+        #    if flowrate is None:
+        #        raise ValueError(self.__class__.__name__,': Massformat 2 requires flow rate.' )
+        #    mass = flowrate*concentration*dtrelease/nparticles 
+        #    self.mass = mass
+        self.massformat = massformat
+
+
+        # Generic 
+        # id
+        if (id is not None): 
+            self.id = id
+        else:
+            self.id = self.__class__.COUNTER
+        # stringid 
+        if (stringid is not None): 
+            self.stringid = stringid
+        else:
+            self.stringid = 'PF'+str(self.__class__.COUNTER)
+
+        # If kind 1, verify times
+        if(self.kind == 1):
+            if ( starttime is None ):
+                raise ValueError(self.__class__.__name__,': Format 1 for injection requires starttime but None was given.' )
+            if ( dtrelease is None ):
+                raise ValueError(self.__class__.__name__,': Format 1 for injection requires dtrelease but None was given.' )
+            if ( endtime is None ):
+                raise ValueError(self.__class__.__name__,': Format 1 for injection requires endtime but None was given.' )
+            self.starttime = starttime
+            self.dtrelease = dtrelease
+            self.endtime   = endtime
+            self.releasecount = int(len(np.arange(starttime,endtime+dtrelease,dtrelease)))
+    
+
+        # Define a filename for writing the injection series
+        if( (self.kind == 2) and (filename is None)):
+            self.filename = self.stringid + '_timeseries.csv'
+
+
+
+        self.rowsubdiv = rowsubdiv
+        self.colsubdiv = colsubdiv
+        self.laysubdiv = laysubdiv
+
+
+        return
+
+
+    def write(self, f=None, particlesmassoption=0, solutesoption=0):
+
+        """
+        Write the package file
+        Parameters
+        ----------
+        Returns
+        -------
+        None
+        """
+
+
+        # validate that a valid file object was passed
+        if not hasattr(f, "write"):
+            raise ValueError(
+                "{}: cannot write data for template without passing a valid "
+                "file object ({}) open for writing".format(self.name, f)
+            )
+
+        # Write string id 
+        f.write(f"{self.stringid}\n")
+
+        # Kind/format of flux condition 
+        f.write(f"{self.kind}\n")
+
+        if self.kind == 1:
+            # Cell
+            if self.structured:
+                f.write(f"1\n") # To indicate structured
+                fmts.append("{:9d}") # lay
+                fmts.append("{:9d}") # row
+                fmts.append("{:9d}") # col
+            else:
+                f.write(f"2\n") # To indicate cell ids
+                fmts.append("{:9d}") # cellid
+            fmt = " " + " ".join(fmts) + "\n"
+            woc = np.array(self.cellid).astype(np.int32)+1 # Correct the zero-based indexes
+            f.write(fmt.format(*woc))
+
+            # If particles mass is given, assumes
+            # estimation performed via some 
+            # method involving concentration
+
+            # Give particles mass 
+            f.write(f"{self.mass:.10f}\n")
+            
+            # If solutes are being specified, do it
+            if( (particlesmassoption == 2) or (solutesoption == 1)):
+                f.write(f"{self.soluteid}\n")
+
+            fmts = []
+            fmts.append("{:9d}")   # Release time count
+            fmts.append("{:.10f}") # Initial release
+            fmts.append("{:.10f}") # Release interval 
+            fmt = " " + " ".join(fmts) + "\n"
+            woc = [self.releasecount,self.starttime,self.dtrelease]
+            f.write(fmt.format(*woc))
+
+            fmt = " {} {} {}\n"
+            line = fmt.format(
+                self.colsubdiv,
+                self.rowsubdiv,
+                self.laysubdiv,
+            )
+            f.write(line)
+            
+
+        # A injection series
+        if self.kind == 2:
+            # Write a cell number
+            fmts = []
+            if self.structured:
+                f.write(f"1\n") # To indicate structured
+                fmts.append("{:9d}") # lay
+                fmts.append("{:9d}") # row
+                fmts.append("{:9d}") # col
+            else:
+                f.write(f"2\n") # To indicate cell ids
+                fmts.append("{:9d}") # cellid
+            fmt = " " + " ".join(fmts) + "\n"
+            woc = np.array(self.cellid).astype(np.int32)+1 # Correct the zero-based indexes
+            f.write(fmt.format(*woc))
+
+            # Give particles mass 
+            f.write(f"{self.mass:.10f}\n")
+
+            # If solutes are being specified, do it
+            if( (particlesmassoption == 2) or (solutesoption == 1)):
+                f.write(f"{self.soluteid}\n")
+
+            # Write length of the timeseries
+            f.write(f"{len(self.times)}\n")
+
+            # Write the timeseries file
+            df         = pd.DataFrame()
+            df['time'] = self.times
+            df['conc'] = self.concentration
+            df.to_csv(os.path.join(
+                self.model.model_ws, self.filename),
+                header=None,
+                index =False,
+                sep   =' ', 
+                float_format="%.10f"
+            )
+            # And its name
+            f.write(f"{self.filename}\n")
+
+
+        return
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#########################################################
+# DEPRECATION WARNING
+#########################################################
 class ModpathRwptDispersion( Package ):
     """
     MODPATH RWPT Dispersion Package Class.
@@ -637,167 +2186,7 @@ class ModpathRwptDispersion( Package ):
         f.close()
 
 
-
-
-class ModpathRwptReconstruction( Package ):
-    """
-    MODPATH RWPT Dispersion Package Class.
-    Parameters
-    ----------
-    model : model object
-        The model object (of type :class:`flopy.modpath.Modpath7`) to which
-        this package will be added.
-    binsize : list [sx,sy,sz]
-        List with cell size employed for reconstruction process 
-    domainsize : list [sx,sy,sz]
-        List with domain sizes. These are used for computing reconstruction 
-        grid dimensions using given binsize.
-    domainorigin : list [ox,oy,oz]
-        List with domain origin. 
-    noptloops: int
-        The number of optimization loops for determinin smoothing conditions
-    outputfilename: str
-        Filename that will be used for writing reconstruction output. Contains 
-        cell id, density and both time step and particle group identification.
-    extension : str, optional
-        File extension (default is 'dispersion').
-    """
-
-    def __init__(
-        self,
-        model,
-        binsize              = [1,1,1],
-        domainsize           = [1,1,1],
-        domainorigin         = [0,0,0],
-        kerneldatabase       = False, 
-        kerneldatabaseparams = [1,0.1,30], # minh/lambda,deltahlambda,maxhlambda
-        noptloops            = 10, 
-        outputfilename       = 'gpkde.output',
-        extension            = 'gpkde',
-        skiptimeserieswriter = False,
-        minhlambda           = None,
-        maxhlambda           = None,
-        deltahlambda         = None,
-    ):
-
-        unitnumber = model.next_unit()
-
-        super().__init__(model, extension, "GPKDE", unitnumber)
-
-        shape = model.shape
-        if len(shape) == 3:
-            shape3d = shape
-        elif len(shape) == 2:
-            shape3d = (shape[0], 1, shape[1])
-        else:
-            shape3d = (1, 1, shape[0])
-
-        self.binsize      = np.array(binsize).astype(np.float32)
-        self.domainsize   = np.array(domainsize).astype(np.float32)
-        self.domainorigin = np.array(domainorigin).astype(np.float32)
-        self.noptloops    = noptloops
-
-        self.kerneldatabase       = kerneldatabase       
-        self.kerneldatabaseparams = kerneldatabaseparams 
-
-        self.skiptimeserieswriter = skiptimeserieswriter
-
-        if outputfilename is not None:
-            self.outputfilename = outputfilename
-        else:
-            raise Exception('requires outputfilename for reconstruction output')
-
-        self.parent.add_package(self)
-
-        
-
-    def write_file(self, check=False):
-        """
-        Write the package file
-        Parameters
-        ----------
-        check : boolean
-            Check package data for common errors. (default False)
-        Returns
-        -------
-        None
-        """
-
-        # Open file for writing
-        f = open(self.fn_path, "w")
-
-        # Output filename
-        f.write(f"{self.outputfilename}\n")
-
-        # Skip timeseries writer 
-        if self.skiptimeserieswriter:
-            f.write(f"1\n") # 1 true, skip TimeseriesWriter
-        else:
-            f.write(f"0\n") # 0 false, write timeseries
-
-        # Domain origin
-        for idb, b in enumerate(self.domainorigin):
-            if idb == len(self.domainorigin)-1: 
-                f.write(f"{b:10f}\n")
-            else:
-                f.write(f"{b:10f}\t")
-
-        # Domain sizes
-        for idb, b in enumerate(self.domainsize):
-            if idb == len(self.domainsize)-1: 
-                f.write(f"{b:10f}\n")
-            else:
-                f.write(f"{b:10f}\t")
-
-        # Bin sizes
-        for idb, b in enumerate(self.binsize):
-            if idb == len(self.binsize)-1: 
-                f.write(f"{b:10f}\n")
-            else:
-                f.write(f"{b:10f}\t")
-
-        # Number of optimization loops 
-        f.write(f"{self.noptloops:10d}\n")
-
-        # Kernel database reconstruction or direct without database
-        # 1: kerneldatabase
-        # 0: bruteforcedensity
-        if self.kerneldatabase:
-            # Kernel database reconstruction
-            f.write(f"1\n") # 1 for id into fortran
-
-            # Database params: minh/lambda, daltah/lambda, maxh/lambda
-            for idb, b in enumerate(self.kerneldatabaseparams):
-                if idb == len(self.binsize)-1: 
-                    f.write(f"{b:10f}\n")
-                else:
-                    f.write(f"{b:10f\t}")
-        else:
-            # Brute force reconstruction
-            f.write(f"0\n") # 0 for id into fortran
-            
-            # kernel params: minh/lambda, maxh/lambda
-            for idb, b in enumerate(self.kerneldatabaseparams):
-                if idb == 0:
-                    f.write(f"{b:16f}\t")
-                if idb == 2: 
-                    f.write(f"{b:16f}\n")
-
-
-        # And close
-        f.close()
-
-
-
-
-
-def count_instances(method):
-    def wrapper(self, *args, **kw):
-        self.__class__.COUNTER += 1
-        return method(self, *args, **kw)
-    return wrapper
-
-
+# DEPRECATION WARNING
 class ModpathRwptObs( Package ):
     """
     MODPATH RWPT Observation Package Class.
@@ -970,36 +2359,50 @@ class ModpathRwptObs( Package ):
         return
 
 
-class ModpathRwptSolute( Package ):
+class ModpathRwptReconstruction( Package ):
     """
-    MODPATH RWPT Solute Package Class.
+    MODPATH RWPT Dispersion Package Class.
     Parameters
     ----------
     model : model object
         The model object (of type :class:`flopy.modpath.Modpath7`) to which
         this package will be added.
+    binsize : list [sx,sy,sz]
+        List with cell size employed for reconstruction process 
+    domainsize : list [sx,sy,sz]
+        List with domain sizes. These are used for computing reconstruction 
+        grid dimensions using given binsize.
+    domainorigin : list [ox,oy,oz]
+        List with domain origin. 
+    noptloops: int
+        The number of optimization loops for determinin smoothing conditions
+    outputfilename: str
+        Filename that will be used for writing reconstruction output. Contains 
+        cell id, density and both time step and particle group identification.
+    extension : str, optional
+        File extension (default is 'dispersion').
     """
 
-    COUNTER = 0
-
-    @count_instances
     def __init__(
         self,
         model,
-        id       = None,
-        stringid = None,
-        kind     = 1,
-        dispmodel= 1,
-        daqueous = 0.0,
-        displong = None,
-        disptranh= None,
-        disptranv= None,
-        pgroups  = None,
-        extension='.sol',
+        binsize              = [1,1,1],
+        domainsize           = [1,1,1],
+        domainorigin         = [0,0,0],
+        kerneldatabase       = False, 
+        kerneldatabaseparams = [1,0.1,30], # minh/lambda,deltahlambda,maxhlambda
+        noptloops            = 10, 
+        outputfilename       = 'gpkde.output',
+        extension            = 'gpkde',
+        skiptimeserieswriter = False,
+        minhlambda           = None,
+        maxhlambda           = None,
+        deltahlambda         = None,
     ):
-        
+
         unitnumber = model.next_unit()
-        super().__init__(model, extension, "SOLUTE", unitnumber)
+
+        super().__init__(model, extension, "GPKDE", unitnumber)
 
         shape = model.shape
         if len(shape) == 3:
@@ -1009,610 +2412,102 @@ class ModpathRwptSolute( Package ):
         else:
             shape3d = (1, 1, shape[0])
 
-        self.model = model
-        self.shape3d = shape3d
+        self.binsize      = np.array(binsize).astype(np.float32)
+        self.domainsize   = np.array(domainsize).astype(np.float32)
+        self.domainorigin = np.array(domainorigin).astype(np.float32)
+        self.noptloops    = noptloops
 
-        self.kind     = kind
-        self.daqueous = daqueous
+        self.kerneldatabase       = kerneldatabase       
+        self.kerneldatabaseparams = kerneldatabaseparams 
+
+        self.skiptimeserieswriter = skiptimeserieswriter
+
+        if outputfilename is not None:
+            self.outputfilename = outputfilename
+        else:
+            raise Exception('requires outputfilename for reconstruction output')
+
+        self.parent.add_package(self)
+
         
-        self.dispmodel = dispmodel
-       
-        # Assign LINEAR dispersion parameters
-        self.displong = Util3d(
-            model,
-            shape3d,
-            np.float32,
-            displong,
-            name="LONGITUDINAL",
-            locat=self.unit_number[0],
-        )
-        if(
-           ( disptranh is None ) and 
-           ( disptranv is not None ) ):
-            self.disptranh = disptranv
-        else:
-            self.disptranh= Util3d(
-                model,
-                shape3d,
-                np.float32,
-                disptranh,
-                name="TRANSVERSEH",
-                locat=self.unit_number[0],
-            )
-        if(
-           ( disptranv is None ) and 
-           ( disptranh is not None ) ):
-            self.disptranv = self.disptranh
-        else:
-            self.disptranv= Util3d(
-                model,
-                shape3d,
-                np.float32,
-                disptranv,
-                name="TRANSVERSEV",
-                locat=self.unit_number[0],
-            )
 
-
-        if not isinstance( pgroups, (list, np.ndarray)):
-            raise TypeError('pgroups should be a list or array, given ', type(pgroups))
-        self.pgroups = pgroups
-
-
-
-        # Define obs id
-        # It could be more useful some kind of random 
-        # integer
-        if (id is not None): 
-            self.id = id
-        else:
-            self.id = self.__class__.COUNTER
-
-        if (stringid is not None): 
-            self.stringid = stringid
-        else:
-            self.stringid = 'S'+str(self.__class__.COUNTER)
-
-
-        return
-
-
-    def write(self, f=None, particlesmassoption=0):
-
+    def write_file(self, check=False):
         """
         Write the package file
         Parameters
         ----------
+        check : boolean
+            Check package data for common errors. (default False)
         Returns
         -------
         None
         """
 
+        # Open file for writing
+        f = open(self.fn_path, "w")
 
-        if f is None:
-            raise Exception('ModpathRwptObs: requires file pointer f. Is None.')
+        # Output filename
+        f.write(f"{self.outputfilename}\n")
 
-        # validate that a valid file object was passed
-        if not hasattr(f, "write"):
-            raise ValueError(
-                "{}: cannot write data for template without passing a valid "
-                "file object ({}) open for writing".format(self.name, f)
-            )
-
-
-        # Write id
-        f.write(f"{self.id}\n")
-
-        # Write stringid
-        f.write(f"{self.stringid}\n")
-
-        # Need to write the related groups 
-        # only if particlesmassoption not equal 2 
-        if ( particlesmassoption != 2 ):
-            # Write the number of groups
-            f.write(f"{len(self.pgroups)}\n")
-
-            for idpg, pg in enumerate(self.pgroups):
-                # Write the pgroup id in the list of pgroups
-                f.write(f"{pg+1}\n")
-
-        if self.dispmodel == 1:
-
-            # Write modelkind
-            f.write(f"{self.dispmodel}\n")
-
-            # Write effetive molecular diffusion
-            f.write(f"{self.daqueous:.16f}\n")
-
-            # Write dispersivities
-            f.write(self.displong.get_file_entry())
-            f.write(self.disptranh.get_file_entry())
-
-        elif self.dispmodel == 2:
-            pass
-
-
-        return
-
-
-class ModpathRwptIc( Package ):
-    """
-    MODPATH RWPT Initial Condition Package Class.
-    Parameters
-    ----------
-    model : model object
-        The model object (of type :class:`flopy.modpath.Modpath7`) to which
-        this package will be added.
-    concentration : ndarray
-        Interpreted as resident concentration, that is, the product beween porosity and
-        dissolved concentration. 
-    """
-
-    COUNTER = 0
-
-    @count_instances
-    def __init__(
-        self,
-        model,
-        id            = None,
-        stringid      = None,
-        kind          = 1,
-        mass          = 1,
-        massformat    = 1,
-        concentration = None,
-        soluteid      = 1,
-        extension     = '.ic',
-    ):
-        
-        unitnumber = model.next_unit()
-        super().__init__(model, extension, "RWIC", unitnumber)
-
-        shape = model.shape
-        if len(shape) == 3:
-            shape3d = shape
-        elif len(shape) == 2:
-            shape3d = (shape[0], 1, shape[1])
+        # Skip timeseries writer 
+        if self.skiptimeserieswriter:
+            f.write(f"1\n") # 1 true, skip TimeseriesWriter
         else:
-            shape3d = (1, 1, shape[0])
+            f.write(f"0\n") # 0 false, write timeseries
 
-        self.model = model
-        self.shape3d = shape3d
-
-        # Determines how to write the initial condition
-        if (kind not in [1]): 
-            raise ValueError('ModpathRWIc: Invalid value for kind, should be 1. Given ', str(kind) )
-        self.kind = kind
-
-        self.mass = mass
-        self.massformat = massformat
-
-        self.soluteid = soluteid
-
-
-        # Generic 
-        # id
-        if (id is not None): 
-            self.id = id
-        else:
-            self.id = self.__class__.COUNTER
-        # stringid 
-        if (stringid is not None): 
-            self.stringid = stringid
-        else:
-            self.stringid = 'IC'+str(self.__class__.COUNTER)
-
-        if (
-            ( concentration is not None ) and 
-            ( self.kind == 1 )
-        ):
-            if not isinstance( concentration, np.ndarray ):
-                raise TypeError('ModpathRWIc: concentration should be an np.ndarray')
-            self.concentration = Util3d(
-                self.model,
-                self.shape3d,
-                np.float32,
-                concentration,
-                name=self.stringid,
-                locat=self.unit_number[0],
-            )
-        elif ( (self.kind ==1) and (concentration is None) ):
-            raise ValueError('ModpathRWIc: kind 1 requires concentration array, None given.')
-        
-        return
-
-
-    def write(self, f=None, particlesmassoption=0, solutesoption=0):
-
-        """
-        Write the package file
-        Parameters
-        ----------
-        Returns
-        -------
-        None
-        """
-
-
-        # validate that a valid file object was passed
-        if not hasattr(f, "write"):
-            raise ValueError(
-                "{}: cannot write data for template without passing a valid "
-                "file object ({}) open for writing".format(self.name, f)
-            )
-
-        # Write string id 
-        f.write(f"{self.stringid}\n")
-
-        # Kind/format of initial condition 
-        f.write(f"{self.kind}\n")
-
-        # 1: resident concentration array  
-        if self.kind == 1:
-
-            # Give particles mass 
-            f.write(f"{self.mass:.10f}\n")
-
-            # If solutes are being specified, do it
-            if( (particlesmassoption == 2) or (solutesoption == 1)):
-                f.write(f"{self.soluteid}\n")
-
-            # And concentration distribution
-            f.write(self.concentration.get_file_entry())
-
-        return
-
-
-class ModpathRwptFlux( Package ):
-    """
-    MODPATH RWPT Flux Package Class.
-    Parameters
-    ----------
-    model : model object
-        The model object (of type :class:`flopy.modpath.Modpath7`) to which
-        this package will be added.
-    """
-
-    COUNTER = 0
-
-    @count_instances
-    def __init__(
-        self,
-        model,
-        id            = None,
-        stringid      = None,
-        kind          = 1,
-        mass          = 1,
-        massformat    = 1,   # could be used eventually
-        starttime     = None, 
-        endtime       = None,
-        dtrelease     = None,
-        times         = None,
-        concentration = None,
-        cellid        = None,
-        structured    = True,
-        nparticles    = None,
-        rowsubdiv     = 1,
-        colsubdiv     = 1,
-        laysubdiv     = 1,
-        soluteid      = 1,
-        filename      = None,
-        extension     = '.flux',
-    ):
-        
-        unitnumber = model.next_unit()
-        super().__init__(model, extension, "RWFLUX", unitnumber)
-
-        shape = model.shape
-        if len(shape) == 3:
-            shape3d = shape
-        elif len(shape) == 2:
-            shape3d = (shape[0], 1, shape[1])
-        else:
-            shape3d = (1, 1, shape[0])
-
-        self.model = model
-        self.shape3d = shape3d
-
-        # Determines how to write the initial condition
-        if (kind not in [1,2]): 
-            raise ValueError(self.__class__.__name__,': Invalid value for kind, should be 1,2. Given ', str(kind) )
-        # Concentration timeseries
-        if kind == 2:
-            if ( times is None ):
-                raise ValueError(self.__class__.__name__,': Format 2 for injection requires times, but None was given.' )
-            if not isinstance( times, (list,np.ndarray) ):
-                raise ValueError(self.__class__.__name__,': Format 2 requires times as list or np.ndarray. Given ', type(times) )
-            if ( concentration is None ):
-                raise ValueError(self.__class__.__name__,': Format 2 for injection requires concentrations, but None was given.' )
-            if not isinstance( concentration, (list,np.ndarray) ):
-                raise ValueError(self.__class__.__name__,': Format 2 requires concentrations as list or np.ndarray. Given ', type(times) )
-            if len(concentration) != len(times):
-                raise ValueError(self.__class__.__name__,': Format 2 requires concentrations to have the same size than times. ' )
-        self.kind = kind
-
-        self.soluteid = soluteid
-        self.structured = structured
-
-
-        if cellid is None: 
-            raise ValueError(self.__class__.__name__,': Requires cellid. Given ', str(cellid) )
-        if isinstance(cellid, (list,np.ndarray)):
-            if ( self.structured and (len(cellid)!=3) ):
-                raise ValueError(self.__class__.__name__,': Structured cellid should follow [lay,row,col] format. Given ', str(cellid) )
-            elif ( (not self.structured) and (len(cellid)!=1) ): 
-                raise ValueError(self.__class__.__name__,': Structured cellid should follow [lay,row,col] format. Given ', str(cellid) )
-        elif isinstance(cellid, (int)):
-            if ( self.structured ): 
-                raise ValueError(self.__class__.__name__,': Structured cellid requires [lay,row,col] format. Given ', str(cellid) )
-        else:
-            raise TypeError(self.__class__.__name__,': Cellid should be a list, ndarray or integer depending on structured parameter.' )
-        self.cellid = cellid
-
-        # Assign mass format
-        if (massformat not in [1]): 
-            raise ValueError(self.__class__.__name__,': Invalid value for massformat, should be 1. Given ', str(massformat) )
-        self.massformat = massformat
-        if self.massformat == 1:
-            self.mass = mass
-        #elif self.massformat == 2: # requires nparticles
-        #    # Compute mass based on dtrelease, concentration, flow-rate
-        #    if flowrate is None:
-        #        raise ValueError(self.__class__.__name__,': Massformat 2 requires flow rate.' )
-        #    mass = flowrate*concentration*dtrelease/nparticles 
-        #    self.mass = mass
-        self.massformat = massformat
-
-
-        # Generic 
-        # id
-        if (id is not None): 
-            self.id = id
-        else:
-            self.id = self.__class__.COUNTER
-        # stringid 
-        if (stringid is not None): 
-            self.stringid = stringid
-        else:
-            self.stringid = 'PF'+str(self.__class__.COUNTER)
-
-        # If kind 1, verify times
-        if(self.kind == 1):
-            if ( starttime is None ):
-                raise ValueError(self.__class__.__name__,': Format 1 for injection requires starttime but None was given.' )
-            if ( dtrelease is None ):
-                raise ValueError(self.__class__.__name__,': Format 1 for injection requires dtrelease but None was given.' )
-            if ( endtime is None ):
-                raise ValueError(self.__class__.__name__,': Format 1 for injection requires endtime but None was given.' )
-            self.starttime = starttime
-            self.dtrelease = dtrelease
-            self.endtime   = endtime
-            self.releasecount = int(len(np.arange(starttime,endtime+dtrelease,dtrelease)))
-    
-
-        # Define a filename for writing the injection series
-        if( (self.kind == 2) and (filename is None)):
-            self.filename = self.stringid + '_timeseries.csv'
-
-
-
-        self.rowsubdiv = rowsubdiv
-        self.colsubdiv = colsubdiv
-        self.laysubdiv = laysubdiv
-
-
-        return
-
-
-    def write(self, f=None, particlesmassoption=0, solutesoption=0):
-
-        """
-        Write the package file
-        Parameters
-        ----------
-        Returns
-        -------
-        None
-        """
-
-
-        # validate that a valid file object was passed
-        if not hasattr(f, "write"):
-            raise ValueError(
-                "{}: cannot write data for template without passing a valid "
-                "file object ({}) open for writing".format(self.name, f)
-            )
-
-        # Write string id 
-        f.write(f"{self.stringid}\n")
-
-        # Kind/format of flux condition 
-        f.write(f"{self.kind}\n")
-
-        if self.kind == 1:
-            # Cell
-            if self.structured:
-                f.write(f"1\n") # To indicate structured
-                fmts.append("{:9d}") # lay
-                fmts.append("{:9d}") # row
-                fmts.append("{:9d}") # col
+        # Domain origin
+        for idb, b in enumerate(self.domainorigin):
+            if idb == len(self.domainorigin)-1: 
+                f.write(f"{b:10f}\n")
             else:
-                f.write(f"2\n") # To indicate cell ids
-                fmts.append("{:9d}") # cellid
-            fmt = " " + " ".join(fmts) + "\n"
-            woc = np.array(self.cellid).astype(np.int32)+1 # Correct the zero-based indexes
-            f.write(fmt.format(*woc))
+                f.write(f"{b:10f}\t")
 
-            # If particles mass is given, assumes
-            # estimation performed via some 
-            # method involving concentration
-
-            # Give particles mass 
-            f.write(f"{self.mass:.10f}\n")
-            
-            # If solutes are being specified, do it
-            if( (particlesmassoption == 2) or (solutesoption == 1)):
-                f.write(f"{self.soluteid}\n")
-
-            fmts = []
-            fmts.append("{:9d}")   # Release time count
-            fmts.append("{:.10f}") # Initial release
-            fmts.append("{:.10f}") # Release interval 
-            fmt = " " + " ".join(fmts) + "\n"
-            woc = [self.releasecount,self.starttime,self.dtrelease]
-            f.write(fmt.format(*woc))
-
-            fmt = " {} {} {}\n"
-            line = fmt.format(
-                self.colsubdiv,
-                self.rowsubdiv,
-                self.laysubdiv,
-            )
-            f.write(line)
-            
-
-        # A injection series
-        if self.kind == 2:
-            # Write a cell number
-            fmts = []
-            if self.structured:
-                f.write(f"1\n") # To indicate structured
-                fmts.append("{:9d}") # lay
-                fmts.append("{:9d}") # row
-                fmts.append("{:9d}") # col
+        # Domain sizes
+        for idb, b in enumerate(self.domainsize):
+            if idb == len(self.domainsize)-1: 
+                f.write(f"{b:10f}\n")
             else:
-                f.write(f"2\n") # To indicate cell ids
-                fmts.append("{:9d}") # cellid
-            fmt = " " + " ".join(fmts) + "\n"
-            woc = np.array(self.cellid).astype(np.int32)+1 # Correct the zero-based indexes
-            f.write(fmt.format(*woc))
+                f.write(f"{b:10f}\t")
 
-            # Give particles mass 
-            f.write(f"{self.mass:.10f}\n")
+        # Bin sizes
+        for idb, b in enumerate(self.binsize):
+            if idb == len(self.binsize)-1: 
+                f.write(f"{b:10f}\n")
+            else:
+                f.write(f"{b:10f}\t")
 
-            # If solutes are being specified, do it
-            if( (particlesmassoption == 2) or (solutesoption == 1)):
-                f.write(f"{self.soluteid}\n")
+        # Number of optimization loops 
+        f.write(f"{self.noptloops:10d}\n")
 
-            # Write length of the timeseries
-            f.write(f"{len(self.times)}\n")
+        # Kernel database reconstruction or direct without database
+        # 1: kerneldatabase
+        # 0: bruteforcedensity
+        if self.kerneldatabase:
+            # Kernel database reconstruction
+            f.write(f"1\n") # 1 for id into fortran
 
-            # Write the timeseries file
-            df         = pd.DataFrame()
-            df['time'] = self.times
-            df['conc'] = self.concentration
-            df.to_csv(os.path.join(
-                self.model.model_ws, self.filename),
-                header=None,
-                index =False,
-                sep   =' ', 
-                float_format="%.10f"
-            )
-            # And its name
-            f.write(f"{self.filename}\n")
-
-
-        return
-
-
-
-# Update particle groups classes
-mp7ParticleGroup = ParticleGroup
-mp7ParticleGroupLRCTemplate = ParticleGroupLRCTemplate
-mp7ParticleGroupNodeTemplate = ParticleGroupNodeTemplate
-class ParticleGroup( mp7ParticleGroup ): 
-
-    def __init__( self, *args, mass=1.0, solute=0, **kwargs ):
-        # Call parent constructor
-        super().__init__(*args,**kwargs) 
-        
-        if mass != 0:
-            self.mass = mass
+            # Database params: minh/lambda, daltah/lambda, maxh/lambda
+            for idb, b in enumerate(self.kerneldatabaseparams):
+                if idb == len(self.binsize)-1: 
+                    f.write(f"{b:10f}\n")
+                else:
+                    f.write(f"{b:10f\t}")
         else:
-            raise ValueError('Mass for the particle group is zero')
-
-        self.solute = solute
-
-    def write( self, fp=None, ws=".", mass=False, solute=False): 
-        # Call base class write method to write common data
-        super().write(fp, ws)
-
-        if mass:
-            # Write the particle mass
-            fp.write(f"{self.mass:.16f}\n")
-
-        if solute:
-            # Write the solute id 
-            fp.write(f"{self.solute:9df}\n")
-        return
-
-class ParticleGroupLRCTemplate( mp7ParticleGroupLRCTemplate ): 
-
-    def __init__( self, *args, mass=1.0, solute=0, **kwargs ):
-        # Call parent constructor
-        super().__init__(*args,**kwargs) 
-        
-        if mass != 0:
-            self.mass = mass
-        else:
-            raise ValueError('Mass for the particle group is zero')
-
-        self.solute = solute
-
-    def write( self, fp=None, ws=".", mass=False, solute=False): 
-        # Call base class write method to write common data
-        super().write(fp, ws)
-
-        if mass:
-            # Write the particle mass
-            fp.write(f"{self.mass:.16f}\n")
-
-        if solute:
-            # Write the solute id 
-            fp.write(f"{self.solute:9df}\n")
-        return
-
-class ParticleGroupNodeTemplate( mp7ParticleGroupNodeTemplate ): 
-
-    def __init__( self, *args, mass=1.0, solute=0, **kwargs ):
-        # Call parent constructor
-        super().__init__(*args,**kwargs) 
-        
-        if mass != 0:
-            self.mass = mass
-        else:
-            raise ValueError('Mass for the particle group is zero')
-
-        self.solute = solute
-
-    def write( self, fp=None, ws=".", mass=False, solute=False): 
-        # Call base class write method to write common data
-        super().write(fp, ws)
-
-        if mass:
-            # Write the particle mass
-            fp.write(f"{self.mass:.16f}\n")
-        if solute:
-            # Write the solute id 
-            fp.write(f"{self.solute:9d}\n")
-
-        return
+            # Brute force reconstruction
+            f.write(f"0\n") # 0 for id into fortran
+            
+            # kernel params: minh/lambda, maxh/lambda
+            for idb, b in enumerate(self.kerneldatabaseparams):
+                if idb == 0:
+                    f.write(f"{b:16f}\t")
+                if idb == 2: 
+                    f.write(f"{b:16f}\n")
 
 
-# Updates enumeration of available simulations
-import flopy.modpath.mp7sim as mp7
-class simType(Enum):
-    """
-    Enumeration of different simulation types
-    """
-    
-    endpoint       = 1
-    pathline       = 2
-    timeseries     = 3
-    combined       = 4
-    rwpttimeseries = 5
-    rwptcombined   = 6
-    rwptendpoint   = 7
-mp7.simType = simType
+        # And close
+        f.close()
+
+
 
 
 
@@ -1917,6 +2812,386 @@ class ModpathRwptSim( flopy.modpath.Modpath7Sim ):
         # And close
         f.close()
 
+
+
+
+class ModpathRwptIc( Package ):
+    """
+    MODPATH RWPT Initial Condition Package Class.
+    Parameters
+    ----------
+    model : model object
+        The model object (of type :class:`flopy.modpath.Modpath7`) to which
+        this package will be added.
+    concentration : ndarray
+        Interpreted as resident concentration, that is, the product beween porosity and
+        dissolved concentration. 
+    """
+
+    COUNTER = 0
+
+    @count_instances
+    def __init__(
+        self,
+        model,
+        id            = None,
+        stringid      = None,
+        kind          = 1,
+        mass          = 1,
+        massformat    = 1,
+        concentration = None,
+        soluteid      = 1,
+        extension     = '.ic',
+    ):
+        
+        unitnumber = model.next_unit()
+        super().__init__(model, extension, "RWIC", unitnumber)
+
+        shape = model.shape
+        if len(shape) == 3:
+            shape3d = shape
+        elif len(shape) == 2:
+            shape3d = (shape[0], 1, shape[1])
+        else:
+            shape3d = (1, 1, shape[0])
+
+        self.model = model
+        self.shape3d = shape3d
+
+        # Determines how to write the initial condition
+        if (kind not in [1]): 
+            raise ValueError('ModpathRWIc: Invalid value for kind, should be 1. Given ', str(kind) )
+        self.kind = kind
+
+        self.mass = mass
+        self.massformat = massformat
+
+        self.soluteid = soluteid
+
+
+        # Generic 
+        # id
+        if (id is not None): 
+            self.id = id
+        else:
+            self.id = self.__class__.COUNTER
+        # stringid 
+        if (stringid is not None): 
+            self.stringid = stringid
+        else:
+            self.stringid = 'IC'+str(self.__class__.COUNTER)
+
+        if (
+            ( concentration is not None ) and 
+            ( self.kind == 1 )
+        ):
+            if not isinstance( concentration, np.ndarray ):
+                raise TypeError('ModpathRWIc: concentration should be an np.ndarray')
+            self.concentration = Util3d(
+                self.model,
+                self.shape3d,
+                np.float32,
+                concentration,
+                name=self.stringid,
+                locat=self.unit_number[0],
+            )
+        elif ( (self.kind ==1) and (concentration is None) ):
+            raise ValueError('ModpathRWIc: kind 1 requires concentration array, None given.')
+        
+        return
+
+
+    def write(self, f=None, particlesmassoption=0, solutesoption=0):
+
+        """
+        Write the package file
+        Parameters
+        ----------
+        Returns
+        -------
+        None
+        """
+
+
+        # validate that a valid file object was passed
+        if not hasattr(f, "write"):
+            raise ValueError(
+                "{}: cannot write data for template without passing a valid "
+                "file object ({}) open for writing".format(self.name, f)
+            )
+
+        # Write string id 
+        f.write(f"{self.stringid}\n")
+
+        # Kind/format of initial condition 
+        f.write(f"{self.kind}\n")
+
+        # 1: resident concentration array  
+        if self.kind == 1:
+
+            # Give particles mass 
+            f.write(f"{self.mass:.10f}\n")
+
+            # If solutes are being specified, do it
+            if( (particlesmassoption == 2) or (solutesoption == 1)):
+                f.write(f"{self.soluteid}\n")
+
+            # And concentration distribution
+            f.write(self.concentration.get_file_entry())
+
+        return
+
+
+class ModpathRwptFlux( Package ):
+    """
+    MODPATH RWPT Flux Package Class.
+    Parameters
+    ----------
+    model : model object
+        The model object (of type :class:`flopy.modpath.Modpath7`) to which
+        this package will be added.
+    """
+
+    COUNTER = 0
+
+    @count_instances
+    def __init__(
+        self,
+        model,
+        id            = None,
+        stringid      = None,
+        kind          = 1,
+        mass          = 1,
+        massformat    = 1,   # could be used eventually
+        starttime     = None, 
+        endtime       = None,
+        dtrelease     = None,
+        times         = None,
+        concentration = None,
+        cellid        = None,
+        structured    = True,
+        nparticles    = None,
+        rowsubdiv     = 1,
+        colsubdiv     = 1,
+        laysubdiv     = 1,
+        soluteid      = 1,
+        filename      = None,
+        extension     = '.flux',
+    ):
+        
+        unitnumber = model.next_unit()
+        super().__init__(model, extension, "FLUX", unitnumber)
+
+        shape = model.shape
+        if len(shape) == 3:
+            shape3d = shape
+        elif len(shape) == 2:
+            shape3d = (shape[0], 1, shape[1])
+        else:
+            shape3d = (1, 1, shape[0])
+
+        self.model = model
+        self.shape3d = shape3d
+
+        # Determines how to write the initial condition
+        if (kind not in [1,2]): 
+            raise ValueError(self.__class__.__name__,': Invalid value for kind, should be 1,2. Given ', str(kind) )
+        # Concentration timeseries
+        if kind == 2:
+            if ( times is None ):
+                raise ValueError(self.__class__.__name__,': Format 2 for injection requires times, but None was given.' )
+            if not isinstance( times, (list,np.ndarray) ):
+                raise ValueError(self.__class__.__name__,': Format 2 requires times as list or np.ndarray. Given ', type(times) )
+            if ( concentration is None ):
+                raise ValueError(self.__class__.__name__,': Format 2 for injection requires concentrations, but None was given.' )
+            if not isinstance( concentration, (list,np.ndarray) ):
+                raise ValueError(self.__class__.__name__,': Format 2 requires concentrations as list or np.ndarray. Given ', type(times) )
+            if len(concentration) != len(times):
+                raise ValueError(self.__class__.__name__,': Format 2 requires concentrations to have the same size than times. ' )
+        self.kind = kind
+
+        self.soluteid = soluteid
+        self.structured = structured
+
+
+        if cellid is None: 
+            raise ValueError(self.__class__.__name__,': Requires cellid. Given ', str(cellid) )
+        if isinstance(cellid, (list,np.ndarray)):
+            if ( self.structured and (len(cellid)!=3) ):
+                raise ValueError(self.__class__.__name__,': Structured cellid should follow [lay,row,col] format. Given ', str(cellid) )
+            elif ( (not self.structured) and (len(cellid)!=1) ): 
+                raise ValueError(self.__class__.__name__,': Structured cellid should follow [lay,row,col] format. Given ', str(cellid) )
+        elif isinstance(cellid, (int)):
+            if ( self.structured ): 
+                raise ValueError(self.__class__.__name__,': Structured cellid requires [lay,row,col] format. Given ', str(cellid) )
+        else:
+            raise TypeError(self.__class__.__name__,': Cellid should be a list, ndarray or integer depending on structured parameter.' )
+        self.cellid = cellid
+
+        # Assign mass format
+        if (massformat not in [1]): 
+            raise ValueError(self.__class__.__name__,': Invalid value for massformat, should be 1. Given ', str(massformat) )
+        self.massformat = massformat
+        if self.massformat == 1:
+            self.mass = mass
+        #elif self.massformat == 2: # requires nparticles
+        #    # Compute mass based on dtrelease, concentration, flow-rate
+        #    if flowrate is None:
+        #        raise ValueError(self.__class__.__name__,': Massformat 2 requires flow rate.' )
+        #    mass = flowrate*concentration*dtrelease/nparticles 
+        #    self.mass = mass
+        self.massformat = massformat
+
+
+        # Generic 
+        # id
+        if (id is not None): 
+            self.id = id
+        else:
+            self.id = self.__class__.COUNTER
+        # stringid 
+        if (stringid is not None): 
+            self.stringid = stringid
+        else:
+            self.stringid = 'PF'+str(self.__class__.COUNTER)
+
+        # If kind 1, verify times
+        if(self.kind == 1):
+            if ( starttime is None ):
+                raise ValueError(self.__class__.__name__,': Format 1 for injection requires starttime but None was given.' )
+            if ( dtrelease is None ):
+                raise ValueError(self.__class__.__name__,': Format 1 for injection requires dtrelease but None was given.' )
+            if ( endtime is None ):
+                raise ValueError(self.__class__.__name__,': Format 1 for injection requires endtime but None was given.' )
+            self.starttime = starttime
+            self.dtrelease = dtrelease
+            self.endtime   = endtime
+            self.releasecount = int(len(np.arange(starttime,endtime+dtrelease,dtrelease)))
+    
+
+        # Define a filename for writing the injection series
+        if( (self.kind == 2) and (filename is None)):
+            self.filename = self.stringid + '_timeseries.csv'
+
+
+
+        self.rowsubdiv = rowsubdiv
+        self.colsubdiv = colsubdiv
+        self.laysubdiv = laysubdiv
+
+
+        return
+
+
+    def write(self, f=None, particlesmassoption=0, solutesoption=0):
+
+        """
+        Write the package file
+        Parameters
+        ----------
+        Returns
+        -------
+        None
+        """
+
+
+        # validate that a valid file object was passed
+        if not hasattr(f, "write"):
+            raise ValueError(
+                "{}: cannot write data for template without passing a valid "
+                "file object ({}) open for writing".format(self.name, f)
+            )
+
+        # Write string id 
+        f.write(f"{self.stringid}\n")
+
+        # Kind/format of flux condition 
+        f.write(f"{self.kind}\n")
+
+        if self.kind == 1:
+            # Cell
+            if self.structured:
+                f.write(f"1\n") # To indicate structured
+                fmts.append("{:9d}") # lay
+                fmts.append("{:9d}") # row
+                fmts.append("{:9d}") # col
+            else:
+                f.write(f"2\n") # To indicate cell ids
+                fmts.append("{:9d}") # cellid
+            fmt = " " + " ".join(fmts) + "\n"
+            woc = np.array(self.cellid).astype(np.int32)+1 # Correct the zero-based indexes
+            f.write(fmt.format(*woc))
+
+            # If particles mass is given, assumes
+            # estimation performed via some 
+            # method involving concentration
+
+            # Give particles mass 
+            f.write(f"{self.mass:.10f}\n")
+            
+            # If solutes are being specified, do it
+            if( (particlesmassoption == 2) or (solutesoption == 1)):
+                f.write(f"{self.soluteid}\n")
+
+            fmts = []
+            fmts.append("{:9d}")   # Release time count
+            fmts.append("{:.10f}") # Initial release
+            fmts.append("{:.10f}") # Release interval 
+            fmt = " " + " ".join(fmts) + "\n"
+            woc = [self.releasecount,self.starttime,self.dtrelease]
+            f.write(fmt.format(*woc))
+
+            fmt = " {} {} {}\n"
+            line = fmt.format(
+                self.colsubdiv,
+                self.rowsubdiv,
+                self.laysubdiv,
+            )
+            f.write(line)
+            
+
+        # A injection series
+        if self.kind == 2:
+            # Write a cell number
+            fmts = []
+            if self.structured:
+                f.write(f"1\n") # To indicate structured
+                fmts.append("{:9d}") # lay
+                fmts.append("{:9d}") # row
+                fmts.append("{:9d}") # col
+            else:
+                f.write(f"2\n") # To indicate cell ids
+                fmts.append("{:9d}") # cellid
+            fmt = " " + " ".join(fmts) + "\n"
+            woc = np.array(self.cellid).astype(np.int32)+1 # Correct the zero-based indexes
+            f.write(fmt.format(*woc))
+
+            # Give particles mass 
+            f.write(f"{self.mass:.10f}\n")
+
+            # If solutes are being specified, do it
+            if( (particlesmassoption == 2) or (solutesoption == 1)):
+                f.write(f"{self.soluteid}\n")
+
+            # Write length of the timeseries
+            f.write(f"{len(self.times)}\n")
+
+            # Write the timeseries file
+            df         = pd.DataFrame()
+            df['time'] = self.times
+            df['conc'] = self.concentration
+            df.to_csv(os.path.join(
+                self.model.model_ws, self.filename),
+                header=None,
+                index =False,
+                sep   =' ', 
+                float_format="%.10f"
+            )
+            # And its name
+            f.write(f"{self.filename}\n")
+
+
+        return
 
 
 
