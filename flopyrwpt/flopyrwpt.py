@@ -192,10 +192,10 @@ class ModpathRW( flopy.modpath.Modpath7 ):
         if self.budgetfilename is not None:
             f.write(f"BUDGET     {self.budgetfilename}\n")
         # MODPATH-RW specifc files
-        #if self.budgetfilename is not None:
-        #    f.write(f"DSP     {self.budgetfilename}\n")
-        #if self.budgetfilename is not None:
-        #    f.write(f"RWOPTS  {self.budgetfilename}\n")
+        if self.budgetfilename is not None:
+            f.write(f"DSP        {self.budgetfilename}\n")
+        if self.rwoptsfilename is not None:
+            f.write(f"RWOPTS     {self.rwoptsfilename}\n")
         if self.gpkdefilename is not None:
             f.write(f"GPKDE      {self.gpkdefilename}\n")
         #if self.budgetfilename is not None:
@@ -294,10 +294,20 @@ class ModpathRWSim( flopy.modpath.Modpath7Sim ):
             self.fluxconditions = None
 
 
-        # Inform dispersion package about 
-        # particlesmassoption
-        # solutesoption
+        # Is a RW sim
         if self.simulationtype > 4: 
+            # rwopts
+            rwopts = self.parent.get_package('RWOPTS')
+            if rwopts is None:
+                raise Exception('flopyrw:ModpathRWSim: requires a ModpathRWOptions package. None given.')
+            rwoptsfilename = f"{model.name}.rwopts"
+            self._parent.rwoptsfilename = rwoptsfilename
+
+
+            # DEPRECATED ?
+            # Inform dispersion package about 
+            # particlesmassoption
+            # solutesoption
             disp = self.parent.get_package('DISPERSION')
             if disp is None:
                 raise Exception('Requires a dispersion package')
@@ -606,29 +616,22 @@ class ModpathRWOptions( Package ):
     model : model object
         The model object (of type :class:`flopy.modpath.Modpath7`) to which
         this package will be added.
-    longitudinal : float or array of floats (nlay, nrow, ncol)
-        The longitudinal dispersivity array (the default is XX).
-    transverse : float or array of floats (nlay, nrow, ncol)
-        The transverse dispersivity array (the default is XX).
-    molecular : float 
-        Molecular diffusion corrected by tortuosity effects
-        The transverse dispersivity array (the default is 0).
+    timestep : str
+        Define method for computing particles time step. Can be adv, disp, min or fixed. 
+    courant  : float
+        Courant number that will be used at each cell for computing time step with adv criteria 
+    ctdisp   :  float 
+        CT constant occupied for computing time step with disp criteria
+    deltat   :  float 
+        Value employed when timestep selection is fixed
     advection : str
         Advection model ot be used for advective component in RWPT integration.
-        Could be set to 'eulerian' or 'exponential' (the default is 'eulerian').
-    dimensions : int
-        Define whether RWPT displacement should be done in 2D or 3D. 
-        For 2D models, layers should be related to z direction and specify 2.
-        (the default is 3).
-    timestep : str
-        Define method for computing particles time step. Can be courant, peclet or min. 
-        The latter selects the minimum estimated between courant and peclet. For each 
-        kind, it is expected that courant and/or peclet parameters are specified.
-        (the default is courant with courant = 0.1)
-    courant  : float
-        Courant number that will be used at each cell for computing time step 
-    peclet   :  float 
-        Peclet number occupied for computing time step
+        Could be set to 'eulerian' or 'exponential' (default is 'eulerian').
+    dimensionsmask : [int,int,int]
+        Determine on which dimensions RW displacements are calculated. 
+        A value of 1 indicates that dimension is active and 0 inactive.
+        For example, for a 2D RW model (x,y model and single layer), dimensionsmask should be [1,1,0].
+        At least one dimension is required. Defaults to 3D ( [1,1,1] )
     extension : str, optional
         File extension (default is 'dispersion').
     """
@@ -636,17 +639,21 @@ class ModpathRWOptions( Package ):
     def __init__(
         self,
         model,
-        dimensionmask     = [1,1,1],
-        timestep          = 'courant',
-        courant           = 0.1,
-        ctdisp            = 0.1,
-        advection         = 'eulerian',
+        timestep         = 'min',
+        courant          = 0.1,
+        ctdisp           = 0.1,
+        deltat           = 1.0,
+        advection        = 'eulerian',
+        dimensionsmask   = [1,1,1],
+        extension        = 'rwopts',
     ):
     
 
         unitnumber = model.next_unit()
+
         super().__init__(model, extension, "RWOPTS", unitnumber)
 
+        # model shape ( needed ? )
         shape = model.shape
         if len(shape) == 3:
             shape3d = shape
@@ -657,35 +664,38 @@ class ModpathRWOptions( Package ):
         self.model = model
         self.shape3d = shape3d
 
-        
-        self.dimensionmask = dimensionmask
+        # timestep
+        if ( timestep not in ['adv', 'disp', 'min', 'fixed'] ):
+            raise Exception('flopyrw:ModpathRWOptions: time step selection model ' + timestep + ' is not valid. Should be: adv, disp, min, fixed.')
+        self.timestep  = timestep
+        # Trust
+        self.courant   = courant
+        self.ctdisp    = ctdisp 
+        self.deltat    = deltat
 
-
-
-
-        # Minor checkings for given parameters 
+        # advection 
         if ( advection not in ['eulerian','exponential'] ):
-            raise Exception('flopyrwpt.py: advection model ' + advection + ' is not valid. Use eulerian or exponential')
+            raise Exception('flopyrw:ModpathRWOptions: advection model ' + advection + ' is not valid. Use eulerian or exponential')
         self.advection  = advection
 
-        if ( dimensions not in [2,3] ):
-            raise Exception('flopyrwpt.py: dimensions ' + str(dimensions) + ' is not valid. Use 2 or 3')
-        self.dimensions = dimensions
-
-        if ( timestep not in ['courant', 'peclet', 'min_adv_disp'] ):
-            raise Exception('flopyrwpt.py: time step selection model ' + timestep + ' is not valid. courant, peclet, min_adv_disp')
-        self.timestep  = timestep
-
-
-        # Trust
-        self.courant = courant
-        self.peclet  = peclet 
-        self.ctdisp  = ctdisp 
+        # dimensionsmask
+        if not isinstance( dimensionsmask, (list, np.array) ):
+            raise Exception('flopyrw:ModpathRWOptions: dimensionsmask should be list or np.array. Given ', type(dimensionsmask) )
+        if isinstance( dimensionsmask, list ):
+            if len(dimensionsmask) != 3:
+                raise Exception('flopyrw:ModpathRWOptions: dimensionsmask list should be of len(dimensionsmask) = 3. Given ', len(dimensionsmask) )
+            dimensionsmask = np.array(dimensionsmask).astype(np.int32)
+        if len(dimensionsmask) != 3:
+            raise Exception('flopyrw:ModpathRWOptions: dimensionsmask should be of len(dimensionsmask) = 3. Given ', len(dimensionsmask) )
+        for nd in range(3):
+            if (dimensionsmask[nd] not in [0,1] ):
+                raise Exception('flopyrw:ModpathRWOptions: values in dimensionsmask should be 0 or 1. At position ', str(nd), ' given ', str(dimensionsmask[nd]) )
+        self.dimensionsmask = dimensionsmask
 
 
         self.parent.add_package(self)
 
-
+        # Done !
         return
 
 
@@ -704,113 +714,34 @@ class ModpathRWOptions( Package ):
         # Open file for writing
         f = open(self.fn_path, "w")
 
-
-        # Write initial conditions (IC)
-        if self.nics > 0:
-            # How many ics
-            f.write(f"{self.nics}\n")
-
-            # Loop over ic, notice pg
-            for idic, ic in enumerate(self.initialconditions):
-                # Write the initial condition
-                ic.write(
-                  f=f,
-                  particlesmassoption=self.particlesmassoption,
-                  solutesoption=self.solutesoption,
-                )
-        else:
-            f.write(f"0\n")
-
-
-        # Write prescribed flux boundaries
-        if self.npfs > 0:
-            # How many ics
-            f.write(f"{self.npfs}\n")
-
-            # Loop over pf
-            for idpf, pf in enumerate(self.fluxconditions):
-                # Write the flux condition 
-                pf.write(
-                  f=f,
-                  particlesmassoption=self.particlesmassoption,
-                  solutesoption=self.solutesoption,
-                )
-        else:
-            f.write(f"0\n")
-
-
-        # Write icbound
-        f.write(self.icbound.get_file_entry())
-
-
-        # Depending on the solutes option 
-        # is how to continue writing the file
-        # self.solutesoption is assigned in ModpathRwpSim
-        if self.solutesoption == 0:
-            # Single virtual solute, all 
-            # pgroups are displaced with the 
-            # same dispersion properties
-
-            # Select model dispersivity
-            if self.modelkind == 1:
-
-                # Write modelkind
-                f.write(f"{self.modelkind}\n")
-
-                # Write molecular diffusion
-                f.write(f"{self.molecular:.16f}\n")
-
-                # Write dispersivities
-                f.write(self.longitudinal.get_file_entry())
-                f.write(self.transverse.get_file_entry())
-
-            elif self.modelkind == 2:
-
-                # Write modelkind
-                f.write(f"{self.modelkind}\n")
-
-                # Write nonlinear beta exponents
-                f.write(f"{self.betalongitudinal:.10f}\n") 
-                f.write(f"{self.betatransverse:.10f}\n") 
-                f.write(f"{self.mediumdelta:.10f}\n")
-                #f.write(self.betalongitudinal.get_file_entry())
-                #f.write(self.betatransverse.get_file_entry())
-                #f.write(self.mediumdelta.get_file_entry())
-                f.write(self.mediumdsize.get_file_entry())
-
-                # Write aqueous molecular diffusion
-                f.write(f"{self.molecular:.16f}\n")
-
-
-        elif self.solutesoption ==1:
-
-            f.write(f"{len(self.solutes)}\n")
-
-            # Multiple solutes
-            for ns, sol in enumerate(self.solutes):
-                sol.write(f=f, particlesmassoption=self.particlesmassoption)
-        
-
         # Write time step selection method
         if self.timestep is not None:
-            if self.timestep == 'peclet': 
-                f.write(f"CONSTANT_PE\n")
-                f.write(f"{self.peclet:.10f}\n")  
-            if self.timestep == 'courant': 
-                f.write(f"CONSTANT_CU\n")  
+            if self.timestep == 'disp': 
+                f.write(f"DISP\n")
+                f.write(f"{self.ctdisp:.10f}\n")  
+            if self.timestep == 'adv': 
+                f.write(f"ADV\n")  
                 f.write(f"{self.courant:.10f}\n")  
-            if self.timestep == 'min_adv_disp':
-                # Review this format, it may require both
+            if self.timestep == 'min':
                 f.write(f"MIN_ADV_DISP\n")  
                 f.write(f"{self.courant:.10f}\n")  
                 f.write(f"{self.ctdisp:.10f}\n")  
-                #f.write(f"{self.courant:20d}") #? 
+            if self.timestep == 'fixed':
+                f.write(f"FIXED\n")  
+                f.write(f"{self.deltat:.10f}\n")  
+        else:
+            raise Exception('flopyrw:ModpathRWOptions: time step selection model ' + timestep + ' is not valid. Should be: adv, disp, min, fixed.')
 
         # Write advection model
         f.write(f"{self.advection.upper():20s}\n")  
 
-        # Write number of dimensions for RWPT displacement
-        f.write(f"{self.dimensions:1d}D\n")  
+
+        # dimensionsmask
+        for idb, b in enumerate(self.dimensionsmask):
+            if idb == len(self.dimensionsmask)-1: 
+                f.write(f"{b:10d}\n")
+            else:
+                f.write(f"{b:10d}\t")
 
 
         # And close
@@ -1130,176 +1061,6 @@ class ModpathRWObs( Package ):
         return
 
 
-class ModpathRWObs( Package ):
-    """
-    MODPATH-RW Observation Package Class.
-    Parameters
-    ----------
-    model : model object
-        The model object (of type :class:`flopy.modpath.Modpath7`) to which
-        this package will be added.
-    """
-
-
-    COUNTER = 0
-
-    @count_instances
-    def __init__(
-        self,
-        model,
-        id             = None,
-        kind           = 1,
-        celloption     = 1,
-        cells          = None,
-        timeoption     = 1,
-        structured     = True, 
-        basefilename   = 'mpathrwobs_',
-        filename       = None,
-        extension      = '.obs',
-    ):
-        
-        unitnumber = model.next_unit()
-        super().__init__(model, extension, "OBSCELLS", unitnumber)
-
-        self.kind = kind
-        self.timeoption = timeoption
-        self.structured = structured
-
-        if ( celloption not in [1,2] ):
-            raise ValueError('Invalid celloption ',
-                    celloption, '. Allowed values are 1 (list of cellids) or 2 (modelgrid like array)')
-        self.celloption = celloption
-
-        # Write a list of cellids
-        if self.celloption == 1:
-            if cells is None:
-                self.cells = []
-            else:
-                if not isinstance( cells, (list,np.ndarray,tuple) ):
-                    raise Exception( 'Cells parameter should be a list or numpy array, is ', type( cells ))
-                if ( isinstance( cells, tuple ) and len(cells)==1 ):
-                    cells = cells[0]
-                # Maybe some sanity check about data structure or the same 
-                # used for partlocs
-                self.cells = cells
-
-        # Write obs cells as 3D array
-        if self.celloption == 2: 
-
-            # This was already done right?
-            shape = model.shape
-            if len(shape) == 3:
-                shape3d = shape
-            elif len(shape) == 2:
-                shape3d = (shape[0], 1, shape[1])
-            else:
-                shape3d = (1, 1, shape[0])
-            self.model   = model
-            self.shape3d = shape3d
-
-            if cells is None:
-                self.cells = []
-            else:
-                if not isinstance( cells, (list,np.ndarray) ):
-                    raise Exception( 'Cells parameter should be a list or numpy array')
-                self.cells = Util3d(
-                    model,
-                    shape3d,
-                    np.int32,
-                    cells,
-                    name="OBSCELLS",
-                    locat=self.unit_number[0],
-                )
-
-        # Define obs id
-        # It could be more useful some kind of random 
-        # integer
-        if (id is not None): 
-            self.id = id
-        else:
-            self.id = self.__class__.COUNTER
-
-
-        self.filename = basefilename+str(self.id)+extension
-
-
-        return
-
-
-    def write(self, f=None):
-        """
-        Write the package file
-        Parameters
-        ----------
-        Returns
-        -------
-        None
-        """
-
-
-        if f is None:
-            raise Exception('ModpathRwptObs: requires file pointer f. Is None.')
-
-        # validate that a valid file object was passed
-        if not hasattr(f, "write"):
-            raise ValueError(
-                "{}: cannot write data for template without passing a valid "
-                "file object ({}) open for writing".format(self.name, f)
-            )
-
-
-        # Write obs id
-        f.write(f"{self.id}\n")
-
-        # Write obs filename
-        f.write(f"{self.filename}\n")
-
-        # Write the obs kind
-        f.write(f"{self.kind}\n")
-
-        # Write the celloption param
-        f.write(f"{self.celloption}\n")
-
-        if self.celloption == 1:
-            # Should write a cell number
-            if len( self.cells ) == 0: 
-                raise Exception('Observation cells is empty. Specify a list of cells for the observation id ', self.id)
-            else:
-                f.write(f"{len(self.cells)}\n")
-                fmts = []
-                if self.structured:
-                    f.write(f"1\n") # To indicate structured
-                    fmts.append("{:9d}") # lay
-                    fmts.append("{:9d}") # row
-                    fmts.append("{:9d}") # col
-                else:
-                    f.write(f"2\n") # To indicate cell ids
-                    fmts.append("{:9d}") # cellid
-                fmt = " " + " ".join(fmts) + "\n"
-                for oc in self.cells:
-                    woc = np.array(oc).astype(np.int32)+1 # Correct the zero-based indexes
-                    if self.structured:
-                        f.write(fmt.format(*woc))
-                    else:
-                        f.write(fmt.format(woc))
-
-        elif self.celloption == 2:
-            # Should write an array
-            # with the distribution of the observation
-            f.write(self.cells.get_file_entry())
-
-
-        # Write timeoption params
-        f.write(f"{self.timeoption}\n")
-        if self.timeoption == 1:
-            pass
-        elif self.timeoption == 2:
-            pass
-
-
-
-
-        return
 
 
 
