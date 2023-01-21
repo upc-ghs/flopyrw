@@ -1,5 +1,5 @@
 '''
-Implement classes and methods for configuring mpathrwpt sims with flopy
+Implement classes and methods for configuring MODPATH-RW sims with flopy
 '''
 
 # Python
@@ -7,6 +7,7 @@ import os
 import numpy as np
 import pandas as pd
 from enum import Enum
+import warnings
 
 # Flopy
 import flopy
@@ -144,6 +145,8 @@ class ModpathRW( flopy.modpath.Modpath7 ):
     '''
     def __init__(self, *args, **kwargs):
         # Call parent constructor
+        #import pdb
+        #pdb.set_trace()
         super().__init__(*args,**kwargs)
 
         # Following filenames are generated
@@ -164,6 +167,8 @@ class ModpathRW( flopy.modpath.Modpath7 ):
         self.icfilename     = None
         self.fluxfilename   = None
         self.obsfilename    = None
+        self.spcfilename    = None
+        self.dspfilename    = None
 
 
     # Overload the write_name_file method
@@ -192,8 +197,10 @@ class ModpathRW( flopy.modpath.Modpath7 ):
         if self.budgetfilename is not None:
             f.write(f"BUDGET     {self.budgetfilename}\n")
         # MODPATH-RW specifc files
-        if self.budgetfilename is not None:
-            f.write(f"DSP        {self.budgetfilename}\n")
+        if self.dspfilename is not None:
+            f.write(f"DSP        {self.dspfilename}\n")
+        if self.spcfilename is not None:
+            f.write(f"SPC        {self.spcfilename}\n")       # SHOULD BE UPDATED TO write_file format
         if self.rwoptsfilename is not None:
             f.write(f"RWOPTS     {self.rwoptsfilename}\n")
         if self.gpkdefilename is not None:
@@ -203,7 +210,7 @@ class ModpathRW( flopy.modpath.Modpath7 ):
         #if self.budgetfilename is not None:
         #    f.write(f"FLUX    {self.budgetfilename}\n")
         if self.obsfilename is not None:
-            f.write(f"OBS        {self.obsfilename}\n")
+            f.write(f"OBS        {self.obsfilename}\n")       # SHOULD BE UPDATED TO write_file format
         # ICBOUND ?
         f.close()
 
@@ -223,9 +230,9 @@ class ModpathRWSim( flopy.modpath.Modpath7Sim ):
             reconstruction=False,
             dispersionfilename=None,
             observations=None,
-            solutes=None,
             initialconditions=None,
             fluxconditions=None,
+            species=None,      # These bring dispersion
             **kwargs
         ):
 
@@ -260,16 +267,16 @@ class ModpathRWSim( flopy.modpath.Modpath7Sim ):
         if initialconditions is not None:
             if isinstance(initialconditions,list):
                 for pic in initialconditions:
-                    if not isinstance(pic, ModpathRwptIc):
-                        raise TypeError('Object in list is type ', type(pic), '. Expected ModpathRwptIc.')
+                    if not isinstance(pic, ModpathRWIc):
+                        raise TypeError('Object in list is type ', type(pic), '. Expected ModpathRWIc.')
                 # Survived so continue
                 self.nics = len(initialconditions)
                 self.initialconditions = initialconditions
-            elif isinstance( initialconditions, ModpathRwptIc ):
+            elif isinstance( initialconditions, ModpathRWIc ):
                 self.nics = 1
                 self.initialconditions = [initialconditions]
             else:
-                raise TypeError('Initial conditions argument should be of type list or ModpathRwptIc. ', type(initialconditions), ' given.')
+                raise TypeError('Initial conditions argument should be of type list or ModpathRWIc. ', type(initialconditions), ' given.')
         else:
             self.nics = 0
             self.initialconditions = None
@@ -279,22 +286,22 @@ class ModpathRWSim( flopy.modpath.Modpath7Sim ):
         if fluxconditions is not None:
             if isinstance(observations,list):
                 for pic in fluxconditions:
-                    if not isinstance(pic, ModpathRwptFlux):
-                        raise TypeError('Object in list is type ', type(pic), '. Expected ModpathRwptFlux.')
+                    if not isinstance(pic, ModpathRWFlux):
+                        raise TypeError('Object in list is type ', type(pic), '. Expected ModpathRWFlux.')
                 # Survived so continue
                 self.npfs = len(fluxconditions)
                 self.fluxconditions = fluxconditions
-            elif isinstance( fluxconditions, ModpathRwptFlux ):
+            elif isinstance( fluxconditions, ModpathRWFlux ):
                 self.npfs = 1
                 self.fluxconditions = [fluxconditions]
             else:
-                raise TypeError('Initial conditions argument should be of type list or ModpathRwptFlux. ', type(fluxconditions), ' given.')
+                raise TypeError('Initial conditions argument should be of type list or ModpathRWFlux. ', type(fluxconditions), ' given.')
         else:
             self.npfs = 0
             self.fluxconditions = None
 
 
-        # Is a RW sim
+        # RWOptions
         if self.simulationtype > 4: 
             # rwopts
             rwopts = self.parent.get_package('RWOPTS')
@@ -358,6 +365,26 @@ class ModpathRWSim( flopy.modpath.Modpath7Sim ):
             self.nobs = 0
             self.observations = None
 
+
+        # Species
+        if species is not None:
+            if isinstance(species,list):
+                for pspc in species:
+                    if not isinstance(pspc, ModpathRWSpc):
+                        raise TypeError('Object in list is type ', type(pspc), '. Expected ModpathRWSpc.')
+                # Survived so continue
+                self.nspc = len(species)
+                self.species = species
+            elif isinstance( observations, ModpathRWSpc ):
+                self.nspc = 1
+                self.species = [species]
+            else:
+                raise TypeError('species argument should be of type list or ModpathRWSpc. ', type(species), ' given.')
+            self._parent.spcfilename  = f"{model.name}.spc"
+            self.spcfilepath = os.path.join( self._parent.model_ws, self._parent.spcfilename )
+        else:
+            self.nspc = 0
+            self.species = None
 
         # Done!
 
@@ -505,47 +532,42 @@ class ModpathRWSim( flopy.modpath.Modpath7Sim ):
         # MODPATH-RW
         if self.simulationtype > 4:
 
-            # RWPT config filename
-            f.write(f"{self.dispersionfilename}\n")
+            # THESE TWO WRITING OPS SHOULD BE UPDATED
+            # TO WHAT WAS DONE IN DSP
 
-            #if self.reconstruction: 
-            #    # Possibly requires timeseries 
-            #    #if self.simulationtype == 7:
-            #    #    raise Exception('')
-            #    f.write(f"1\n")
-            #    f.write(f"{self.reconstructionfilename}\n")
-            #else:
-            #    f.write(f"0\n")
-            f.write(f"0\n")
-      
             # Write observations to obs file
             if self.nobs > 0:
                 fobs = open(self.obsfilepath, "w")
                 fobs.write(f"{len(self.observations)}\n")
-                # Write each
                 for obs in self.observations:
                     obs.write(f=fobs)
                 fobs.close()
 
-                ## DEPRECATE
-                #f.write(f"{len(self.observations)}\n")
-                ## Write each
-                #for obs in self.observations:
-                #    obs.write(f=f)
-                ## END DEPRECATE
-            else:
-                pass
+            # Write species to spc file
+            if self.nspc > 0:
+                fspc = open(self.spcfilepath, "w")
+                fspc.write(f"{len(self.species)}\n")
+                for spc in self.species:
+                    spc.write(f=fspc)
+                fspc.close()
+
+
+            # To be deprecated
+            # RWPT config filename
+            f.write(f"{self.dispersionfilename}\n")
 
 
         # And close
         f.close()
 
+        return
+
 
 
 class ModpathRWBas( flopy.modpath.Modpath7Bas ):
     '''
-    MODPATH-RW Main class 
-    Simply extends flopy.modpath.Modpath7
+    MODPATH-RW Basic class 
+    Extends flopy.modpath.Modpath7Bas
     '''
     def __init__(self, *args, **kwargs):
         # Call parent constructor
@@ -561,50 +583,232 @@ class ModpathRWDsp( Package ):
     model : model object
         The model object (of type :class:`flopy.modpath.Modpath7`) to which
         this package will be added.
-    longitudinal : float or array of floats (nlay, nrow, ncol)
-        The longitudinal dispersivity array (the default is XX).
-    transverse : float or array of floats (nlay, nrow, ncol)
-        The transverse dispersivity array (the default is XX).
-    molecular : float 
-        Molecular diffusion corrected by tortuosity effects
-        The transverse dispersivity array (the default is 0).
-    advection : str
-        Advection model ot be used for advective component in RWPT integration.
-        Could be set to 'eulerian' or 'exponential' (the default is 'eulerian').
-    dimensions : int
-        Define whether RWPT displacement should be done in 2D or 3D. 
-        For 2D models, layers should be related to z direction and specify 2.
-        (the default is 3).
-    timestep : str
-        Define method for computing particles time step. Can be courant, peclet or min. 
-        The latter selects the minimum estimated between courant and peclet. For each 
-        kind, it is expected that courant and/or peclet parameters are specified.
-        (the default is courant with courant = 0.1)
-    courant  : float
-        Courant number that will be used at each cell for computing time step 
-    peclet   :  float 
-        Peclet number occupied for computing time step
-    extension : str, optional
-        File extension (default is 'dispersion').
     """
 
+
+    # Class properties
+    COUNTER    = 0
+    UNITNUMBER = 0
+    INSTANCES  = []
+
+
+    @count_instances
     def __init__(
         self,
         model,
-        displong          = 0.0  , # xx
-        disptranh         = 0.0  , # yy
-        disptranv         = 0.0  , # zz
-        diffaqueous       = 0.0  ,
-        diffeff           = 0.0  , # corrected by tortuosity
         modelkind         = None , # linear, nonlinear
-        betatransverse    = 0.5  , 
-        betalongitudinal  = 1    ,
-        mediumdelta       = 5    , 
-        mediumdsize       = 1    ,
+        modelkindid       = None , # 1:linear, 2:nonlinear
+        alphal            = 0.1  , # xx
+        alphath           = 0.01 , # yy
+        alphatv           = 0.01 , # zz
+        dmeff             = 0.0  , # corrected by tortuosity
+        dmaqueous         = 0.0  ,
+        betal             = 1    ,
+        betath            = 0.5  , 
+        betatv            = 0.5  , 
+        delta             = 5    , 
+        dgrain            = 1    ,
+        id                = None , 
+        stringid          = None ,
         extension         = 'dsp',
     ):
 
-        pass
+        # Needed ?
+        # For the current structure of writing
+        # the package more or less manually is not 
+        # really necessay. However it would be good to 
+        # consider something more consistent with the base 
+        # flopy structure
+
+        # Define UNITNUMBER if the first instance is created
+        if self.__class__.COUNTER == 1:
+            unitnumber = model.next_unit()
+            super().__init__(model, extension, "DSP", unitnumber)
+            self.__class__.UNITNUMBER = self.unit_number[0]
+        else:
+            # Needed for Util3d
+            self._parent = self.INSTANCES[0]._parent
+        
+
+        # What about this ?
+        shape = model.shape
+        if len(shape) == 3:
+            shape3d = shape
+        elif len(shape) == 2:
+            shape3d = (shape[0], 1, shape[1])
+        else:
+            shape3d = (1, 1, shape[0])
+        self.model = model
+        self.shape3d = shape3d
+
+
+        # Select modelkind
+        if modelkind is not None: 
+            if modelkind not in ('linear', 'nonlinear'):
+                raise Exception( 'flopyrwpt.py: modelkind ' + modelkind + ' is not allowed: linear or nonlinear' )
+            if modelkind == 'linear':
+                self.modelkind   = modelkind
+                self.modelkindid = 1
+            elif modelkind == 'nonlinear':
+                self.modelkind   = modelkind
+                self.modelkindid = 2
+        else:
+            self.modelkind   = 'linear'
+            self.modelkindid = 1
+
+
+        # Read dispersion model parameters 
+        if self.modelkindid == 1:
+            # linear
+            self.alphal = Util3d(
+                model,
+                shape3d,
+                np.float32,
+                alphal,
+                name="ALPHAL",
+                locat=self.__class__.UNITNUMBER,
+            )
+            self.alphath = Util3d(
+                model,
+                shape3d,
+                np.float32,
+                alphath,
+                name="ALPHATH",
+                locat=self.__class__.UNITNUMBER,
+            )
+            self.alphatv = Util3d(
+                model,
+                shape3d,
+                np.float32,
+                alphatv,
+                name="ALPHATV",
+                locat=self.__class__.UNITNUMBER,
+            )
+            # Consider some checks to avoid writing unnecessary zeroes
+            self.dmeff = Util3d(
+                model,
+                shape3d,
+                np.float32,
+                dmeff,
+                name="DMEFF",
+                locat=self.__class__.UNITNUMBER,
+            )
+        elif self.modelkindid == 2:
+            # nonlinear
+            self.dmaqueous = dmaqueous
+            self.betal = Util3d(
+                model,
+                shape3d,
+                np.float32,
+                betal,
+                name="BETAL",
+                locat=self.__class__.UNITNUMBER,
+            )
+            self.betath= Util3d(
+                model,
+                shape3d,
+                np.float32,
+                betath,
+                name="BETATH",
+                locat=self.__class__.UNITNUMBER,
+            )
+            self.betatv= Util3d(
+                model,
+                shape3d,
+                np.float32,
+                betatv,
+                name="BETATV",
+                locat=self.__class__.UNITNUMBER,
+            )
+            self.delta = Util3d(
+                model,
+                shape3d,
+                np.float32,
+                delta,
+                name="DELTA",
+                locat=self.__class__.UNITNUMBER,
+            )
+            self.dgrain = Util3d(
+                model,
+                shape3d,
+                np.float32,
+                dgrain,
+                name="DGRAIN",
+                locat=self.__class__.UNITNUMBER,
+            )
+
+
+
+        # Define id
+        if (id is not None): 
+            self.id = id
+        else:
+            self.id = self.__class__.COUNTER
+
+        if (stringid is not None): 
+            self.stringid = stringid
+        else:
+            self.stringid = 'DSP'+str(self.__class__.COUNTER)
+
+
+        # Add package and save instance        
+        if self.__class__.COUNTER == 1:
+            self.parent.add_package(self)
+        self.__class__.INSTANCES.append( self )
+
+
+        return
+
+
+    def write_file(self, check=False):
+        """
+        Write the package file
+        Parameters
+        ----------
+        check : boolean
+            Check package data for common errors. (default False)
+        Returns
+        -------
+        None
+        """
+
+        # Open file for writing
+        f = open(self.INSTANCES[0].fn_path, "w")
+
+        # Write how many INSTANCES 
+        # and loop over them
+        f.write(f"{self.COUNTER}\n")
+
+        for ins in self.INSTANCES:
+            
+            # Write id's
+            f.write(f"{ins.id}\n")
+            f.write(f"{ins.stringid}\n")
+
+            # Write modelkindid
+            f.write(f"{ins.modelkindid}\n")
+           
+            # Write dispersion model parameters
+            if ins.modelkindid == 1:
+                f.write(ins.dmeff.get_file_entry())
+                f.write(ins.alphal.get_file_entry())
+                f.write(ins.alphath.get_file_entry())
+                f.write(ins.alphatv.get_file_entry())
+
+            if ins.modelkindid == 2:
+                f.write(f"{ins.dmaqueous:.16f}\n")
+                f.write(ins.betal.get_file_entry())
+                f.write(ins.betath.get_file_entry())
+                f.write(ins.betatv.get_file_entry())
+                f.write(ins.delta.get_file_entry())
+                f.write(ins.dgrain.get_file_entry())
+       
+
+        # Done
+        f.close()
+
+        return
+
 
 
 
@@ -621,7 +825,7 @@ class ModpathRWOptions( Package ):
     courant  : float
         Courant number that will be used at each cell for computing time step with adv criteria 
     ctdisp   :  float 
-        CT constant occupied for computing time step with disp criteria
+        CT constant for computing time step with disp criteria
     deltat   :  float 
         Value employed when timestep selection is fixed
     advection : str
@@ -818,6 +1022,7 @@ class ModpathRWGpkde( Package ):
 
         self.parent.add_package(self)
 
+
         # Done
         
 
@@ -900,6 +1105,8 @@ class ModpathRWObs( Package ):
 
 
     COUNTER = 0
+    UNITNUMBER = 0
+    INSTANCES = []
 
     @count_instances
     def __init__(
@@ -913,11 +1120,16 @@ class ModpathRWObs( Package ):
         structured     = True, 
         basefilename   = 'mpathrwobs_',
         filename       = None,
-        extension      = '.obs',
+        extension      = 'obs',
     ):
-        
-        unitnumber = model.next_unit()
-        super().__init__(model, extension, "OBSCELLS", unitnumber)
+       
+
+        # Define UNITNUMBER if the first instance is created
+        if self.__class__.COUNTER == 1:
+            unitnumber = model.next_unit()
+            super().__init__(model, extension, "OBS", unitnumber)
+            self.__class__.UNITNUMBER = self.unit_number[0]
+
 
         self.kind = kind
         self.timeoption = timeoption
@@ -981,6 +1193,11 @@ class ModpathRWObs( Package ):
         # Filename for this observation
         self.filename = basefilename+str(self.id)+extension
 
+        # Add package and save instance        
+        #if self.__class__.COUNTER == 1:
+        #    self.parent.add_package(self)
+        self.__class__.INSTANCES.append( self )
+
 
         return
 
@@ -997,7 +1214,7 @@ class ModpathRWObs( Package ):
 
 
         if f is None:
-            raise Exception('ModpathRwptObs: requires file pointer f. Is None.')
+            raise Exception('flopyrw:ModpathRWObs: requires file pointer f. Is None.')
 
         # validate that a valid file object was passed
         if not hasattr(f, "write"):
@@ -1062,20 +1279,18 @@ class ModpathRWObs( Package ):
 
 
 
-
-
-
-
-
-# DEPRECATION WARNING ?
-class ModpathRwptSolute( Package ):
+class ModpathRWSpc( Package ):
     """
-    MODPATH RWPT Solute Package Class.
+    MODPATH-RW Species Package Class.
     Parameters
     ----------
     model : model object
         The model object (of type :class:`flopy.modpath.Modpath7`) to which
         this package will be added.
+    dispersion: ModpathRWDsp object
+        Defines dispersion model and properties to this specie.
+    pgroups: list, np.array
+        Particle groups related to this specie.
     """
 
     COUNTER = 0
@@ -1084,83 +1299,48 @@ class ModpathRwptSolute( Package ):
     def __init__(
         self,
         model,
-        id       = None,
-        stringid = None,
-        kind     = 1,
-        dispmodel= 1,
-        daqueous = 0.0,
-        displong = None,
-        disptranh= None,
-        disptranv= None,
-        pgroups  = None,
-        extension='.sol',
+        dispersion, # it's like a foreign key
+        pgroups    = None,
+        id         = None,
+        stringid   = None,
     ):
         
-        unitnumber = model.next_unit()
-        super().__init__(model, extension, "SOLUTE", unitnumber)
 
-        shape = model.shape
-        if len(shape) == 3:
-            shape3d = shape
-        elif len(shape) == 2:
-            shape3d = (shape[0], 1, shape[1])
-        else:
-            shape3d = (1, 1, shape[0])
-
-        self.model = model
-        self.shape3d = shape3d
-
-        self.kind     = kind
-        self.daqueous = daqueous
-        
-        self.dispmodel = dispmodel
-       
-        # Assign LINEAR dispersion parameters
-        self.displong = Util3d(
-            model,
-            shape3d,
-            np.float32,
-            displong,
-            name="LONGITUDINAL",
-            locat=self.unit_number[0],
-        )
-        if(
-           ( disptranh is None ) and 
-           ( disptranv is not None ) ):
-            self.disptranh = disptranv
-        else:
-            self.disptranh= Util3d(
-                model,
-                shape3d,
-                np.float32,
-                disptranh,
-                name="TRANSVERSEH",
-                locat=self.unit_number[0],
-            )
-        if(
-           ( disptranv is None ) and 
-           ( disptranh is not None ) ):
-            self.disptranv = self.disptranh
-        else:
-            self.disptranv= Util3d(
-                model,
-                shape3d,
-                np.float32,
-                disptranv,
-                name="TRANSVERSEV",
-                locat=self.unit_number[0],
-            )
+        ## Necessary ?
+        #unitnumber = model.next_unit()
+        #super().__init__(model, extension, "SPC", unitnumber)
+        #shape = model.shape
+        #if len(shape) == 3:
+        #    shape3d = shape
+        #elif len(shape) == 2:
+        #    shape3d = (shape[0], 1, shape[1])
+        #else:
+        #    shape3d = (1, 1, shape[0])
+        #self.model = model
+        #self.shape3d = shape3d
 
 
-        if not isinstance( pgroups, (list, np.ndarray)):
-            raise TypeError('pgroups should be a list or array, given ', type(pgroups))
+        # Assign dispersion
+        if not isinstance( dispersion, ModpathRWDsp ):
+            raise Exception('flopyrw:ModpathRWSpc: dispersion parameter should be of ModpathRWDsp type. Given ', type( dispersion ) )
+        self.dispersion = dispersion
+
+        # Assign pgroups id's
+        if pgroups is None: 
+            warnings.warn("flopyrw:ModpathRWSpc: no pgroups were specified, defaults to pgroups = [0]")
+            pgroups = [0]
+            # Or leave as None
+        if not isinstance(pgroups, (list,np.array)):
+            raise Exception('flopyrw:ModpathRWSpc: pgroups should be of type list or np.array. Given ', type( pgroups ) )
+        if isinstance( pgroups, list ):
+            pgroups = np.array( pgroups )
+        # Requires some more sanity checks to verify integer id's and so on
+        # Might be worth considering removing particle groups altogether and extend 
+        # species from those classes.
         self.pgroups = pgroups
+        
 
-
-
-        # Define obs id
-        # It could be more useful some kind of random 
-        # integer
+        # Define id
         if (id is not None): 
             self.id = id
         else:
@@ -1188,7 +1368,7 @@ class ModpathRwptSolute( Package ):
 
 
         if f is None:
-            raise Exception('ModpathRwptObs: requires file pointer f. Is None.')
+            raise Exception('flopyrw:ModpathRWSpc: requires file pointer f. Is None.')
 
         # validate that a valid file object was passed
         if not hasattr(f, "write"):
@@ -1196,7 +1376,6 @@ class ModpathRwptSolute( Package ):
                 "{}: cannot write data for template without passing a valid "
                 "file object ({}) open for writing".format(self.name, f)
             )
-
 
         # Write id
         f.write(f"{self.id}\n")
@@ -1214,23 +1393,18 @@ class ModpathRwptSolute( Package ):
                 # Write the pgroup id in the list of pgroups
                 f.write(f"{pg+1}\n")
 
-        if self.dispmodel == 1:
 
-            # Write modelkind
-            f.write(f"{self.dispmodel}\n")
-
-            # Write effetive molecular diffusion
-            f.write(f"{self.daqueous:.16f}\n")
-
-            # Write dispersivities
-            f.write(self.displong.get_file_entry())
-            f.write(self.disptranh.get_file_entry())
-
-        elif self.dispmodel == 2:
-            pass
+        # Write dispersion "foreign key"        
+        f.write(f"{self.dispersion.id}\n")
+        f.write(f"{self.dispersion.stringid}\n")
 
 
         return
+
+
+
+
+
 
 
 class ModpathRWIc( Package ):
@@ -1258,8 +1432,8 @@ class ModpathRWIc( Package ):
         mass          = 1,
         massformat    = 1,
         concentration = None,
-        soluteid      = 1,
-        extension     = '.ic',
+        soluteid      = 1, # replace by specie ?
+        extension     = 'ic',
     ):
         
         unitnumber = model.next_unit()
@@ -2956,5 +3130,168 @@ class ModpathRwptFlux( Package ):
 
 
 
-# Needs transformation of solute concentrations into particles
 
+# DEPRECATION WARNING ?
+class ModpathRwptSolute( Package ):
+    """
+    MODPATH RWPT Solute Package Class.
+    Parameters
+    ----------
+    model : model object
+        The model object (of type :class:`flopy.modpath.Modpath7`) to which
+        this package will be added.
+    """
+
+    COUNTER = 0
+
+    @count_instances
+    def __init__(
+        self,
+        model,
+        id       = None,
+        stringid = None,
+        kind     = 1,
+        dispmodel= 1,
+        daqueous = 0.0,
+        displong = None,
+        disptranh= None,
+        disptranv= None,
+        pgroups  = None,
+        extension='.sol',
+    ):
+        
+        unitnumber = model.next_unit()
+        super().__init__(model, extension, "SOLUTE", unitnumber)
+
+        shape = model.shape
+        if len(shape) == 3:
+            shape3d = shape
+        elif len(shape) == 2:
+            shape3d = (shape[0], 1, shape[1])
+        else:
+            shape3d = (1, 1, shape[0])
+
+        self.model = model
+        self.shape3d = shape3d
+
+        self.kind     = kind
+        self.daqueous = daqueous
+        
+        self.dispmodel = dispmodel
+       
+        # Assign LINEAR dispersion parameters
+        self.displong = Util3d(
+            model,
+            shape3d,
+            np.float32,
+            displong,
+            name="LONGITUDINAL",
+            locat=self.unit_number[0],
+        )
+        if(
+           ( disptranh is None ) and 
+           ( disptranv is not None ) ):
+            self.disptranh = disptranv
+        else:
+            self.disptranh= Util3d(
+                model,
+                shape3d,
+                np.float32,
+                disptranh,
+                name="TRANSVERSEH",
+                locat=self.unit_number[0],
+            )
+        if(
+           ( disptranv is None ) and 
+           ( disptranh is not None ) ):
+            self.disptranv = self.disptranh
+        else:
+            self.disptranv= Util3d(
+                model,
+                shape3d,
+                np.float32,
+                disptranv,
+                name="TRANSVERSEV",
+                locat=self.unit_number[0],
+            )
+
+
+        if not isinstance( pgroups, (list, np.ndarray)):
+            raise TypeError('pgroups should be a list or array, given ', type(pgroups))
+        self.pgroups = pgroups
+
+
+
+        # Define obs id
+        # It could be more useful some kind of random 
+        # integer
+        if (id is not None): 
+            self.id = id
+        else:
+            self.id = self.__class__.COUNTER
+
+        if (stringid is not None): 
+            self.stringid = stringid
+        else:
+            self.stringid = 'S'+str(self.__class__.COUNTER)
+
+
+        return
+
+
+    def write(self, f=None, particlesmassoption=0):
+
+        """
+        Write the package file
+        Parameters
+        ----------
+        Returns
+        -------
+        None
+        """
+
+
+        if f is None:
+            raise Exception('ModpathRwptObs: requires file pointer f. Is None.')
+
+        # validate that a valid file object was passed
+        if not hasattr(f, "write"):
+            raise ValueError(
+                "{}: cannot write data for template without passing a valid "
+                "file object ({}) open for writing".format(self.name, f)
+            )
+
+
+        # Write id
+        f.write(f"{self.id}\n")
+
+        # Write stringid
+        f.write(f"{self.stringid}\n")
+
+        # Need to write the related groups 
+        # only if particlesmassoption not equal 2 
+        if ( particlesmassoption != 2 ):
+            # Write the number of groups
+            f.write(f"{len(self.pgroups)}\n")
+
+            for idpg, pg in enumerate(self.pgroups):
+                # Write the pgroup id in the list of pgroups
+                f.write(f"{pg+1}\n")
+
+        if self.dispmodel == 1:
+
+            # Write modelkind
+            f.write(f"{self.dispmodel}\n")
+
+            # Write effetive molecular diffusion
+            f.write(f"{self.daqueous:.16f}\n")
+
+            # Write dispersivities
+            f.write(self.displong.get_file_entry())
+            f.write(self.disptranh.get_file_entry())
+
+        elif self.dispmodel == 2:
+            pass
+
+
+        return
