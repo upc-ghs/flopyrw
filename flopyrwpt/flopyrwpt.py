@@ -161,14 +161,14 @@ class ModpathRW( flopy.modpath.Modpath7 ):
         # Following filenames are expected 
         # to be generated based on parameter
         # passed to ModpathRWSim class
-        self.dspfilename    = None
-        self.rwoptsfilename = None
-        self.gpkdefilename  = None
+        #self.dspfilename    = None
+        #self.rwoptsfilename = None
+        #self.gpkdefilename  = None
         self.icfilename     = None
         self.fluxfilename   = None
         self.obsfilename    = None
-        self.spcfilename    = None
-        self.dspfilename    = None
+        #self.spcfilename    = None
+        #self.dspfilename    = None
 
 
     # Overload the write_name_file method
@@ -196,21 +196,27 @@ class ModpathRW( flopy.modpath.Modpath7 ):
             f.write(f"HEAD       {self.headfilename}\n")
         if self.budgetfilename is not None:
             f.write(f"BUDGET     {self.budgetfilename}\n")
+
         # MODPATH-RW specifc files
-        if self.dspfilename is not None:
-            f.write(f"DSP        {self.dspfilename}\n")
-        if self.spcfilename is not None:
-            f.write(f"SPC        {self.spcfilename}\n")       # SHOULD BE UPDATED TO write_file format
-        if self.rwoptsfilename is not None:
-            f.write(f"RWOPTS     {self.rwoptsfilename}\n")
-        if self.gpkdefilename is not None:
-            f.write(f"GPKDE      {self.gpkdefilename}\n")
+        dsppkg = self.get_package('DSP')
+        if dsppkg is not None:
+            f.write(f"DSP        {dsppkg.file_name[0]}\n")
+        spcpkg = self.get_package('SPC')
+        if spcpkg is not None:
+            f.write(f"SPC        {spcpkg.file_name[0]}\n")
+        rwoptspkg = self.get_package('RWOPTS')
+        if rwoptspkg is not None:
+            f.write(f"RWOPTS     {rwoptspkg.file_name[0]}\n")
+        gpkdepkg = self.get_package('GPKDE')
+        if gpkdepkg is not None:
+            f.write(f"GPKDE      {gpkdepkg.file_name[0]}\n")
+        obspkg = self.get_package('OBS')
+        if obspkg is not None:
+            f.write(f"OBS        {obspkg.file_name[0]}\n")
         #if self.budgetfilename is not None:
         #    f.write(f"IC    {self.budgetfilename}\n")
         #if self.budgetfilename is not None:
         #    f.write(f"FLUX    {self.budgetfilename}\n")
-        if self.obsfilename is not None:
-            f.write(f"OBS        {self.obsfilename}\n")       # SHOULD BE UPDATED TO write_file format
         # ICBOUND ?
         f.close()
 
@@ -227,12 +233,12 @@ class ModpathRWSim( flopy.modpath.Modpath7Sim ):
             timeseriesoutputoption=0,
             particlesmassoption=0,
             solutesoption=0,
-            reconstruction=False,
-            dispersionfilename=None,
-            observations=None,
             initialconditions=None,
             fluxconditions=None,
-            species=None,      # These bring dispersion
+            #species=None,      # These bring dispersion
+            #reconstruction=False,
+            #dispersionfilename=None,
+            #observations=None,
             **kwargs
         ):
 
@@ -284,7 +290,7 @@ class ModpathRWSim( flopy.modpath.Modpath7Sim ):
 
         # Prescribed flux conditions
         if fluxconditions is not None:
-            if isinstance(observations,list):
+            if isinstance(fluxconditions,list):
                 for pic in fluxconditions:
                     if not isinstance(pic, ModpathRWFlux):
                         raise TypeError('Object in list is type ', type(pic), '. Expected ModpathRWFlux.')
@@ -301,14 +307,20 @@ class ModpathRWSim( flopy.modpath.Modpath7Sim ):
             self.fluxconditions = None
 
 
-        # RWOptions
+        # If simulation is RW
         if self.simulationtype > 4: 
-            # rwopts
-            rwopts = self.parent.get_package('RWOPTS')
-            if rwopts is None:
-                raise Exception('flopyrw:ModpathRWSim: requires a ModpathRWOptions package. None given.')
-            rwoptsfilename = f"{model.name}.rwopts"
-            self._parent.rwoptsfilename = rwoptsfilename
+
+            # Assign some properties to parent obj
+            # Needed by: SPC
+            self._parent.particlesmassoption = particlesmassoption
+            self._parent.solutesoption = solutesoption
+
+            ## rwopts
+            #rwopts = self.parent.get_package('RWOPTS')
+            #if rwopts is None:
+            #    raise Exception('flopyrw:ModpathRWSim: requires a ModpathRWOptions package. None given.')
+            #rwoptsfilename = f"{model.name}.rwopts"
+            #self._parent.rwoptsfilename = rwoptsfilename
 
 
             # DEPRECATED ?
@@ -328,63 +340,63 @@ class ModpathRWSim( flopy.modpath.Modpath7Sim ):
             disp.npfs = self.npfs
 
 
-        # Extract model and assign default filenames
-        if dispersionfilename is None:
-            # .rw extension makes more sense 
-            # as in fact this file contains most of the 
-            # config for rwpt, besides dispersion
-            dispersionfilename = f"{model.name}.dispersion"
-        self.dispersionfilename = dispersionfilename
+        ## Extract model and assign default filenames
+        #if dispersionfilename is None:
+        #    # .rw extension makes more sense 
+        #    # as in fact this file contains most of the 
+        #    # config for rwpt, besides dispersion
+        #    dispersionfilename = f"{model.name}.dispersion"
+        #self.dispersionfilename = dispersionfilename
 
 
-        # GPKDE reconstruction
-        if reconstruction:
-            gpkdefilename = f"{model.name}.gpkde"
-            self._parent.gpkdefilename  = gpkdefilename
-            self.reconstructionfilename = gpkdefilename # DEPRECATE
-        self.reconstruction = reconstruction
+        ## GPKDE reconstruction
+        #if reconstruction:
+        #    gpkdefilename = f"{model.name}.gpkde"
+        #    self._parent.gpkdefilename  = gpkdefilename
+        #    self.reconstructionfilename = gpkdefilename # DEPRECATE
+        #self.reconstruction = reconstruction
 
 
-        # Observations
-        if observations is not None:
-            if isinstance(observations,list):
-                for pobs in observations:
-                    if not isinstance(pobs, ModpathRWObs):
-                        raise TypeError('Object in list is type ', type(pobs), '. Expected ModpathRWObs.')
-                # Survived so continue
-                self.nobs = len(observations)
-                self.observations = observations
-            elif isinstance( observations, ModpathRWObs ):
-                self.nobs = 1
-                self.observations = [observations]
-            else:
-                raise TypeError('Observations argument should be of type list or ModpathRWObs. ', type(observations), ' given.')
-            self._parent.obsfilename  = f"{model.name}.obs"
-            self.obsfilepath = os.path.join( self._parent.model_ws, self._parent.obsfilename )
-        else:
-            self.nobs = 0
-            self.observations = None
+        ## Observations
+        #if observations is not None:
+        #    if isinstance(observations,list):
+        #        for pobs in observations:
+        #            if not isinstance(pobs, ModpathRWObs):
+        #                raise TypeError('Object in list is type ', type(pobs), '. Expected ModpathRWObs.')
+        #        # Survived so continue
+        #        self.nobs = len(observations)
+        #        self.observations = observations
+        #    elif isinstance( observations, ModpathRWObs ):
+        #        self.nobs = 1
+        #        self.observations = [observations]
+        #    else:
+        #        raise TypeError('Observations argument should be of type list or ModpathRWObs. ', type(observations), ' given.')
+        #    self._parent.obsfilename  = f"{model.name}.obs"
+        #    self.obsfilepath = os.path.join( self._parent.model_ws, self._parent.obsfilename )
+        #else:
+        #    self.nobs = 0
+        #    self.observations = None
 
 
-        # Species
-        if species is not None:
-            if isinstance(species,list):
-                for pspc in species:
-                    if not isinstance(pspc, ModpathRWSpc):
-                        raise TypeError('Object in list is type ', type(pspc), '. Expected ModpathRWSpc.')
-                # Survived so continue
-                self.nspc = len(species)
-                self.species = species
-            elif isinstance( observations, ModpathRWSpc ):
-                self.nspc = 1
-                self.species = [species]
-            else:
-                raise TypeError('species argument should be of type list or ModpathRWSpc. ', type(species), ' given.')
-            self._parent.spcfilename  = f"{model.name}.spc"
-            self.spcfilepath = os.path.join( self._parent.model_ws, self._parent.spcfilename )
-        else:
-            self.nspc = 0
-            self.species = None
+        ## Species
+        #if species is not None:
+        #    if isinstance(species,list):
+        #        for pspc in species:
+        #            if not isinstance(pspc, ModpathRWSpc):
+        #                raise TypeError('Object in list is type ', type(pspc), '. Expected ModpathRWSpc.')
+        #        # Survived so continue
+        #        self.nspc = len(species)
+        #        self.species = species
+        #    elif isinstance( observations, ModpathRWSpc ):
+        #        self.nspc = 1
+        #        self.species = [species]
+        #    else:
+        #        raise TypeError('species argument should be of type list or ModpathRWSpc. ', type(species), ' given.')
+        #    self._parent.spcfilename  = f"{model.name}.spc"
+        #    self.spcfilepath = os.path.join( self._parent.model_ws, self._parent.spcfilename )
+        #else:
+        #    self.nspc = 0
+        #    self.species = None
 
         # Done!
 
@@ -529,32 +541,32 @@ class ModpathRWSim( flopy.modpath.Modpath7Sim ):
                     pg.write(f, ws=self.parent.model_ws, mass=True, solute=True)
    
 
-        # MODPATH-RW
-        if self.simulationtype > 4:
+        ## MODPATH-RW
+        #if self.simulationtype > 4:
 
-            # THESE TWO WRITING OPS SHOULD BE UPDATED
-            # TO WHAT WAS DONE IN DSP
+        #    # THESE TWO WRITING OPS SHOULD BE UPDATED
+        #    # TO WHAT WAS DONE IN DSP
 
-            # Write observations to obs file
-            if self.nobs > 0:
-                fobs = open(self.obsfilepath, "w")
-                fobs.write(f"{len(self.observations)}\n")
-                for obs in self.observations:
-                    obs.write(f=fobs)
-                fobs.close()
+        #    ## Write observations to obs file
+        #    #if self.nobs > 0:
+        #    #    fobs = open(self.obsfilepath, "w")
+        #    #    fobs.write(f"{len(self.observations)}\n")
+        #    #    for obs in self.observations:
+        #    #        obs.write(f=fobs)
+        #    #    fobs.close()
 
-            # Write species to spc file
-            if self.nspc > 0:
-                fspc = open(self.spcfilepath, "w")
-                fspc.write(f"{len(self.species)}\n")
-                for spc in self.species:
-                    spc.write(f=fspc)
-                fspc.close()
+        #    ## Write species to spc file
+        #    #if self.nspc > 0:
+        #    #    fspc = open(self.spcfilepath, "w")
+        #    #    fspc.write(f"{len(self.species)}\n")
+        #    #    for spc in self.species:
+        #    #        spc.write(f=fspc)
+        #    #    fspc.close()
 
 
-            # To be deprecated
-            # RWPT config filename
-            f.write(f"{self.dispersionfilename}\n")
+        #    # To be deprecated
+        #    # RWPT config filename
+        #    #f.write(f"{self.dispersionfilename}\n")
 
 
         # And close
@@ -613,12 +625,6 @@ class ModpathRWDsp( Package ):
         extension         = 'dsp',
     ):
 
-        # Needed ?
-        # For the current structure of writing
-        # the package more or less manually is not 
-        # really necessay. However it would be good to 
-        # consider something more consistent with the base 
-        # flopy structure
 
         # Define UNITNUMBER if the first instance is created
         if self.__class__.COUNTER == 1:
@@ -990,11 +996,9 @@ class ModpathRWGpkde( Package ):
         noptloops            = 2, 
         outputfilename       = None,
         extension            = 'gpkde',
-        kerneldatabaseparams = [1,0.1,30], # minh/lambda,deltahlambda,maxhlambda # TO BE DEPRECATED
     ):
 
         unitnumber = model.next_unit()
-
         super().__init__(model, extension, "GPKDE", unitnumber)
 
         shape = model.shape
@@ -1005,6 +1009,7 @@ class ModpathRWGpkde( Package ):
         else:
             shape3d = (1, 1, shape[0])
 
+        # Some health checks
         self.binsize              = np.array(binsize).astype(np.float32)
         self.domainsize           = np.array(domainsize).astype(np.float32)
         self.domainorigin         = np.array(domainorigin).astype(np.float32)
@@ -1013,7 +1018,6 @@ class ModpathRWGpkde( Package ):
         self.minhlambda           = minhlambda
         self.maxhlambda           = maxhlambda
         self.deltahlambda         = deltahlambda
-        self.kerneldatabaseparams = kerneldatabaseparams # TO BE DEPRECATED 
 
         if outputfilename is not None:
             self.outputfilename = outputfilename
@@ -1022,9 +1026,9 @@ class ModpathRWGpkde( Package ):
 
         self.parent.add_package(self)
 
-
         # Done
-        
+        return
+
 
     def write_file(self, check=False):
         """
@@ -1088,6 +1092,7 @@ class ModpathRWGpkde( Package ):
             f.write(f"{self.minhlambda:10f}\t")
             f.write(f"{self.maxhlambda:10f}\n")
 
+
         # And close
         f.close()
 
@@ -1104,15 +1109,16 @@ class ModpathRWObs( Package ):
     """
 
 
+    # Class properties
     COUNTER = 0
     UNITNUMBER = 0
     INSTANCES = []
+
 
     @count_instances
     def __init__(
         self,
         model,
-        id             = None,
         kind           = 1,
         celloption     = 1,
         cells          = None,
@@ -1120,6 +1126,8 @@ class ModpathRWObs( Package ):
         structured     = True, 
         basefilename   = 'mpathrwobs_',
         filename       = None,
+        id             = None,
+        stringid       = None,
         extension      = 'obs',
     ):
        
@@ -1129,18 +1137,22 @@ class ModpathRWObs( Package ):
             unitnumber = model.next_unit()
             super().__init__(model, extension, "OBS", unitnumber)
             self.__class__.UNITNUMBER = self.unit_number[0]
+        else:
+            # Needed for Util3d
+            self._parent = self.INSTANCES[0]._parent
 
-
+        # Need health checks
         self.kind = kind
         self.timeoption = timeoption
         self.structured = structured
 
+        # celloption 
         if ( celloption not in [1,2] ):
             raise ValueError('Invalid celloption ',
                     celloption, '. Allowed values are 1 (list of cellids) or 2 (modelgrid like array)')
         self.celloption = celloption
 
-        # Write a list of cellids
+        # Write as a list of cellids
         if self.celloption == 1:
             if cells is None:
                 self.cells = []
@@ -1178,104 +1190,186 @@ class ModpathRWObs( Package ):
                     np.int32,
                     cells,
                     name="OBSCELLS",
-                    locat=self.unit_number[0],
+                    locat=self.__class__.UNITNUMBER,
                 )
 
+
         # Define obs id
-        # It could be more useful some kind of random 
-        # integer
         if (id is not None): 
             self.id = id
         else:
             self.id = self.__class__.COUNTER
 
+        if (stringid is not None): 
+            self.stringid = stringid
+        else:
+            self.stringid = 'OBS'+str(self.__class__.COUNTER)
 
         # Filename for this observation
         self.filename = basefilename+str(self.id)+extension
 
         # Add package and save instance        
-        #if self.__class__.COUNTER == 1:
-        #    self.parent.add_package(self)
+        if self.__class__.COUNTER == 1:
+            self.parent.add_package(self)
         self.__class__.INSTANCES.append( self )
 
 
+        # Done
         return
 
 
-    def write(self, f=None):
+    def write_file(self, check=False):
         """
         Write the package file
         Parameters
         ----------
+        check : boolean
+            Check package data for common errors. (default False)
         Returns
         -------
         None
         """
 
+        # Open file for writing
+        f = open(self.INSTANCES[0].fn_path, "w")
 
-        if f is None:
-            raise Exception('flopyrw:ModpathRWObs: requires file pointer f. Is None.')
-
-        # validate that a valid file object was passed
-        if not hasattr(f, "write"):
-            raise ValueError(
-                "{}: cannot write data for template without passing a valid "
-                "file object ({}) open for writing".format(self.name, f)
-            )
+        # Write how many INSTANCES 
+        # and loop over them
+        f.write(f"{self.COUNTER}\n")
 
 
-        # Write obs id
-        f.write(f"{self.id}\n")
+        for ins in self.INSTANCES:
 
-        # Write obs filename
-        f.write(f"{self.filename}\n")
+            # Write obs id
+            f.write(f"{ins.id}\n")
 
-        # Write the obs kind
-        f.write(f"{self.kind}\n")
+            # Write obs filename
+            f.write(f"{ins.filename}\n")
 
-        # Write the celloption param
-        f.write(f"{self.celloption}\n")
+            # Write the obs kind
+            f.write(f"{ins.kind}\n")
 
-        if self.celloption == 1:
-            # Should write a cell number
-            if len( self.cells ) == 0: 
-                raise Exception('Observation cells is empty. Specify a list of cells for the observation id ', self.id)
-            else:
-                f.write(f"{len(self.cells)}\n")
-                fmts = []
-                if self.structured:
-                    f.write(f"1\n") # To indicate structured
-                    fmts.append("{:9d}") # lay
-                    fmts.append("{:9d}") # row
-                    fmts.append("{:9d}") # col
+            # Write the celloption param
+            f.write(f"{ins.celloption}\n")
+
+            if ins.celloption == 1:
+                # Should write a cell number
+                if len( ins.cells ) == 0: 
+                    raise Exception('flopyrw:ModpathRWObs: cells array is empty. Specify a list of cells for the observation id ', self.id )
                 else:
-                    f.write(f"2\n") # To indicate cell ids
-                    fmts.append("{:9d}") # cellid
-                fmt = " " + " ".join(fmts) + "\n"
-                for oc in self.cells:
-                    woc = np.array(oc).astype(np.int32)+1 # Correct the zero-based indexes
-                    if self.structured:
-                        f.write(fmt.format(*woc))
+                    f.write(f"{len(ins.cells)}\n")
+                    fmts = []
+                    if ins.structured:
+                        f.write(f"1\n") # To indicate structured
+                        fmts.append("{:9d}") # lay
+                        fmts.append("{:9d}") # row
+                        fmts.append("{:9d}") # col
                     else:
-                        f.write(fmt.format(woc))
+                        f.write(f"2\n") # To indicate cell ids
+                        fmts.append("{:9d}") # cellid
+                    fmt = " " + " ".join(fmts) + "\n"
+                    for oc in ins.cells:
+                        woc = np.array(oc).astype(np.int32)+1 # Correct the zero-based indexes
+                        if ins.structured:
+                            f.write(fmt.format(*woc))
+                        else:
+                            f.write(fmt.format(woc))
 
-        elif self.celloption == 2:
-            # Should write an array
-            # with the distribution of the observation
-            f.write(self.cells.get_file_entry())
-
-
-        # Write timeoption params
-        f.write(f"{self.timeoption}\n")
-        if self.timeoption == 1:
-            pass
-        elif self.timeoption == 2:
-            pass
-
-
+            elif ins.celloption == 2:
+                # Should write an array
+                # with the distribution of the observation
+                f.write(ins.cells.get_file_entry())
 
 
+            # Write timeoption params
+            f.write(f"{ins.timeoption}\n")
+            if ins.timeoption == 1:
+                pass
+            elif ins.timeoption == 2:
+                pass
+
+
+        # Done
         return
+
+
+
+
+
+    #def write(self, f=None):
+    #    """
+    #    Write the package file
+    #    Parameters
+    #    ----------
+    #    Returns
+    #    -------
+    #    None
+    #    """
+
+
+    #    if f is None:
+    #        raise Exception('flopyrw:ModpathRWObs: requires file pointer f. Is None.')
+
+    #    # validate that a valid file object was passed
+    #    if not hasattr(f, "write"):
+    #        raise ValueError(
+    #            "{}: cannot write data for template without passing a valid "
+    #            "file object ({}) open for writing".format(self.name, f)
+    #        )
+
+
+    #    # Write obs id
+    #    f.write(f"{self.id}\n")
+
+    #    # Write obs filename
+    #    f.write(f"{self.filename}\n")
+
+    #    # Write the obs kind
+    #    f.write(f"{self.kind}\n")
+
+    #    # Write the celloption param
+    #    f.write(f"{self.celloption}\n")
+
+    #    if self.celloption == 1:
+    #        # Should write a cell number
+    #        if len( self.cells ) == 0: 
+    #            raise Exception('Observation cells is empty. Specify a list of cells for the observation id ', self.id)
+    #        else:
+    #            f.write(f"{len(self.cells)}\n")
+    #            fmts = []
+    #            if self.structured:
+    #                f.write(f"1\n") # To indicate structured
+    #                fmts.append("{:9d}") # lay
+    #                fmts.append("{:9d}") # row
+    #                fmts.append("{:9d}") # col
+    #            else:
+    #                f.write(f"2\n") # To indicate cell ids
+    #                fmts.append("{:9d}") # cellid
+    #            fmt = " " + " ".join(fmts) + "\n"
+    #            for oc in self.cells:
+    #                woc = np.array(oc).astype(np.int32)+1 # Correct the zero-based indexes
+    #                if self.structured:
+    #                    f.write(fmt.format(*woc))
+    #                else:
+    #                    f.write(fmt.format(woc))
+
+    #    elif self.celloption == 2:
+    #        # Should write an array
+    #        # with the distribution of the observation
+    #        f.write(self.cells.get_file_entry())
+
+
+    #    # Write timeoption params
+    #    f.write(f"{self.timeoption}\n")
+    #    if self.timeoption == 1:
+    #        pass
+    #    elif self.timeoption == 2:
+    #        pass
+
+
+
+
+    #    return
 
 
 
@@ -1293,7 +1387,12 @@ class ModpathRWSpc( Package ):
         Particle groups related to this specie.
     """
 
-    COUNTER = 0
+
+    # Class properties
+    COUNTER    = 0
+    UNITNUMBER = 0
+    INSTANCES  = []
+
 
     @count_instances
     def __init__(
@@ -1303,12 +1402,20 @@ class ModpathRWSpc( Package ):
         pgroups    = None,
         id         = None,
         stringid   = None,
+        extension  = 'spc',
     ):
         
+        # Define UNITNUMBER if the first instance is created
+        if self.__class__.COUNTER == 1:
+            unitnumber = model.next_unit()
+            super().__init__(model, extension, "SPC", unitnumber)
+            self.__class__.UNITNUMBER = self.unit_number[0]
+        else:
+            # Needed for Util3d
+            self._parent = self.INSTANCES[0]._parent
+
 
         ## Necessary ?
-        #unitnumber = model.next_unit()
-        #super().__init__(model, extension, "SPC", unitnumber)
         #shape = model.shape
         #if len(shape) == 3:
         #    shape3d = shape
@@ -1352,54 +1459,109 @@ class ModpathRWSpc( Package ):
             self.stringid = 'S'+str(self.__class__.COUNTER)
 
 
+        # Add package and save instance        
+        if self.__class__.COUNTER == 1:
+            self.parent.add_package(self)
+        self.__class__.INSTANCES.append( self )
+
+
+        # Done
         return
 
 
-    def write(self, f=None, particlesmassoption=0):
 
+    def write_file(self, check=False):
         """
         Write the package file
         Parameters
         ----------
+        check : boolean
+            Check package data for common errors. (default False)
         Returns
         -------
         None
         """
 
+        # Open file for writing
+        f = open(self.INSTANCES[0].fn_path, "w")
 
-        if f is None:
-            raise Exception('flopyrw:ModpathRWSpc: requires file pointer f. Is None.')
+        # Write how many INSTANCES 
+        # and loop over them
+        f.write(f"{self.COUNTER}\n")
 
-        # validate that a valid file object was passed
-        if not hasattr(f, "write"):
-            raise ValueError(
-                "{}: cannot write data for template without passing a valid "
-                "file object ({}) open for writing".format(self.name, f)
-            )
+        for ins in self.INSTANCES:
 
-        # Write id
-        f.write(f"{self.id}\n")
+            # Write id
+            f.write(f"{ins.id}\n")
 
-        # Write stringid
-        f.write(f"{self.stringid}\n")
+            # Write stringid
+            f.write(f"{ins.stringid}\n")
 
-        # Need to write the related groups 
-        # only if particlesmassoption not equal 2 
-        if ( particlesmassoption != 2 ):
-            # Write the number of groups
-            f.write(f"{len(self.pgroups)}\n")
+            # Need to write the related groups 
+            # only if particlesmassoption not equal 2 
+            if ( self.INSTANCES[0]._parent.particlesmassoption != 2 ):
+                # Write the number of groups
+                f.write(f"{len(ins.pgroups)}\n")
 
-            for idpg, pg in enumerate(self.pgroups):
-                # Write the pgroup id in the list of pgroups
-                f.write(f"{pg+1}\n")
+                for idpg, pg in enumerate(ins.pgroups):
+                    # Write the pgroup id in the list of pgroups
+                    f.write(f"{pg+1}\n")
 
-
-        # Write dispersion "foreign key"        
-        f.write(f"{self.dispersion.id}\n")
-        f.write(f"{self.dispersion.stringid}\n")
+            # Write dispersion "foreign key"        
+            f.write(f"{ins.dispersion.id}\n")
+            f.write(f"{ins.dispersion.stringid}\n")
 
 
+        # Done
         return
+
+
+
+    #def write(self, f=None, particlesmassoption=0):
+
+    #    """
+    #    Write the package file
+    #    Parameters
+    #    ----------
+    #    Returns
+    #    -------
+    #    None
+    #    """
+
+
+    #    if f is None:
+    #        raise Exception('flopyrw:ModpathRWSpc: requires file pointer f. Is None.')
+
+    #    # validate that a valid file object was passed
+    #    if not hasattr(f, "write"):
+    #        raise ValueError(
+    #            "{}: cannot write data for template without passing a valid "
+    #            "file object ({}) open for writing".format(self.name, f)
+    #        )
+
+    #    # Write id
+    #    f.write(f"{self.id}\n")
+
+    #    # Write stringid
+    #    f.write(f"{self.stringid}\n")
+
+    #    # Need to write the related groups 
+    #    # only if particlesmassoption not equal 2 
+    #    if ( particlesmassoption != 2 ):
+    #        # Write the number of groups
+    #        f.write(f"{len(self.pgroups)}\n")
+
+    #        for idpg, pg in enumerate(self.pgroups):
+    #            # Write the pgroup id in the list of pgroups
+    #            f.write(f"{pg+1}\n")
+
+
+    #    # Write dispersion "foreign key"        
+    #    f.write(f"{self.dispersion.id}\n")
+    #    f.write(f"{self.dispersion.stringid}\n")
+
+
+    #    return
 
 
 
@@ -1420,19 +1582,24 @@ class ModpathRWIc( Package ):
         dissolved concentration. 
     """
 
-    COUNTER = 0
+
+    # Class properties
+    COUNTER    = 0
+    UNITNUMBER = 0
+    INSTANCES  = []
+
 
     @count_instances
     def __init__(
         self,
         model,
-        id            = None,
-        stringid      = None,
         kind          = 1,
         mass          = 1,
         massformat    = 1,
         concentration = None,
         soluteid      = 1, # replace by specie ?
+        id            = None,
+        stringid      = None,
         extension     = 'ic',
     ):
         
@@ -2551,11 +2718,11 @@ class ModpathRwptSim( flopy.modpath.Modpath7Sim ):
             # config for rwpt, besides dispersion
             dispersionfilename = f"{model.name}.dispersion"
         self.dispersionfilename = dispersionfilename
-        if reconstruction:
-            if reconstructionfilename is None:
-                reconstructionfilename = f"{model.name}.gpkde"
-            self.reconstructionfilename = reconstructionfilename
-        self.reconstruction = reconstruction
+        #if reconstruction:
+        #    if reconstructionfilename is None:
+        #        reconstructionfilename = f"{model.name}.gpkde"
+        #    self.reconstructionfilename = reconstructionfilename
+        #self.reconstruction = reconstruction
 
         # Observations
         if observations is not None:
