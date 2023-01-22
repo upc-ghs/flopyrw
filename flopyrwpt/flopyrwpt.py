@@ -164,9 +164,9 @@ class ModpathRW( flopy.modpath.Modpath7 ):
         #self.dspfilename    = None
         #self.rwoptsfilename = None
         #self.gpkdefilename  = None
-        self.icfilename     = None
+        #self.icfilename     = None
         self.fluxfilename   = None
-        self.obsfilename    = None
+        #self.obsfilename    = None
         #self.spcfilename    = None
         #self.dspfilename    = None
 
@@ -210,14 +210,16 @@ class ModpathRW( flopy.modpath.Modpath7 ):
         gpkdepkg = self.get_package('GPKDE')
         if gpkdepkg is not None:
             f.write(f"GPKDE      {gpkdepkg.file_name[0]}\n")
+        icpkg = self.get_package('IC')
+        if icpkg is not None:
+            f.write(f"IC         {icpkg.file_name[0]}\n")
         obspkg = self.get_package('OBS')
         if obspkg is not None:
             f.write(f"OBS        {obspkg.file_name[0]}\n")
         #if self.budgetfilename is not None:
-        #    f.write(f"IC    {self.budgetfilename}\n")
-        #if self.budgetfilename is not None:
         #    f.write(f"FLUX    {self.budgetfilename}\n")
-        # ICBOUND ?
+
+        # ICBOUND: TRY TO PLUG IT INTO BAS
         f.close()
 
 
@@ -233,7 +235,7 @@ class ModpathRWSim( flopy.modpath.Modpath7Sim ):
             timeseriesoutputoption=0,
             particlesmassoption=0,
             solutesoption=0,
-            initialconditions=None,
+            #initialconditions=None,
             fluxconditions=None,
             #species=None,      # These bring dispersion
             #reconstruction=False,
@@ -269,23 +271,23 @@ class ModpathRWSim( flopy.modpath.Modpath7Sim ):
         self.solutesoption = solutesoption
 
 
-        # Initial conditions
-        if initialconditions is not None:
-            if isinstance(initialconditions,list):
-                for pic in initialconditions:
-                    if not isinstance(pic, ModpathRWIc):
-                        raise TypeError('Object in list is type ', type(pic), '. Expected ModpathRWIc.')
-                # Survived so continue
-                self.nics = len(initialconditions)
-                self.initialconditions = initialconditions
-            elif isinstance( initialconditions, ModpathRWIc ):
-                self.nics = 1
-                self.initialconditions = [initialconditions]
-            else:
-                raise TypeError('Initial conditions argument should be of type list or ModpathRWIc. ', type(initialconditions), ' given.')
-        else:
-            self.nics = 0
-            self.initialconditions = None
+        ## Initial conditions
+        #if initialconditions is not None:
+        #    if isinstance(initialconditions,list):
+        #        for pic in initialconditions:
+        #            if not isinstance(pic, ModpathRWIc):
+        #                raise TypeError('Object in list is type ', type(pic), '. Expected ModpathRWIc.')
+        #        # Survived so continue
+        #        self.nics = len(initialconditions)
+        #        self.initialconditions = initialconditions
+        #    elif isinstance( initialconditions, ModpathRWIc ):
+        #        self.nics = 1
+        #        self.initialconditions = [initialconditions]
+        #    else:
+        #        raise TypeError('Initial conditions argument should be of type list or ModpathRWIc. ', type(initialconditions), ' given.')
+        #else:
+        #    self.nics = 0
+        #    self.initialconditions = None
 
 
         # Prescribed flux conditions
@@ -311,7 +313,7 @@ class ModpathRWSim( flopy.modpath.Modpath7Sim ):
         if self.simulationtype > 4: 
 
             # Assign some properties to parent obj
-            # Needed by: SPC
+            # Needed by: SPC, IC
             self._parent.particlesmassoption = particlesmassoption
             self._parent.solutesoption = solutesoption
 
@@ -323,21 +325,21 @@ class ModpathRWSim( flopy.modpath.Modpath7Sim ):
             #self._parent.rwoptsfilename = rwoptsfilename
 
 
-            # DEPRECATED ?
+            # DEPRECATED !!!!!!!!!!!!!!!!!!!!!!!!!!
             # Inform dispersion package about 
             # particlesmassoption
             # solutesoption
-            disp = self.parent.get_package('DISPERSION')
-            if disp is None:
-                raise Exception('Requires a dispersion package')
-            disp.particlesmassoption = self.particlesmassoption
-            disp.solutesoption = self.solutesoption
+            #disp = self.parent.get_package('DISPERSION')
+            #if disp is None:
+            #    raise Exception('Requires a dispersion package')
+            #disp.particlesmassoption = self.particlesmassoption
+            #disp.solutesoption = self.solutesoption
             # This is in the meantime that ics are read from 
             # what was originally called the dispersion file
-            disp.initialconditions = self.initialconditions
-            disp.nics = self.nics
-            disp.fluxconditions = self.fluxconditions
-            disp.npfs = self.npfs
+            #disp.initialconditions = self.initialconditions
+            #disp.nics = self.nics
+            #disp.fluxconditions = self.fluxconditions
+            #disp.npfs = self.npfs
 
 
         ## Extract model and assign default filenames
@@ -1594,7 +1596,7 @@ class ModpathRWIc( Package ):
         self,
         model,
         kind          = 1,
-        mass          = 1,
+        mass          = .1,
         massformat    = 1,
         concentration = None,
         soluteid      = 1, # replace by specie ?
@@ -1602,9 +1604,17 @@ class ModpathRWIc( Package ):
         stringid      = None,
         extension     = 'ic',
     ):
-        
-        unitnumber = model.next_unit()
-        super().__init__(model, extension, "RWIC", unitnumber)
+       
+
+        # Define UNITNUMBER if the first instance is created
+        if self.__class__.COUNTER == 1:
+            unitnumber = model.next_unit()
+            super().__init__(model, extension, "IC", unitnumber)
+            self.__class__.UNITNUMBER = self.unit_number[0]
+        else:
+            # Needed for Util3d
+            self._parent = self.INSTANCES[0]._parent
+
 
         shape = model.shape
         if len(shape) == 3:
@@ -1613,92 +1623,147 @@ class ModpathRWIc( Package ):
             shape3d = (shape[0], 1, shape[1])
         else:
             shape3d = (1, 1, shape[0])
-
         self.model = model
         self.shape3d = shape3d
 
         # Determines how to write the initial condition
         if (kind not in [1]): 
-            raise ValueError('ModpathRWIc: Invalid value for kind, should be 1. Given ', str(kind) )
+            raise ValueError('flopyrw:ModpathRWIc: Invalid value for kind, should be 1. Given ', str(kind) )
         self.kind = kind
 
-        self.mass = mass
+        # Need health checks
+        self.mass       = mass
         self.massformat = massformat
+        self.soluteid   = soluteid
 
-        self.soluteid = soluteid
-
-
-        # Generic 
-        # id
+        # define id
         if (id is not None): 
             self.id = id
         else:
             self.id = self.__class__.COUNTER
-        # stringid 
+
         if (stringid is not None): 
             self.stringid = stringid
         else:
             self.stringid = 'IC'+str(self.__class__.COUNTER)
 
+        # and concentration: needs id
         if (
             ( concentration is not None ) and 
             ( self.kind == 1 )
         ):
             if not isinstance( concentration, np.ndarray ):
-                raise TypeError('ModpathRWIc: concentration should be an np.ndarray')
+                raise TypeError('flopyrw:ModpathRWIc: concentration should be an np.ndarray')
             self.concentration = Util3d(
-                self.model,
-                self.shape3d,
+                model,
+                shape3d,
                 np.float32,
                 concentration,
                 name=self.stringid,
-                locat=self.unit_number[0],
+                locat=self.__class__.UNITNUMBER,
             )
         elif ( (self.kind ==1) and (concentration is None) ):
-            raise ValueError('ModpathRWIc: kind 1 requires concentration array, None given.')
-        
+            raise ValueError('flopyrw:ModpathRWIc: kind 1 requires concentration array, None given.')
+     
+
+        # Add package and save instance        
+        if self.__class__.COUNTER == 1:
+            self.parent.add_package(self)
+        self.__class__.INSTANCES.append( self )
+
+
+        # Done
         return
 
 
-    def write(self, f=None, particlesmassoption=0, solutesoption=0):
-
+    def write_file(self, check=False):
         """
         Write the package file
         Parameters
         ----------
+        check : boolean
+            Check package data for common errors. (default False)
         Returns
         -------
         None
         """
 
 
-        # validate that a valid file object was passed
-        if not hasattr(f, "write"):
-            raise ValueError(
-                "{}: cannot write data for template without passing a valid "
-                "file object ({}) open for writing".format(self.name, f)
-            )
+        # Open file for writing
+        f = open(self.INSTANCES[0].fn_path, "w")
 
-        # Write string id 
-        f.write(f"{self.stringid}\n")
+        # Write how many INSTANCES 
+        # and loop over them
+        f.write(f"{self.COUNTER}\n")
 
-        # Kind/format of initial condition 
-        f.write(f"{self.kind}\n")
+        for ins in self.INSTANCES:
 
-        # 1: resident concentration array  
-        if self.kind == 1:
+            # Write string id 
+            f.write(f"{ins.stringid}\n")
 
-            # Give particles mass 
-            f.write(f"{self.mass:.10f}\n")
+            # Kind/format of initial condition 
+            f.write(f"{ins.kind}\n")
 
-            # If solutes are being specified, do it
-            if( (particlesmassoption == 2) or (solutesoption == 1)):
-                f.write(f"{self.soluteid}\n")
+            # 1: resident concentration array  
+            if ins.kind == 1:
 
-            # And concentration distribution
-            f.write(self.concentration.get_file_entry())
+                # Give particles mass 
+                f.write(f"{ins.mass:.10f}\n")
 
+                # If solutes are being specified, do it
+                if( 
+                    ( self.INSTANCES[0]._parent.particlesmassoption == 2 ) or
+                    ( self.INSTANCES[0]._parent.solutesoption == 1 ) 
+                ):
+                    f.write(f"{ins.soluteid}\n")
+
+                # And concentration distribution
+                f.write(ins.concentration.get_file_entry())
+
+
+        # Done
         return
+
+
+    #def write(self, f=None, particlesmassoption=0, solutesoption=0):
+
+    #    """
+    #    Write the package file
+    #    Parameters
+    #    ----------
+    #    Returns
+    #    -------
+    #    None
+    #    """
+
+
+    #    # validate that a valid file object was passed
+    #    if not hasattr(f, "write"):
+    #        raise ValueError(
+    #            "{}: cannot write data for template without passing a valid "
+    #            "file object ({}) open for writing".format(self.name, f)
+    #        )
+
+    #    # Write string id 
+    #    f.write(f"{self.stringid}\n")
+
+    #    # Kind/format of initial condition 
+    #    f.write(f"{self.kind}\n")
+
+    #    # 1: resident concentration array  
+    #    if self.kind == 1:
+
+    #        # Give particles mass 
+    #        f.write(f"{self.mass:.10f}\n")
+
+    #        # If solutes are being specified, do it
+    #        if( (particlesmassoption == 2) or (solutesoption == 1)):
+    #            f.write(f"{self.soluteid}\n")
+
+    #        # And concentration distribution
+    #        f.write(self.concentration.get_file_entry())
+
+    #    return
 
 
 class ModpathRWFlux( Package ): # Ssm ?
