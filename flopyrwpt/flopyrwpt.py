@@ -205,6 +205,9 @@ class ModpathRW( flopy.modpath.Modpath7 ):
         icpkg = self.get_package('IC')
         if icpkg is not None:
             f.write(f"IC         {icpkg.file_name[0]}\n")
+        bcpkg = self.get_package('BC')
+        if bcpkg is not None:
+            f.write(f"BC         {bcpkg.file_name[0]}\n")
         obspkg = self.get_package('OBS')
         if obspkg is not None:
             f.write(f"OBS        {obspkg.file_name[0]}\n")
@@ -559,6 +562,15 @@ class ModpathRWDsp( Package ):
         elif self.modelkindid == 2:
             # nonlinear
             self.dmaqueous = dmaqueous
+            # Consider some checks to avoid writing unnecessary zeroes
+            self.dmeff = Util3d(
+                model,
+                shape3d,
+                np.float32,
+                dmeff,
+                name="DMEFF",
+                locat=self.__class__.UNITNUMBER,
+            )
             self.betal = Util3d(
                 model,
                 shape3d,
@@ -660,6 +672,7 @@ class ModpathRWDsp( Package ):
 
             if ins.modelkindid == 2:
                 f.write(f"{ins.dmaqueous:.16f}\n")
+                f.write(ins.dmeff.get_file_entry())
                 f.write(ins.betal.get_file_entry())
                 f.write(ins.betath.get_file_entry())
                 f.write(ins.betatv.get_file_entry())
@@ -762,6 +775,7 @@ class ModpathRWOptions( Package ):
 
         self.parent.add_package(self)
 
+
         # Done !
         return
 
@@ -814,6 +828,7 @@ class ModpathRWOptions( Package ):
 
         # And close
         f.close()
+
 
         return
         
@@ -1068,7 +1083,7 @@ class ModpathRWObs( Package ):
             self.stringid = 'OBS'+str(self.__class__.COUNTER)
 
         # Filename for this observation
-        self.filename = basefilename+str(self.id)+extension
+        self.filename = basefilename+str(self.id)+'.'+extension
 
         # Add package and save instance        
         if self.__class__.COUNTER == 1:
@@ -1451,6 +1466,102 @@ class ModpathRWIc( Package ):
 
         # Done
         return
+
+
+class ModpathRWBc( Package ):
+    """
+    MODPATH-RW Boundary Conditions Package Class.
+    Parameters
+    ----------
+    model : model object
+        The model object (of type :class:`flopy.modpath.Modpath7`) to which
+        this package will be added.
+    icbound : int, np.ndarray
+        Determine rebound boundary conditions for RW particles.
+    """
+
+
+    def __init__(
+        self,
+        model,
+        icbound       = None,
+        extension     = 'bc',
+    ):
+       
+        # Define UNITNUMBER if the first instance is created
+        unitnumber = model.next_unit()
+        super().__init__(model, extension, "BC", unitnumber)
+
+        shape = model.shape
+        if len(shape) == 3:
+            shape3d = shape
+        elif len(shape) == 2:
+            shape3d = (shape[0], 1, shape[1])
+        else:
+            shape3d = (1, 1, shape[0])
+        self.model = model
+        self.shape3d = shape3d
+
+        # icbound
+        if icbound is not None:
+            self.icbound= Util3d(
+                model,
+                shape3d,
+                np.int32,
+                icbound,
+                name="ICBOUND",
+                locat=self.unit_number[0],
+            )
+        else:
+            # Particles will not rebound
+            self.icbound= Util3d(
+                model,
+                shape3d,
+                np.int32,
+                0,
+                name="ICBOUND",
+                locat=self.unit_number[0],
+            )
+
+
+        # Add package 
+        self.parent.add_package(self)
+
+
+        # Done
+        return
+
+
+    def write_file(self, check=False):
+        """
+        Write the package file
+        Parameters
+        ----------
+        check : boolean
+            Check package data for common errors. (default False)
+        Returns
+        -------
+        None
+        """
+
+
+        # Open file for writing
+        f = open(self.fn_path, "w")
+
+
+        # icbound 
+        f.write(self.icbound.get_file_entry())
+
+
+        # And close
+        f.close()
+
+
+
+        # Done
+        return
+
+
 
 
 # NOT IMPLEMENTED
