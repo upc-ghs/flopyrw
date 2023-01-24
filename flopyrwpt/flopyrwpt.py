@@ -143,11 +143,17 @@ class ModpathRW( flopy.modpath.Modpath7 ):
     Extends flopy.modpath.Modpath7
     Overloads write_name_file
     '''
-    def __init__(self, *args, **kwargs):
+    def __init__(
+            self, *args,
+            version='modpathrw',
+            simfile_ext="mprw" , # Not being recognized
+            **kwargs
+        ):
+
         # Call parent constructor
-        #import pdb
-        #pdb.set_trace()
         super().__init__(*args,**kwargs)
+        self.version_types = {"modpathrw": "MODPATH-RW"}
+        self.set_version(version)
 
         # Following filenames are generated
         # after parent constructor, appended to the class
@@ -161,6 +167,11 @@ class ModpathRW( flopy.modpath.Modpath7 ):
         # Specific MODPATH-RW filenames are 
         # extracted from their respective package, 
         # if given 
+
+
+    # Overload repr
+    def __repr__(self):
+        return "MODPATH-RW model"
 
 
     # Overload the write_name_file method
@@ -214,7 +225,6 @@ class ModpathRW( flopy.modpath.Modpath7 ):
         #if self.budgetfilename is not None:
         #    f.write(f"FLUX    {self.budgetfilename}\n")
 
-        # ICBOUND: TRY TO PLUG IT INTO BAS
         f.close()
 
 
@@ -223,20 +233,19 @@ class ModpathRWSim( flopy.modpath.Modpath7Sim ):
     '''
     MODPATH-RW Simulation File Package Class. 
 
-    Extends from hould extend mp7sim to create mp7rwptsim
+    Extends from Modpath7Sim 
     '''
 
     def __init__( self, *args,
             timeseriesoutputoption=0,
             particlesmassoption=0,
             solutesoption=0,
-            fluxconditions=None,
+            fluxconditions=None, # DEPRECATE
             **kwargs
         ):
 
-
         # Call parent constructor
-        super().__init__(*args,**kwargs, extension='mprw')
+        super().__init__(*args,**kwargs, extension='mprw' )
 
 
         # Extract model
