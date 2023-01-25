@@ -858,7 +858,13 @@ class ModpathRWGpkde( Package ):
     domainorigin : list [ox,oy,oz]
         List with domain origin. 
     noptloops: int
-        The number of optimization loops for determinin smoothing conditions
+        The number of optimization loops smoothed reconstruction
+    asconcentration: bool
+        Flag to indicate whether reconstruction should be returned as resident concentration. 
+        Because the reconstruction grid is different than flowmodel grid, said transformation 
+        can be easily achieved in case both porosities and retardation are spatially uniform.
+        If not, then some kind of intersection or relation should be established between the 
+        base flowmodel and the reconstruction grid.
     outputfilename: str
         Filename that will be used for writing reconstruction output. Contains 
         cell id, density and both time step and particle group identification.
@@ -869,16 +875,17 @@ class ModpathRWGpkde( Package ):
     def __init__(
         self,
         model,
-        binsize              = [1,1,1],
-        domainsize           = [1,1,1],
-        domainorigin         = [0,0,0],
-        minhlambda           = 1.0 ,
-        maxhlambda           = 0.1 ,
-        deltahlambda         = 10.0,
-        kerneldatabase       = False, 
-        noptloops            = 2, 
-        outputfilename       = None,
-        extension            = 'gpkde',
+        binsize         = [1,1,1],
+        domainsize      = [1,1,1],
+        domainorigin    = [0,0,0],
+        minhlambda      = 1.0 ,
+        maxhlambda      = 0.1 ,
+        deltahlambda    = 10.0,
+        kerneldatabase  = False, 
+        noptloops       = 2,
+        asconcentration = False,
+        outputfilename  = None,
+        extension       = 'gpkde',
     ):
 
         unitnumber = model.next_unit()
@@ -901,6 +908,8 @@ class ModpathRWGpkde( Package ):
         self.minhlambda           = minhlambda
         self.maxhlambda           = maxhlambda
         self.deltahlambda         = deltahlambda
+
+        self.asconcentration      = asconcentration
 
         if outputfilename is not None:
             self.outputfilename = outputfilename
@@ -974,6 +983,12 @@ class ModpathRWGpkde( Package ):
             # kernel params: minh/lambda, maxh/lambda
             f.write(f"{self.minhlambda:10f}\t")
             f.write(f"{self.maxhlambda:10f}\n")
+
+
+        if self.asconcentration:
+            f.write(f"1\n") # 1 for id into fortran
+        else:
+            f.write(f"0\n") # 0 for id into fortran
 
 
         # And close
