@@ -165,8 +165,7 @@ class ModpathRW( flopy.modpath.Modpath7 ):
         #   - budgetfilename
 
         # Specific MODPATH-RW filenames are 
-        # extracted from their respective package, 
-        # if given 
+        # extracted from their respective package ( if given )
 
 
     # Overload repr
@@ -222,11 +221,11 @@ class ModpathRW( flopy.modpath.Modpath7 ):
         obspkg = self.get_package('OBS')
         if obspkg is not None:
             f.write(f"OBS        {obspkg.file_name[0]}\n")
-        #if self.budgetfilename is not None:
-        #    f.write(f"FLUX    {self.budgetfilename}\n")
 
+        # Done
         f.close()
 
+        return
 
 
 class ModpathRWSim( flopy.modpath.Modpath7Sim ):
@@ -1349,7 +1348,6 @@ class ModpathRWIc( Package ):
         model,
         kind          = 1,
         mass          = .1,
-        massformat    = 1,
         concentration = None,
         soluteid      = 1, # replace by specie ?
         id            = None,
@@ -1385,7 +1383,6 @@ class ModpathRWIc( Package ):
 
         # Need health checks
         self.mass       = mass
-        self.massformat = massformat
         self.soluteid   = soluteid
 
         # define id
@@ -1493,8 +1490,9 @@ class ModpathRWBc( Package ):
     def __init__(
         self,
         model,
-        icbound       = None,
-        extension     = 'bc',
+        icbound   = None,
+        flux      = None,
+        extension = 'bc',
     ):
        
         # Define UNITNUMBER if the first instance is created
@@ -1531,6 +1529,25 @@ class ModpathRWBc( Package ):
                 name="ICBOUND",
                 locat=self.unit_number[0],
             )
+
+        # flux
+        #if fluxconditions is not None:
+        #    if isinstance(fluxconditions,list):
+        #        for pic in fluxconditions:
+        #            if not isinstance(pic, ModpathRWFlux):
+        #                raise TypeError('Object in list is type ', type(pic), '. Expected ModpathRWFlux.')
+        #        # Survived so continue
+        #        self.npfs = len(fluxconditions)
+        #        self.fluxconditions = fluxconditions
+        #    elif isinstance( fluxconditions, ModpathRWFlux ):
+        #        self.npfs = 1
+        #        self.fluxconditions = [fluxconditions]
+        #    else:
+        #        raise TypeError('Initial conditions argument should be of type list or ModpathRWFlux. ', type(fluxconditions), ' given.')
+        #else:
+        #    self.npfs = 0
+        #    self.fluxconditions = None
+
 
 
         # Add package 
