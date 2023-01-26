@@ -877,7 +877,7 @@ class ModpathRWGpkde( Package ):
         model,
         binsize         = [1,1,1],
         domainsize      = [1,1,1],
-        domainorigin    = [0,0,0],
+        domainorigin    = None, 
         minhlambda      = 1.0 ,
         maxhlambda      = 0.1 ,
         deltahlambda    = 10.0,
@@ -902,7 +902,22 @@ class ModpathRWGpkde( Package ):
         # Some health checks
         self.binsize              = np.array(binsize).astype(np.float32)
         self.domainsize           = np.array(domainsize).astype(np.float32)
+
+        # Fills domain origin with some values 
+        # detemined from the modelgrid definition
+        if domainorigin is None :
+            domainorigin = [
+                    self._parent.flowmodel.modelgrid.xoffset,
+                    self._parent.flowmodel.modelgrid.yoffset,
+                    np.min(self._parent.flowmodel.modelgrid.botm)
+                ]
         self.domainorigin         = np.array(domainorigin).astype(np.float32)
+
+
+        # Depending on the kind of modelgrid maybe some
+        # decisions can be made for binsizes and/or domain sizes
+        # StructuredGrid has the is_regular function
+
         self.noptloops            = noptloops
         self.kerneldatabase       = kerneldatabase       
         self.minhlambda           = minhlambda
