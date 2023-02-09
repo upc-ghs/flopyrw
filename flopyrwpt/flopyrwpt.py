@@ -218,6 +218,9 @@ class ModpathRW( flopy.modpath.Modpath7 ):
         bcpkg = self.get_package('BC')
         if bcpkg is not None:
             f.write(f"BC         {bcpkg.file_name[0]}\n")
+        srcpkg = self.get_package('SRC')
+        if srcpkg is not None:
+            f.write(f"SRC        {srcpkg.file_name[0]}\n")
         obspkg = self.get_package('OBS')
         if obspkg is not None:
             f.write(f"OBS        {obspkg.file_name[0]}\n")
@@ -1056,6 +1059,7 @@ class ModpathRWObs( Package ):
             # Needed for Util3d
             self._parent = self.INSTANCES[0]._parent
 
+
         # Need health checks
         self.kind = kind
         self.timeoption = timeoption
@@ -1520,9 +1524,10 @@ class ModpathRWBc( Package ):
     def __init__(
         self,
         model,
-        icbound   = None,
-        flux      = None,
-        extension = 'bc',
+        icbound    = None,
+        flux       = None,
+        prescribed = None, 
+        extension  = 'bc',
     ):
        
         # Define UNITNUMBER if the first instance is created
@@ -1561,23 +1566,41 @@ class ModpathRWBc( Package ):
             )
 
         # flux
-        #if fluxconditions is not None:
-        #    if isinstance(fluxconditions,list):
-        #        for pic in fluxconditions:
-        #            if not isinstance(pic, ModpathRWFlux):
-        #                raise TypeError('Object in list is type ', type(pic), '. Expected ModpathRWFlux.')
-        #        # Survived so continue
-        #        self.npfs = len(fluxconditions)
-        #        self.fluxconditions = fluxconditions
-        #    elif isinstance( fluxconditions, ModpathRWFlux ):
-        #        self.npfs = 1
-        #        self.fluxconditions = [fluxconditions]
-        #    else:
-        #        raise TypeError('Initial conditions argument should be of type list or ModpathRWFlux. ', type(fluxconditions), ' given.')
-        #else:
-        #    self.npfs = 0
-        #    self.fluxconditions = None
+        if flux is not None:
+            if isinstance(flux,list):
+                for pic in flux:
+                    if not isinstance(pic, ModpathRWFlux):
+                        raise TypeError('flopyrw:ModpathRWBc: Object in list is type ', type(pic), '. Expected ModpathRWFlux.')
+                # Survived so continue
+                self.npfs = len(flux)
+                self.flux = flux
+            elif isinstance( flux, ModpathRWFlux ):
+                self.npfs = 1
+                self.flux = [flux]
+            else:
+                raise TypeError('flopyrw:ModpathRWBc: Flux argument should be of type list or ModpathRWFlux. ', type(flux), ' given.')
+        else:
+            self.npfs = 0
+            self.flux = None
 
+
+        # prescribed concentrations
+        if prescribed is not None:
+            if isinstance(prescribed,list):
+                for pic in prescribed:
+                    if not isinstance(pic, ModpathRWPc):
+                        raise TypeError('flopyrw:ModpathRWBc: Object in list is type ', type(pic), '. Expected ModpathRWPc.')
+                # Survived so continue
+                self.npcs = len(prescribed)
+                self.prescribed = prescribed
+            elif isinstance( prescribed, ModpathRWPc ):
+                self.npcs = 1
+                self.prescribed = [prescribed]
+            else:
+                raise TypeError('flopyrw:ModpathRWBc: Prescribed argument should be of type list or ModpathRWPc. ', type(prescribed), ' given.')
+        else:
+            self.npcs = 0
+            self.prescribed = None
 
 
         # Add package 
@@ -1608,10 +1631,595 @@ class ModpathRWBc( Package ):
         # icbound 
         f.write(self.icbound.get_file_entry())
 
+        # REQUIRES particlesmassoption ?
+        # REQUIRES solutesoption ?
+
+
+        # flux
+        if( ( self.flux is None ) or ( self.npfs==0 ) ):
+            # no flux
+            f.write(f"0\n")
+        else:
+            # write fluxes
+            f.write(f"{self.npfs}\n")
+
+            for ins in self.flux:
+                ins.write(
+                  f=f,
+                  #particlesmassoption=self.particlesmassoption,
+                  #solutesoption=self.solutesoption,
+                )
+
+
+        # prescribed
+        if( ( self.prescribed is None ) or ( self.npcs==0 ) ):
+            # no prescribed
+            f.write(f"0\n")
+        else:
+            # write prescribed
+            f.write(f"{self.npcs}\n")
+
+            for ins in self.prescribed:
+                ins.write(
+                  f=f,
+                  #particlesmassoption=self.particlesmassoption,
+                  #solutesoption=self.solutesoption,
+                )
+
 
         # And close
         f.close()
 
+        # Done
+        return
+
+
+
+
+
+
+
+class ModpathRWPc( Package ):
+    """
+    MODPATH-RW Prescribed Concentration Class.
+    Parameters
+    ----------
+    model : model object
+        The model object (of type :class:`flopy.modpath.Modpath7`) to which
+        this package will be added.
+    """
+
+
+    # Class properties
+    COUNTER = 0
+    UNITNUMBER = 0
+    INSTANCES = []
+
+
+    @count_instances
+    def __init__(
+        self,
+        model,
+        particlesmass = 0.1,
+        concentration = 1.0,
+        kind          = 1,
+        celloption    = 1,
+        structured    = True,
+        cells         = None,
+        id            = None,
+        stringid      = None,
+    ):
+       
+
+        ## Define UNITNUMBER if the first instance is created
+        #if self.__class__.COUNTER == 1:
+        #    unitnumber = model.next_unit()
+        #    super().__init__(model, extension, "OBS", unitnumber)
+        #    self.__class__.UNITNUMBER = self.unit_number[0]
+        #else:
+        #    # Needed for Util3d
+        #    self._parent = self.INSTANCES[0]._parent
+
+
+        self.particlesmass = particlesmass
+        
+        self.concentration = concentration
+
+
+
+
+        # Need health checks
+        self.kind = kind
+        #self.timeoption = timeoption
+        self.structured = structured
+
+        # celloption 
+        if ( celloption not in [1,2] ):
+            raise ValueError('Invalid celloption ',
+                    celloption, '. Allowed values are 1 (list of cellids) or 2 (modelgrid like array)')
+        self.celloption = celloption
+
+        # Write as a list of cellids
+        if self.celloption == 1:
+            if cells is None:
+                self.cells = []
+            else:
+                if not isinstance( cells, (list,np.ndarray,tuple) ):
+                    raise Exception( 'Cells parameter should be a list or numpy array, is ', type( cells ))
+                if ( isinstance( cells, tuple ) and len(cells)==1 ):
+                    cells = cells[0]
+                # Maybe some sanity check about data structure or the same 
+                # used for partlocs
+                self.cells = cells
+
+        # Write obs cells as 3D array
+        if self.celloption == 2: 
+            
+            # NOT YET
+            pass
+
+            ## This was already done right?
+            #shape = model.shape
+            #if len(shape) == 3:
+            #    shape3d = shape
+            #elif len(shape) == 2:
+            #    shape3d = (shape[0], 1, shape[1])
+            #else:
+            #    shape3d = (1, 1, shape[0])
+            #self.model   = model
+            #self.shape3d = shape3d
+
+            #if cells is None:
+            #    self.cells = []
+            #else:
+            #    if not isinstance( cells, (list,np.ndarray) ):
+            #        raise Exception( 'Cells parameter should be a list or numpy array')
+            #    self.cells = Util3d(
+            #        model,
+            #        shape3d,
+            #        np.int32,
+            #        cells,
+            #        name="PCELLS",
+            #        locat=self.__class__.UNITNUMBER,
+            #    )
+
+
+        # Define id
+        if (id is not None): 
+            self.id = id
+        else:
+            self.id = self.__class__.COUNTER
+
+        if (stringid is not None): 
+            self.stringid = stringid
+        else:
+            self.stringid = 'PC'+str(self.__class__.COUNTER)
+
+        # Filename for this observation
+        #self.filename = basefilename+str(self.id)+'.'+extension
+
+        # Add package and save instance        
+        #if self.__class__.COUNTER == 1:
+        #    self.parent.add_package(self)
+        self.__class__.INSTANCES.append( self )
+
+
+        # Done
+        return
+
+
+    def write(self, f=None):
+        """
+        Write the package file
+        Parameters
+        ----------
+        Returns
+        -------
+        None
+        """
+
+        if f is None:
+            raise Exception('ModpathRWPc: requires file pointer f. Is None.')
+
+        # validate that a valid file object was passed
+        if not hasattr(f, "write"):
+            raise ValueError(
+                "{}: cannot write data for template without passing a valid "
+                "file object ({}) open for writing".format(self.name, f)
+            )
+
+        # Write id
+        f.write(f"{self.id}\n")
+
+        # Write stringid
+        f.write(f"{self.stringid}\n")
+
+
+        # Needs some kind of soluteid
+
+
+        # Needs the particlesmass
+        f.write(f"{self.particlesmass:.10f}\n")
+
+
+        # And the prescribed concentration
+        f.write(f"{self.concentration:.10f}\n")
+
+
+
+        # Write the celloption param
+        f.write(f"{self.celloption}\n")
+
+        if self.celloption == 1:
+            # Should write a cell number
+            if len( self.cells ) == 0: 
+                raise Exception('flopyrw:ModpathRWPc: cells array is empty. Specify a list of cells for the observation id ', self.id )
+            else:
+                f.write(f"{len(self.cells)}\n")
+                fmts = []
+                if self.structured:
+                    f.write(f"1\n") # To indicate structured
+                    fmts.append("{:9d}") # lay
+                    fmts.append("{:9d}") # row
+                    fmts.append("{:9d}") # col
+                else:
+                    f.write(f"2\n") # To indicate cell ids
+                    fmts.append("{:9d}") # cellid
+                fmt = " " + " ".join(fmts) + "\n"
+                for oc in self.cells:
+                    woc = np.array(oc).astype(np.int32)+1 # Correct the zero-based indexes
+                    if self.structured:
+                        f.write(fmt.format(*woc))
+                    else:
+                        f.write(fmt.format(woc))
+
+        elif self.celloption == 2:
+            print( 'NOT IMPLEMENTED! ')
+            pass
+            ## Should write an array
+            ## with the distribution of the observation
+            #f.write(self.cells.get_file_entry())
+
+
+        ## Write timeoption params
+        #f.write(f"{self.timeoption}\n")
+        #if self.timeoption == 1:
+        #    pass
+        #elif self.timeoption == 2:
+        #    pass
+
+
+        # Done
+        return
+
+
+from collections import Counter
+class ModpathRWSrc( Package ):
+    """
+    MODPATH-RW Source Package Class.
+    Parameters
+    ----------
+    model : model object
+        The model object (of type :class:`flopy.modpath.Modpath7`) to which
+        this package will be added.
+    """
+
+
+    # Class properties
+    COUNTER = 0
+    UNITNUMBER = 0
+    INSTANCES = []
+
+
+    @count_instances
+    def __init__(
+        self,
+        model,
+        format        = 'aux',
+        sources       = None,
+        cells         = None, 
+        mass          = 1.0,
+        nparticles    = 2,
+        concentration = None, 
+        soluteid      = None,
+        sourcename    = None, 
+        auxiliary     = None,
+        id            = None, 
+        stringid      = None, 
+        extension     = 'src',
+    ):
+       
+        # Define UNITNUMBER if the first instance is created
+        if self.__class__.COUNTER == 1:
+            unitnumber = model.next_unit()
+            super().__init__(model, extension, "SRC", unitnumber)
+            self.__class__.UNITNUMBER = self.unit_number[0]
+        else:
+            # Needed for Util3d
+            self._parent = self.INSTANCES[0]._parent
+
+        shape = model.shape
+        if len(shape) == 3:
+            shape3d = shape
+        elif len(shape) == 2:
+            shape3d = (shape[0], 1, shape[1])
+        else:
+            shape3d = (1, 1, shape[0])
+        self.model = model
+        self.shape3d = shape3d
+
+     
+        self.format = format
+        self.modelversion = self._parent.flowmodel.version 
+       
+
+        if mass is not None:
+            DEFAULTMASS = mass
+        else: 
+            DEFAULTMASS = 1.0
+
+        if nparticles is not None:
+            DEFAULTNP = nparticles
+        else:
+            DEFAULTNP = 2
+
+        # Clarify whether this is python based or fortran based
+        if soluteid is not None:
+            DEFAULTSOLID = int(soluteid)
+        else:
+            DEFAULTSOLID = int(1)
+
+        # If format is aux, validate sources, verify auxiliary variables 
+        sourceslist = [] # STORE IN CLASS ?
+        alldatalist = []
+        if sources is not None:
+            for sd in sources:
+                pname = sd[0]
+                if not isinstance( pname, str ): 
+                    raise TypeError('flopyrw:ModpathRWSrc: package name should be str. ',type(pname),' was given.')
+                pkg = self._parent.flowmodel.get_package(pname.lower())
+                if pkg is None:
+                    raise Exception(\
+                        'flopyrw:ModpathRWSrc: package name '+ pname.lower() \
+                        + ' was not found in flowmodel.'+' Available packages are: ' +",".join(self._parent.flowmodel.get_package_list()) )
+
+                # This would work only for MF6
+                if self.modelversion == 'mf6':
+                    # Check if the auxkey was given/defined
+                    aux      = pkg.auxiliary.array[0]
+                    auxlist  = [a.lower() for a in aux ] 
+
+                    # Determine the format in which the aux variables are specified
+                    auxspec = sd[1]
+                    if isinstance( auxspec, str ):
+                        # If a str was given, transform to list
+                        auxnames     = [auxspec]
+                        auxmasses    = [DEFAULTMASS]
+                        auxtemplates = DEFAULTNP*np.ones(shape=(1,3),dtype=np.int32)
+                        auxsolutes   = [DEFAULTSOLID] # Clarify whether these are python based or fortran based
+                    elif isinstance( auxspec, (list,tuple)):
+                        # List to store aux specs
+                        auxnames     = []
+                        auxmasses    = DEFAULTMASS*np.ones( shape=(len(auxspec),) )
+                        auxtemplates = DEFAULTNP*np.ones(shape=(len(auxspec),3),dtype=np.int32)
+                        auxsolutes   = DEFAULTSOLID*np.ones( shape=(len(auxspec),),dtype=np.int32 ) # Clarify whether these are python based or fortran based
+                        for iaspc, aspc in enumerate(auxspec):
+                            if isinstance( aspc, (list,tuple) ):
+                                auxspeclen = len(aspc)
+                                if auxspeclen == 1:
+                                    # Consider as auxvar
+                                    if not isinstance( aspc, str ): 
+                                        raise TypeError('flopyrw:ModpathRWSrc: auxiliary name should be str. ',type(aspc),' was given.')
+                                    # Good
+                                    auxnames.append( aspc )
+                                elif ( (auxspeclen >= 2 ) and (auxspeclen <= 4 ) ):
+                                    # First is auxvarname
+                                    if not isinstance( aspc[0], str ): 
+                                        raise TypeError('flopyrw:ModpathRWSrc: auxiliary name should be str. ',type(aspc[0]),' was given.')
+                                    # Good
+                                    auxnames.append( aspc[0] )
+                                    
+                                    # Second is mass 
+                                    if not isinstance( aspc[1], (int,float) ): 
+                                        raise TypeError('flopyrw:ModpathRWSrc: particles mass should be int/float. ',type(aspc[1]),' was given.')
+                                    # Good
+                                    auxmasses[iaspc] = aspc[1]
+                                   
+                                    # Continue reading 
+                                    if auxspeclen >= 3:
+                                        # Consider as [auxvar,mass,template]
+                                        if isinstance(aspc[2],(list,tuple)):
+                                            for inp, npa in enumerate(aspc[2]):
+                                                auxtemplates[iaspc,inp] = npa
+                                        elif isinstance( aspc[2], int ):
+                                            # Assume uniform template 
+                                            auxtemplates[iaspc,:] = aspc[2]
+                                        else:
+                                            raise TypeError('flopyrw:ModpathRWSrc: particles template should be int/list/tuple. ',type(aspc[2]),' was given.')
+
+                                        if auxspeclen == 4:
+                                            # Consider as [auxvar,mass,template,soluteid]
+                                            if not isinstance(aspc[3],int):
+                                                raise TypeError('flopyrw:ModpathRWSrc: solute id should be int. ',type(aspc[3]),' was given.')
+                                            auxsolutes[iaspc] = aspc[3]
+                                else:
+                                    raise ValueError('flopyrw:ModpathRWSrc: max length of aux specification is 4. ' + str(len(aspc)) + ' was given.')
+                            elif isinstance( aspc, str ):
+                                # Is a str, give to the list
+                                auxnames.append( aspc )
+                            else: 
+                                raise TypeError('flopyrw:ModpathRWSrc: auxiliary name should be str. ',type(aspc),' was given.')
+
+                    else:
+                        raise TypeError('flopyrw:ModpathRWSrc: auxiliary name should be str or list/tuple. ',type(auxspec),' was given.')
+
+                    # Validate given auxnames
+                    for ian, an in enumerate(auxnames):
+                        acount = auxlist.count(an.lower())
+                        if acount > 1:
+                            raise Exception('flopyrw:ModpathRWSrc: auxiliary name '+an.upper()+' was specified more than once in package ' + pname.upper() +'. Check definition.')
+                        if an.lower() not in auxlist:
+                            raise ValueError('flopyrw:ModpathRWSrc: auxiliary name ' +an.upper()+' was not specified in package '+ pname.upper() +'. Check package definition.') 
+
+                        # If it got until here, definition is consistent,
+                        # save the pair [sourcename,auxname]
+                        tempair = [pname,an.lower()]
+                        sourceslist.append(tempair)
+                        tempdata = [an.upper(), auxmasses[ian], auxtemplates[ian,0], auxtemplates[ian,1], auxtemplates[ian,2], auxsolutes[ian] ]
+                        alldatalist.append(tempdata)
+                else:
+                    print ( 'MODELVERSION ', self.modelversion, ' NOT IMPLEMENTED ! ' )
+                    import pdb
+                    pdb.set_trace()
+
+            # Validate that combinations of [sourcename, auxname] are unique 
+            counter       =  Counter(frozenset(sl) for sl in sourceslist )
+            counterstatus = [counter[frozenset(sl)] == 1 for sl in sourceslist]
+
+            if not np.all( counterstatus ):
+                raise Exception('flopyrw:ModpathRWSrc: some pairs of [sourcename,auxname] are repeated. Combination should be unique for all source packages.')
+
+            # Combination of sourcenames,auxnames is valid
+            # Extract unique source names
+            self.uniquesources = np.unique( np.array(sourceslist)[:,0] )
+            self.allauxnames   = []
+            self.alldataperaux = []
+            for ius, us in enumerate( self.uniquesources ):
+                auxnamespersource = []
+                dataperaux        = []
+                for isl, sl in enumerate(sourceslist):
+                    if sl[0] == us:
+                        auxnamespersource.append(sl[1])
+                        data = np.array(alldatalist[isl],dtype=object)
+                        dataperaux.append(data)
+                # Indexed as uniquesources
+                self.allauxnames.append( auxnamespersource )
+                self.alldataperaux.append( dataperaux )
+            
+            self.sourcestype = []
+            if self.modelversion == 'mf6':
+                # If mf6, also get the source kind for 
+                # the given srcnames
+                for us in self.uniquesources:
+                    pkg = self._parent.flowmodel.get_package(pname.lower())
+                    self.sourcestype.append( pkg.package_type )
+        else:
+            raise Exception('flopyrw:ModpathRWSrc: package requires sources data. None was given.')
+
+
+        self.sources = sources
+
+        #cells = []
+        #for spd in pkg.stress_period_data.array:
+        #    for cid in spd['cellid']:
+        #        if cid not in cells:
+        #            cells.append(cid)
+        #print( cells )
+
+
+        # Define id
+        if (id is not None): 
+            self.id = id
+        else:
+            self.id = self.__class__.COUNTER
+
+        if (stringid is not None): 
+            self.stringid = stringid
+        else:
+            self.stringid = 'SRC'+str(self.__class__.COUNTER)
+
+
+        # Add package and save instance        
+        if self.__class__.COUNTER == 1:
+            self.parent.add_package(self)
+        self.__class__.INSTANCES.append( self )
+
+
+        # Done
+        return
+
+
+    def write_file(self, check=False):
+        """
+        Write the package file
+        Parameters
+        ----------
+        check : boolean
+            Check package data for common errors. (default False)
+        Returns
+        -------
+        None
+        """
+
+        # Open file for writing
+        f = open(self.INSTANCES[0].fn_path, "w")
+
+
+        # Create format        
+        fmts = []
+        fmts.append("{:20s}")  # auxvarname
+        fmts.append("{:.6f}")  # particles mass
+        for nt in range(3):    # (nx,ny,nz)
+            fmts.append("{:3d}")
+        # Append solute id ?
+        istart = 0
+        iend   = 5
+        if ( 
+            ( self.INSTANCES[0]._parent.particlesmassoption == 2 ) or  # If solute id for particle groups
+            ( self.INSTANCES[0]._parent.particlesmassoption == 2 ) ):  # Solute specific dispersion
+            fmts.append("{:4d}")
+            iend = 6
+        fmt  = " ".join(fmts) + "\n"
+
+        #if self.modelversion == 'mf6':
+        srcfmts = []
+        #srcfmts.append("{:20s}") # srctype
+        srcfmts.append("{:20s}") # srcname
+        srcfmt = " ".join(srcfmts) + "\n"
+
+        # Write how many INSTANCES 
+        # and loop over them
+        f.write(f"{self.COUNTER}\n")
+
+        for ins in self.INSTANCES:
+
+            # Write id's
+            f.write(f"{ins.stringid}\n")
+
+            # Write format
+            f.write(f"{ins.format.upper()}\n")
+
+            if (
+                ( ins.format.upper() == 'AUX' ) or 
+                ( ins.format.upper() == 'AUXILIARY' ) ):
+
+                # Inform about the number of source budgets
+                f.write(f"{len(ins.uniquesources)}\n")
+
+                # (...) and loop over them
+                for isrc, src in enumerate(ins.uniquesources):
+
+                    #if self.modelversion == 'mf6':
+                    #    # Write src name
+                    #    f.write(srcfmt.format(*[ins.sourcestype[isrc].upper(),src.upper()]))
+                    #else:
+                    # Write src name
+                    f.write(f"{src.upper()}\n")
+
+                    # Write the number of aux vars
+                    f.write(f"{len(ins.allauxnames[isrc])}\n")
+                    
+                    # Write aux vars
+                    for iaux, auxdata in enumerate(ins.alldataperaux[isrc]):
+                        f.write(fmt.format(*auxdata[istart:iend]))
+
+
+
+
+
+
+        # And close
+        f.close()
 
 
         # Done
@@ -1620,7 +2228,40 @@ class ModpathRWBc( Package ):
 
 
 
-# NOT IMPLEMENTED
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#########################################################
+# DEPRECATION WARNING
+#########################################################
+
 class ModpathRWFlux( Package ): # Ssm ?
     """
     MODPATH RWPT Flux Package Class.
@@ -1873,22 +2514,6 @@ class ModpathRWFlux( Package ): # Ssm ?
         return
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-#########################################################
-# DEPRECATION WARNING
-#########################################################
 class ModpathRwptDispersion( Package ):
     """
     MODPATH RWPT Dispersion Package Class.
