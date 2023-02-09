@@ -1969,153 +1969,200 @@ class ModpathRWSrc( Package ):
         else:
             DEFAULTSOLID = int(1)
 
+
         # If format is aux, validate sources, verify auxiliary variables 
         sourceslist = [] # STORE IN CLASS ?
         alldatalist = []
-        if sources is not None:
-            for sd in sources:
-                pname = sd[0]
-                if not isinstance( pname, str ): 
-                    raise TypeError('flopyrw:ModpathRWSrc: package name should be str. ',type(pname),' was given.')
-                pkg = self._parent.flowmodel.get_package(pname.lower())
-                if pkg is None:
-                    raise Exception(\
-                        'flopyrw:ModpathRWSrc: package name '+ pname.lower() \
-                        + ' was not found in flowmodel.'+' Available packages are: ' +",".join(self._parent.flowmodel.get_package_list()) )
 
-                # This would work only for MF6
-                if self.modelversion == 'mf6':
-                    # Check if the auxkey was given/defined
-                    aux      = pkg.auxiliary.array[0]
-                    auxlist  = [a.lower() for a in aux ] 
+        # Validate format kind
+        if ( ( format.upper() not in ['AUX','AUXILIARY'] ) ):
+            raise Exception('flopyrw:ModpathRWSrc: source format ' + format.upper() + ' not implemented. ')
 
-                    # Determine the format in which the aux variables are specified
-                    auxspec = sd[1]
-                    if isinstance( auxspec, str ):
-                        # If a str was given, transform to list
-                        auxnames     = [auxspec]
-                        auxmasses    = [DEFAULTMASS]
-                        auxtemplates = DEFAULTNP*np.ones(shape=(1,3),dtype=np.int32)
-                        auxsolutes   = [DEFAULTSOLID] # Clarify whether these are python based or fortran based
-                    elif isinstance( auxspec, (list,tuple)):
-                        # List to store aux specs
-                        auxnames     = []
-                        auxmasses    = DEFAULTMASS*np.ones( shape=(len(auxspec),) )
-                        auxtemplates = DEFAULTNP*np.ones(shape=(len(auxspec),3),dtype=np.int32)
-                        auxsolutes   = DEFAULTSOLID*np.ones( shape=(len(auxspec),),dtype=np.int32 ) # Clarify whether these are python based or fortran based
-                        for iaspc, aspc in enumerate(auxspec):
-                            if isinstance( aspc, (list,tuple) ):
-                                auxspeclen = len(aspc)
-                                if auxspeclen == 1:
-                                    # Consider as auxvar
-                                    if not isinstance( aspc, str ): 
-                                        raise TypeError('flopyrw:ModpathRWSrc: auxiliary name should be str. ',type(aspc),' was given.')
-                                    # Good
-                                    auxnames.append( aspc )
-                                elif ( (auxspeclen >= 2 ) and (auxspeclen <= 4 ) ):
-                                    # First is auxvarname
-                                    if not isinstance( aspc[0], str ): 
-                                        raise TypeError('flopyrw:ModpathRWSrc: auxiliary name should be str. ',type(aspc[0]),' was given.')
-                                    # Good
-                                    auxnames.append( aspc[0] )
-                                    
-                                    # Second is mass 
-                                    if not isinstance( aspc[1], (int,float) ): 
-                                        raise TypeError('flopyrw:ModpathRWSrc: particles mass should be int/float. ',type(aspc[1]),' was given.')
-                                    # Good
-                                    auxmasses[iaspc] = aspc[1]
-                                   
-                                    # Continue reading 
-                                    if auxspeclen >= 3:
-                                        # Consider as [auxvar,mass,template]
-                                        if isinstance(aspc[2],(list,tuple)):
-                                            for inp, npa in enumerate(aspc[2]):
-                                                auxtemplates[iaspc,inp] = npa
-                                        elif isinstance( aspc[2], int ):
-                                            # Assume uniform template 
-                                            auxtemplates[iaspc,:] = aspc[2]
-                                        else:
-                                            raise TypeError('flopyrw:ModpathRWSrc: particles template should be int/list/tuple. ',type(aspc[2]),' was given.')
-
-                                        if auxspeclen == 4:
-                                            # Consider as [auxvar,mass,template,soluteid]
-                                            if not isinstance(aspc[3],int):
-                                                raise TypeError('flopyrw:ModpathRWSrc: solute id should be int. ',type(aspc[3]),' was given.')
-                                            auxsolutes[iaspc] = aspc[3]
-                                else:
-                                    raise ValueError('flopyrw:ModpathRWSrc: max length of aux specification is 4. ' + str(len(aspc)) + ' was given.')
-                            elif isinstance( aspc, str ):
-                                # Is a str, give to the list
-                                auxnames.append( aspc )
-                            else: 
-                                raise TypeError('flopyrw:ModpathRWSrc: auxiliary name should be str. ',type(aspc),' was given.')
-
-                    else:
-                        raise TypeError('flopyrw:ModpathRWSrc: auxiliary name should be str or list/tuple. ',type(auxspec),' was given.')
-
-                    # Validate given auxnames
-                    for ian, an in enumerate(auxnames):
-                        acount = auxlist.count(an.lower())
-                        if acount > 1:
-                            raise Exception('flopyrw:ModpathRWSrc: auxiliary name '+an.upper()+' was specified more than once in package ' + pname.upper() +'. Check definition.')
-                        if an.lower() not in auxlist:
-                            raise ValueError('flopyrw:ModpathRWSrc: auxiliary name ' +an.upper()+' was not specified in package '+ pname.upper() +'. Check package definition.') 
-
-                        # If it got until here, definition is consistent,
-                        # save the pair [sourcename,auxname]
-                        tempair = [pname,an.lower()]
-                        sourceslist.append(tempair)
-                        tempdata = [an.upper(), auxmasses[ian], auxtemplates[ian,0], auxtemplates[ian,1], auxtemplates[ian,2], auxsolutes[ian] ]
-                        alldatalist.append(tempdata)
-                else:
-                    print ( 'MODELVERSION ', self.modelversion, ' NOT IMPLEMENTED ! ' )
-                    import pdb
-                    pdb.set_trace()
-
-            # Validate that combinations of [sourcename, auxname] are unique 
-            counter       =  Counter(frozenset(sl) for sl in sourceslist )
-            counterstatus = [counter[frozenset(sl)] == 1 for sl in sourceslist]
-
-            if not np.all( counterstatus ):
-                raise Exception('flopyrw:ModpathRWSrc: some pairs of [sourcename,auxname] are repeated. Combination should be unique for all source packages.')
-
-            # Combination of sourcenames,auxnames is valid
-            # Extract unique source names
-            self.uniquesources = np.unique( np.array(sourceslist)[:,0] )
-            self.allauxnames   = []
-            self.alldataperaux = []
-            for ius, us in enumerate( self.uniquesources ):
-                auxnamespersource = []
-                dataperaux        = []
-                for isl, sl in enumerate(sourceslist):
-                    if sl[0] == us:
-                        auxnamespersource.append(sl[1])
-                        data = np.array(alldatalist[isl],dtype=object)
-                        dataperaux.append(data)
-                # Indexed as uniquesources
-                self.allauxnames.append( auxnamespersource )
-                self.alldataperaux.append( dataperaux )
-            
-            self.sourcestype = []
-            if self.modelversion == 'mf6':
-                # If mf6, also get the source kind for 
-                # the given srcnames
-                for us in self.uniquesources:
-                    pkg = self._parent.flowmodel.get_package(pname.lower())
-                    self.sourcestype.append( pkg.package_type )
-        else:
+        # Validate that sources was given
+        if ( ( sources is None ) and ( format.upper() in ['AUX','AUXILIARY'] ) ):
             raise Exception('flopyrw:ModpathRWSrc: package requires sources data. None was given.')
 
+        # Read sources
+        for sd in sources:
 
+            pname = sd[0]
+            if not isinstance( pname, str ): 
+                raise TypeError('flopyrw:ModpathRWSrc: package name should be str. ',type(pname),' was given.')
+            pkg = self._parent.flowmodel.get_package(pname.lower())
+            if pkg is None:
+                raise Exception(\
+                    'flopyrw:ModpathRWSrc: package name '+ pname.lower() \
+                    + ' was not found in flowmodel.'+' Available packages are: ' +",".join(self._parent.flowmodel.get_package_list()) )
+
+            # Get the auxlist from package
+            # Note: auxlist filled only with str.upper()
+
+            if self.modelversion == 'mf6':
+                # Get the aux data and create auxlist
+                if not pkg.auxiliary.has_data():
+                    raise Exception('flopyrw:ModpathRWSrc: auxiliary property does not has data for package ' + pkg.name[0])
+                aux     = pkg.auxiliary.array[0]
+                auxlist = [a.upper() for a in aux ] 
+            else:
+                # Extract possible aux variable names and perform some preliminary checks for != MF6
+                opts = pkg.options
+                if isinstance(opts, flopy.utils.OptionBlock):
+                    auxlistcand = opts.auxillary
+                elif isinstance(opts,(list,tuple)):
+                    auxlistcand = pkg.options
+                else:
+                    raise TypeError('flopyrw:ModpathRWSrc: unexpected options type in package ' + pkg.name[0] )
+
+                if ( len(auxlistcand) == 0):
+                    raise Exception('flopyrw:ModpathRWSrc: no auxiliary variables were found in package ' + pkg.name[0] )
+
+                # Loop over possible aux vars and create auxlist
+                auxlist = []
+                for ia, auxc in enumerate(auxlistcand):
+                    # Clean the name ( str is assumed )
+
+                    # Clean borders
+                    cand = auxc.strip().upper()
+                    
+                    # If is the identifier str, go the next
+                    if ( cand in ['AUX','AUXILIARY'] ):
+                        # To the next
+                        continue
+
+                    # Break it
+                    cand = cand.split()
+
+                    # It it had a whitespace
+                    if ( len(cand) == 2 ):
+                        # Need to verify that the first word 
+                        # is the aux identifier and the second
+                        # is the auxvar name
+                        if ( cand[0].upper() in ['AUX','AUXILIARY'] ):
+                            # Alles gud
+                            auxlist.append( cand[1].upper() )
+                    elif ( len(cand) == 1):
+                        auxlist.append( cand[0].upper() )
+                    else:
+                        # Probably the case in which auxvars have whitespace in between. omg
+                        print( cand )
+                        raise Exception('flopyrw:ModpathRWSrc: something wrong with definition of aux in package ' + pkg.name[0])
+
+            # Determine the format in which the aux variables are specified
+            auxspec = sd[1]
+            if isinstance( auxspec, str ):
+                # If a str was given, transform to list
+                auxnames     = [auxspec.upper()]
+                auxmasses    = [DEFAULTMASS]
+                auxtemplates = DEFAULTNP*np.ones(shape=(1,3),dtype=np.int32)
+                auxsolutes   = [DEFAULTSOLID] # Clarify whether these are python based or fortran based
+            elif isinstance( auxspec, (list,tuple)):
+                # List to store aux specs
+                auxnames     = []
+                auxmasses    = DEFAULTMASS*np.ones( shape=(len(auxspec),) )
+                auxtemplates = DEFAULTNP*np.ones(shape=(len(auxspec),3),dtype=np.int32)
+                auxsolutes   = DEFAULTSOLID*np.ones( shape=(len(auxspec),),dtype=np.int32 ) # Clarify whether these are python based or fortran based
+                for iaspc, aspc in enumerate(auxspec):
+                    if isinstance( aspc, (list,tuple) ):
+                        auxspeclen = len(aspc)
+                        if auxspeclen == 1:
+                            # Consider as auxvar
+                            if not isinstance( aspc, str ): 
+                                raise TypeError('flopyrw:ModpathRWSrc: auxiliary name should be str. ',type(aspc),' was given.')
+                            # Good
+                            auxnames.append( aspc.upper() )
+                        elif ( (auxspeclen >= 2 ) and (auxspeclen <= 4 ) ):
+                            # First is auxvarname
+                            if not isinstance( aspc[0], str ): 
+                                raise TypeError('flopyrw:ModpathRWSrc: auxiliary name should be str. ',type(aspc[0]),' was given.')
+                            # Good
+                            auxnames.append( aspc[0].upper() )
+                            
+                            # Second is mass 
+                            if not isinstance( aspc[1], (int,float) ): 
+                                raise TypeError('flopyrw:ModpathRWSrc: particles mass should be int/float. ',type(aspc[1]),' was given.')
+                            # Good
+                            auxmasses[iaspc] = aspc[1]
+                           
+                            # Continue reading 
+                            if auxspeclen >= 3:
+                                # Consider as [auxvar,mass,template]
+                                if isinstance(aspc[2],(list,tuple)):
+                                    for inp, npa in enumerate(aspc[2]):
+                                        auxtemplates[iaspc,inp] = npa
+                                elif isinstance( aspc[2], int ):
+                                    # Assume uniform template 
+                                    auxtemplates[iaspc,:] = aspc[2]
+                                else:
+                                    raise TypeError('flopyrw:ModpathRWSrc: particles template should be int/list/tuple. ',type(aspc[2]),' was given.')
+
+                                if auxspeclen == 4:
+                                    # Consider as [auxvar,mass,template,soluteid]
+                                    if not isinstance(aspc[3],int):
+                                        raise TypeError('flopyrw:ModpathRWSrc: solute id should be int. ',type(aspc[3]),' was given.')
+                                    auxsolutes[iaspc] = aspc[3]
+                        else:
+                            raise ValueError('flopyrw:ModpathRWSrc: max length of aux specification is 4. ' + str(len(aspc)) + ' was given.')
+                    elif isinstance( aspc, str ):
+                        # Is a str, give to the list
+                        auxnames.append( aspc.upper() )
+                    else: 
+                        raise TypeError('flopyrw:ModpathRWSrc: auxiliary name should be str. ',type(aspc),' was given.')
+
+            else:
+                raise TypeError('flopyrw:ModpathRWSrc: auxiliary name should be str or list/tuple. ',type(auxspec),' was given.')
+
+
+            # Validate given auxnames
+            for ian, an in enumerate(auxnames):
+                acount = auxlist.count(an.upper())
+                if acount > 1:
+                    raise Exception('flopyrw:ModpathRWSrc: auxiliary name '+an.upper()+' was specified more than once in package ' + pname.upper() +'. Check definition.')
+                if an.upper() not in auxlist:
+                    raise ValueError('flopyrw:ModpathRWSrc: auxiliary name ' +an.upper()+' was not specified in package '+ pname.upper() +'. Check package definition.') 
+
+                # If it got until here, definition is consistent,
+                # save the pair [sourcename,auxname]
+                tempair  = [pname.upper(),an.upper()]
+                sourceslist.append(tempair)
+                tempdata = [an.upper(), auxmasses[ian], auxtemplates[ian,0], auxtemplates[ian,1], auxtemplates[ian,2], auxsolutes[ian] ]
+                alldatalist.append(tempdata)
+        ## end read sources ## 
+
+        # Validate that combinations of [sourcename, auxname] are unique 
+        counter       =  Counter(frozenset(sl) for sl in sourceslist )
+        counterstatus = [counter[frozenset(sl)] == 1 for sl in sourceslist]
+
+        # Break if some inconsistencies
+        if not np.all( counterstatus ):
+            raise Exception('flopyrw:ModpathRWSrc: some pairs of [sourcename,auxname] are repeated. Combination should be unique for all source packages.')
+
+        # Combination of sourcenames,auxnames is valid
+        # Extract unique source names
+        self.uniquesources = np.unique( np.array(sourceslist)[:,0] )
+        self.allauxnames   = []
+        self.alldataperaux = []
+        for ius, us in enumerate( self.uniquesources ):
+            auxnamespersource = []
+            dataperaux        = []
+            for isl, sl in enumerate(sourceslist):
+                if sl[0] == us:
+                    auxnamespersource.append(sl[1])
+                    data = np.array(alldatalist[isl],dtype=object)
+                    dataperaux.append(data)
+            # Indexed as uniquesources
+            self.allauxnames.append( auxnamespersource )
+            self.alldataperaux.append( dataperaux )
+        
+        # If mf6, also get the source kind for 
+        # the given srcnames, just in case
+        self.sourcestype = []
+        if self.modelversion == 'mf6':
+            for us in self.uniquesources:
+                pkg = self._parent.flowmodel.get_package(pname.lower())
+                self.sourcestype.append( pkg.package_type.upper() )
+
+        # Save sources spec
         self.sources = sources
-
-        #cells = []
-        #for spd in pkg.stress_period_data.array:
-        #    for cid in spd['cellid']:
-        #        if cid not in cells:
-        #            cells.append(cid)
-        #print( cells )
-
 
         # Define id
         if (id is not None): 
@@ -2171,9 +2218,7 @@ class ModpathRWSrc( Package ):
             iend = 6
         fmt  = " ".join(fmts) + "\n"
 
-        #if self.modelversion == 'mf6':
         srcfmts = []
-        #srcfmts.append("{:20s}") # srctype
         srcfmts.append("{:20s}") # srcname
         srcfmt = " ".join(srcfmts) + "\n"
 
@@ -2199,10 +2244,6 @@ class ModpathRWSrc( Package ):
                 # (...) and loop over them
                 for isrc, src in enumerate(ins.uniquesources):
 
-                    #if self.modelversion == 'mf6':
-                    #    # Write src name
-                    #    f.write(srcfmt.format(*[ins.sourcestype[isrc].upper(),src.upper()]))
-                    #else:
                     # Write src name
                     f.write(f"{src.upper()}\n")
 
