@@ -1,0 +1,17 @@
+[build-system]
+requires = [ "setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "flopyrw"
+description = "Python interface based on FloPy for configuring input files for MODPATH-RW"
+keywords = ["MODPATH-RW", "RWPT"]
+classifiers = []
+requires-python = ">=3.8"
+dependencies = [
+    "flopy >=3.3.6",
+]
+dynamic = ["version","readme"]
+
+[tool.setuptools.dynamic]
+readme = {file = ["README.md", "LICENSE.md"], content-type = "text/markdown"}
