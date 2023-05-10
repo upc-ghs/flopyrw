@@ -3,14 +3,11 @@ Configuration of MODPATH-RW observations
 '''
 
 # python
-import os
 import numpy as np
-import pandas as pd
-import warnings
 
 # flopy
 from flopy.pakbase import Package
-from flopy.utils import Util2d, Util3d
+from flopy.utils import Util3d
 
 # local 
 from .utils import count_instances # Increment COUNTER
