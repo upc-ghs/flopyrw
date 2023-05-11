@@ -22,7 +22,7 @@ class ModpathRWImp( Package ):
     defaultboundary : int
         The default behavior of particles arriving to cell faces without connections.
         Allowed values are: 
-            0: boundaries are considered open and particles arriving to inactive cells are removed
+            0: boundaries are considered open and particles are removed
             1: boundaries are considered closed and particles rebound
     impformat : int
         The format in which impermeable cells are defined. Allowed values are: 
