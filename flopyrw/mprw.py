@@ -8,6 +8,7 @@ import os
 # flopy
 from flopy.modpath import Modpath7
 
+
 class ModpathRW( Modpath7 ):
     '''
     MODPATH-RW class 
@@ -18,7 +19,6 @@ class ModpathRW( Modpath7 ):
     def __init__(
             self, *args,
             version='modpathrw',
-            simfile_ext="mprw" , # Not being recognized
             **kwargs
         ):
 
@@ -55,8 +55,12 @@ class ModpathRW( Modpath7 ):
         None
 
         """
+
         fpth = os.path.join(self.model_ws, self.mpnamefile)
+
         f = open(fpth, "w")
+
+        # Write the mpnam file
         f.write(f"{self.heading}\n")
         if self.mpbas_file is not None:
             f.write(f"MPBAS      {self.mpbas_file}\n")
@@ -99,6 +103,5 @@ class ModpathRW( Modpath7 ):
 
         # Done
         f.close()
-
 
         return
