@@ -91,9 +91,9 @@ class ModpathRW( Modpath7 ):
         icpkg = self.get_package('IC')
         if icpkg is not None:
             f.write(f"IC         {icpkg.file_name[0]}\n")
-        bcpkg = self.get_package('BC')
-        if bcpkg is not None:
-            f.write(f"BC         {bcpkg.file_name[0]}\n")
+        imppkg = self.get_package('IMP')
+        if imppkg is not None:
+            f.write(f"IMP        {imppkg.file_name[0]}\n")
         srcpkg = self.get_package('SRC')
         if srcpkg is not None:
             f.write(f"SRC        {srcpkg.file_name[0]}\n")
