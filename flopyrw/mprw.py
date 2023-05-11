@@ -14,8 +14,10 @@ class ModpathRW( Modpath7 ):
     MODPATH-RW class 
 
     Extends flopy.modpath.Modpath7
+
     Overloads write_name_file
     '''
+
     def __init__(
             self, *args,
             version='modpathrw',
@@ -53,7 +55,6 @@ class ModpathRW( Modpath7 ):
         Returns
         -------
         None
-
         """
 
         fpth = os.path.join(self.model_ws, self.mpnamefile)

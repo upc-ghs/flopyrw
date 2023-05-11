@@ -30,13 +30,34 @@ class ModpathRWSim( mp7.Modpath7Sim ):
     '''
     MODPATH-RW Simulation File Package Class. 
 
-    Extends from Modpath7Sim 
+    Extends from Modpath7Sim
+
+    New Parameters
+    --------------
+    timeseriesoutputoption : int
+        Specify behavior of timeseries writer. Allowed values are 
+            0: Write timeseries records only for active particles
+            1: Write timesereis records for all particles
+            2: Skip the timeseries writer
+    particlesmassoption: int
+        Indicates whether a mass shall be read for classical particle groups
+        specifications. Allowed values are: 
+            0: do not read a particle mass 
+            1: read the particle mass for particle groups
+            2: read a mass and a solute identifier for all specified particle groups
+    speciesdispersionoption: int
+        Configures if particles are displaced with the same dispersion parameters or
+        with species specific properties depending on solute id. Allowed values are:
+            0: all particles displaced with the same dispersion properties
+            1: particles displaced with specific dispersion properties
     '''
 
-    def __init__( self, *args,
+    def __init__(
+            self,
+            *args,
             timeseriesoutputoption=0,
             particlesmassoption=0,
-            solutesoption=0,
+            speciesdispersionoption=0,
             **kwargs
         ):
 
@@ -53,23 +74,37 @@ class ModpathRWSim( mp7.Modpath7Sim ):
 
         # New options
         if (timeseriesoutputoption not in [0,1,2]):
-            raise ValueError('Timeseries output option should be 0, 1 or 2. Given :', str(timeseriesoutputoption) )
+            raise ValueError(
+                self.__class__.__name__ + ':' + 
+                ' Invalid timeseriesoutputoption ' +str(timeseriesoutputoption)+
+                '. Allowed values are 0 (write ts for active particles), ' +
+                '1 (write ts for all particles) or 2 (skip ts writer).'
+            )
         self.timeseriesoutputoption = timeseriesoutputoption
         if (particlesmassoption not in [0,1,2]):
-            raise ValueError('Particles mass option should be 0, 1 or 2. Given :', str(particlesmassoption) )
+            raise ValueError(
+                self.__class__.__name__ + ':' + 
+                ' Invalid particlesmassoption ' +str(particlesmassoption)+
+                '. Allowed values are 0 (no particle mass), ' +
+                '1 (read mass) or 2 (read mass and a solute id).'
+            )
         self.particlesmassoption = particlesmassoption
-        if (solutesoption not in [0,1]):
-            raise ValueError('Solutes option should be 0 or 1. Given :', str(solutesoption) )
-        self.solutesoption = solutesoption
+        if (speciesdispersionoption not in [0,1]):
+            raise ValueError(
+                self.__class__.__name__ + ':' + 
+                ' Invalid speciesdispersionoption ' + str(speciesdispersionoption)+
+                '. Allowed values are 0 (same dispersion parameters) or ' +
+                '1 (species specific dispersion).'
+            )
+        self.speciesdispersionoption = speciesdispersionoption
 
 
         # If simulation is RW
         if self.simulationtype > 4: 
-
             # Assign some properties to parent obj
             # Needed by: SPC, IC
             self._parent.particlesmassoption = particlesmassoption
-            self._parent.solutesoption = solutesoption
+            self._parent.speciesdispersionoption = speciesdispersionoption
 
 
     def write_file(self, check=False):
@@ -104,16 +139,25 @@ class ModpathRWSim( mp7.Modpath7Sim ):
                 self.tracemode,
                 self.timeseriesoutputoption,
                 self.particlesmassoption,
-                self.solutesoption,
+                self.speciesdispersionoption,
             )
         )
         # item 4
         f.write(f"{self.endpointfilename}\n")
         # item 5
-        if self.simulationtype == 2 or self.simulationtype == 4 or self.simulationtype == 6 :
+        if (
+            self.simulationtype == 2 or
+            self.simulationtype == 4 or
+            self.simulationtype == 6
+        ):
             f.write(f"{self.pathlinefilename}\n")
         # item 6
-        if self.simulationtype == 3 or self.simulationtype == 4 or self.simulationtype == 5 or self.simulationtype == 6:
+        if (
+            self.simulationtype == 3 or
+            self.simulationtype == 4 or
+            self.simulationtype == 5 or
+            self.simulationtype == 6
+        ):
             f.write(f"{self.timeseriesfilename}\n")
         # item 7 and 8
         if self.tracemode == 1:
@@ -157,10 +201,11 @@ class ModpathRWSim( mp7.Modpath7Sim ):
     
         # item 16
         if (
-                self.simulationtype == 3 or
-                self.simulationtype == 4 or
-                self.simulationtype == 5 or
-                self.simulationtype == 6 ):
+            self.simulationtype == 3 or
+            self.simulationtype == 4 or
+            self.simulationtype == 5 or
+            self.simulationtype == 6
+        ):
             f.write(f"{self.timepointoption}\n")
             if self.timepointoption == 1:
                 # item 17
@@ -210,8 +255,10 @@ class ModpathRWSim( mp7.Modpath7Sim ):
             elif ( self.particlesmassoption == 2):
                 for pg in self.particlegroups:
                     pg.write(f, ws=self.parent.model_ws, mass=True, solute=True)
-   
+  
+
         # And close
         f.close()
+
 
         return
