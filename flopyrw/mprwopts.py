@@ -16,7 +16,7 @@ class ModpathRWOptions( Package ):
     Parameters
     ----------
     model     : model object
-        The model object (of type :class:`flopy.modpath.Modpath7`) to which
+        The model object (of type :class: ModpathRW) to which
         this package will be added.
     timestep  : str
         Define method for computing particles time step. Allowed values are:
@@ -25,11 +25,12 @@ class ModpathRWOptions( Package ):
             'min'   : local time step obtained as the minimum between 'adv' and 'disp'
             'fixed' : the same for all particles, given by the user in the 'deltat' keyword 
     courant   : float
-        Courant number that will be used at each cell for computing time step with 'adv' criteria 
+        Courant number that will be used at each cell for computing time step with 'adv' criteria. 
+        Should be greater than zero. 
     ctdisp    :  float 
-        CT constant for computing time step with 'disp' criteria
+        CT constant for computing time step with 'disp' criteria. Should be greater than zero.
     deltat    :  float 
-        Value employed when timestep selection is 'fixed'
+        Value employed when timestep selection is 'fixed'. Should be greater than zero.
     advection : str
         Advection model to be used for advective component in RW integration.
         Could be set to 'eulerian' or 'exponential' (default is 'eulerian').
@@ -67,10 +68,28 @@ class ModpathRWOptions( Package ):
             )
         self.timestep = timestep
 
-        # Trust
-        self.courant  = courant
-        self.ctdisp   = ctdisp 
-        self.deltat   = deltat
+        # timestep selection params
+        if (courant>0): 
+            self.courant  = courant
+        else:
+            raise ValueError(
+                self.__class__.__name__ + ':' + 
+                ' Courant number for advection criteria should be greater than zero.'
+            )
+        if (ctdisp>0): 
+            self.ctdisp  = ctdisp
+        else:
+            raise ValueError(
+                self.__class__.__name__ + ':' + 
+                ' CT constant for dispersion criteria should be greater than zero.'
+            )
+        if (deltat>0): 
+            self.deltat  = deltat
+        else:
+            raise ValueError(
+                self.__class__.__name__ + ':' + 
+                ' Time step for particles displacement should be greater than zero.'
+            )
 
         # advection 
         if ( advection not in ['eulerian','exponential'] ):

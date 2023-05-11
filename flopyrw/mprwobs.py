@@ -20,7 +20,7 @@ class ModpathRWObs( Package ):
     Parameters
     ----------
     model : model object
-        The model object (of type :class: Modpath7 or ModpathRW) to which
+        The model object (of type :class: ModpathRW) to which
         this package will be added.
     kind  : int
         The kind of observation. Allowed values are:

@@ -20,7 +20,7 @@ class ModpathRWDsp( Package ):
     Parameters
     ----------
     model : model object
-        The model object (of type :class:`flopy.modpath.Modpath7`) to which
+        The model object (of type :class: ModpathRW) to which
         this package will be added.
     modelkind : str
         The dispersion model. The only currently implemented is with linear dispersivities 

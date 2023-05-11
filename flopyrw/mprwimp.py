@@ -17,7 +17,7 @@ class ModpathRWImp( Package ):
     Parameters
     ----------
     model : model object
-        The model object (of type :class:`flopy.modpath.Modpath7`) to which
+        The model object (of type :class: ModpathRW) to which
         this package will be added.
     defaultboundary : int
         The default behavior of particles arriving to cell faces without connections.
