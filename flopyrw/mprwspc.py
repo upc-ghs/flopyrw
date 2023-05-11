@@ -26,11 +26,11 @@ class ModpathRWSpc( Package ):
         Defines dispersion model and properties for this solute. Is a required foreign key. 
     pgroups : list, np.array (int)
         Particle groups related to this specie. These are interpreted only if 
-        particlesmassoption != 2. In case the simulation is configured with 
-        particlesmassoption == 2, then the particle groups associated to a 
-        specie are interpreted from the specified solute ids for each particle group.
-        These ids are zero based (while writing is corrected to one based) and should 
-        be consistent with the order in which the particle groups are specified.
+        particlesmassoption != 2. These ids are zero based (while writing is corrected to one based)
+        and are related to the order in which the particle groups are specified to the program.
+        In case the simulation is configured with particlesmassoption == 2, 
+        then the particle groups associated to a specie are interpreted (internally)
+        from the specified solute ids for each particle group.
     stringid : str
         String identifier for this species. 
     extension : str
