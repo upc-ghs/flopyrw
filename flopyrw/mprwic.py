@@ -195,7 +195,7 @@ class ModpathRWIc( Package ):
             # Kind/format of initial condition 
             f.write(f"{ins.kind}\n")
 
-            # 1: resident concentration array  
+            # 0: resident concentration array  
             if ins.kind == 0:
 
                 # Give particles mass 
