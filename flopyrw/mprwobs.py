@@ -54,6 +54,9 @@ class ModpathRWObs( Package ):
         If outputoption == 1, this file contains the postprocessed observation and a second file
         whose name is rec+basefilename contains the observations records. 
         If outputoption == 2, this file contains the postprocessed observation timeseries
+    id : int 
+        A positive integer identifier. If None given is automatically assigned with 
+        the instance counter. 
     stringid : str
         An identifier for the observation. By default the name 'OBS'+str(id) is assigned
     extension : str
@@ -76,7 +79,7 @@ class ModpathRWObs( Package ):
         outputoption      = 2,
         postprocessoption = 1,
         basefilename      = 'mprwobs_',
-        id                = None, # internal
+        id                = None,
         stringid          = None,
         extension         = 'obs',
     ):

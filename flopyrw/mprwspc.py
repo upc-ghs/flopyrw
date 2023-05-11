@@ -31,6 +31,9 @@ class ModpathRWSpc( Package ):
         In case the simulation is configured with particlesmassoption == 2, 
         then the particle groups associated to a specie are interpreted (internally)
         from the specified solute ids for each particle group.
+    id : int 
+        A positive integer identifier. If None given is automatically assigned with 
+        the instance counter. 
     stringid : str
         String identifier for this species. 
     extension : str
@@ -49,7 +52,7 @@ class ModpathRWSpc( Package ):
         model,
         dispersion, # it's like a foreign key
         pgroups    = None,
-        id         = None, # internal
+        id         = None,
         stringid   = None,
         extension  = 'spc',
     ):

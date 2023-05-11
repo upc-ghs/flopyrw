@@ -38,6 +38,9 @@ class ModpathRWDsp( Package ):
         Transverse dispersivity. Should satisfy alphat >=0.
     dmeff  : float
         Effective molecular diffusion, corrected by tortuosity. Should satisfy dmeff >=0.
+    id : int 
+        A positive integer identifier. If None given is automatically assigned with 
+        the instance counter. 
     stringid : str, optional
         An id for the dispersion specification. If not given is automatically filled with 
         DSP+str(id), where id is an internal use counter. 
@@ -67,7 +70,7 @@ class ModpathRWDsp( Package ):
         betatv            = 0.5     , # ( not implemented )  
         delta             = 5       , # ( not implemented )  
         dgrain            = 1       , # ( not implemented ) 
-        id                = None    , # internal   
+        id                = None    , 
         stringid          = None    ,
         extension         = 'dsp'   ,
     ):
