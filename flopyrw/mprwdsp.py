@@ -21,6 +21,27 @@ class ModpathRWDsp( Package ):
     model : model object
         The model object (of type :class:`flopy.modpath.Modpath7`) to which
         this package will be added.
+    modelkind : str
+        The dispersion model. The only currently implemented is with linear dispersivities 
+        and isotropic transverse dispersivity. Allowed values 'linear'.
+    inputformat : int
+        The format for writing dispersion model paramters. Allowed values are: 
+            0: Parameters are spatially uniform
+            1: Parameters are spatially distributed
+        Note: this distinction determines the reader to be used in MODPATH-RW. In the case of 
+        spatially uniform parameters, arrays are allocated with only one value instead of the 
+        default (one value per cell) while using u3d readers.
+    alphal : float
+        Longitudinal dispersivity. Should satisfy alphal >=0.
+    alphat : float
+        Transverse dispersivity. Should satisfy alphat >=0.
+    dmeff  : float
+        Effective molecular diffusion, corrected by tortuosity. Should satisfy dmeff >=0.
+    stringid : str, optional
+        An id for the dispersion specification. If not given is automatically filled with 
+        DSP+str(id), where id is an internal use counter. 
+    extension : str, optional
+        File extension (default is 'dsp').
     """
 
     # Class properties
@@ -28,13 +49,11 @@ class ModpathRWDsp( Package ):
     UNITNUMBER = 0
     INSTANCES  = []
 
-
     @count_instances
     def __init__(
         self,
         model,
         modelkind         = 'linear', # linear
-        modelkindid       = 1       , # 1:linear
         inputformat       = 0       , # 0: uniform, 1: u3d
         alphal            = 0.1     , # xx
         alphat            = 0.01    , # yy, zz isotropic transverse dispersivity
@@ -47,7 +66,7 @@ class ModpathRWDsp( Package ):
         betatv            = 0.5     , # ( not implemented )  
         delta             = 5       , # ( not implemented )  
         dgrain            = 1       , # ( not implemented ) 
-        id                = None    , 
+        id                = None    , # internal   
         stringid          = None    ,
         extension         = 'dsp'   ,
     ):
@@ -188,6 +207,7 @@ class ModpathRWDsp( Package ):
     def write_file(self, check=False):
         """
         Write the package file
+
         Parameters
         ----------
         check : boolean
