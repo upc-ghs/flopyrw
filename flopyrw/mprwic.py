@@ -154,7 +154,7 @@ class ModpathRWIc( Package ):
                 # If solutes are being specified, do it
                 if( 
                     ( self.INSTANCES[0]._parent.particlesmassoption == 2 ) or
-                    ( self.INSTANCES[0]._parent.solutesoption == 1 ) 
+                    ( self.INSTANCES[0]._parent.speciesdispersionoption == 1 ) 
                 ):
                     f.write(f"{ins.soluteid}\n")
 

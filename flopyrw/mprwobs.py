@@ -16,11 +16,48 @@ from .utils import count_instances # Increment COUNTER
 class ModpathRWObs( Package ):
     """
     MODPATH-RW Observation Package Class.
+
     Parameters
     ----------
     model : model object
-        The model object (of type :class:`flopy.modpath.Modpath7`) to which
+        The model object (of type :class: Modpath7 or ModpathRW) to which
         this package will be added.
+    kind  : int
+        The kind of observation. Allowed values are:
+            0: observation of resident concentrations, any cell
+            1: observation of flux concentrations. For consistency, it should be applied 
+               to cells with sink flow and with weaksinkoption is stop_at
+    cellinputoption : int
+        The format in which observation cells will be given. Allowed values are:
+            0: cells are given as a list of individual cells
+            1: cells read with free-format input
+    cells : list, np.array
+        The list of cells to be considered for the observation.
+        If cellinputoption == 0, then this parameter contain the list of cell ids
+        If cellinputoption == 1, this should an array with the dimensions of the flow model. 
+        In this last case, array entries containing ones are included as part of the observation.
+    structured : bool 
+        Indicates the format of cell ids in the cells param. If True, then cells are in format (lay, row, col), 
+        and if False these are the linear cell numbers.
+    outputoption : int
+        Defines the information stored in the output file. Allowed values are:
+            0: output file contains the source particle records
+            1: postprocessed observation in output file (timeseries) and a second file with source records
+            2: only one file with the postprocessed observation (timeseries)
+    postprocessoption : int
+        The kind of postprocess to be applied to the source observation records. Allowed values are:
+            0: timeseries with histogram reconstruction
+            1: timeseries with both histogram and smoothed reconstruction
+    basefilename : str
+        The output file where the observation is written. 
+        If outputoption == 0, this file contains the observation records
+        If outputoption == 1, this file contains the postprocessed observation and a second file
+        whose name is rec+basefilename contains the observations records. 
+        If outputoption == 2, this file contains the postprocessed observation timeseries
+    stringid : str
+        An identifier for the observation. By default the name 'OBS'+str(id) is assigned
+    extension : str
+        The extension for the observation file. By default 'obs' 
     """
 
     # Class properties
@@ -33,14 +70,13 @@ class ModpathRWObs( Package ):
         self,
         model,
         kind              = 0,
-        outputoption      = 2,
-        postprocessoption = 1,
         cellinputoption   = 0,
         cells             = None,
         structured        = True, 
-        basefilename      = 'mpathrwobs_',
-        filename          = None,
-        id                = None,
+        outputoption      = 2,
+        postprocessoption = 1,
+        basefilename      = 'mprwobs_',
+        id                = None, # internal
         stringid          = None,
         extension         = 'obs',
     ):
