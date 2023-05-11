@@ -41,7 +41,7 @@ class ParticleGroup( mp7ParticleGroup ):
             fp.write(f"{self.mass:.16f}\n")
         if solute:
             # Write the solute id 
-            fp.write(f"{self.solute:9df}\n")
+            fp.write(f"{self.solute:9d}\n")
 
 
         return
@@ -72,7 +72,7 @@ class ParticleGroupLRCTemplate( mp7ParticleGroupLRCTemplate ):
             fp.write(f"{self.mass:.16f}\n")
         if solute:
             # Write the solute id 
-            fp.write(f"{self.solute:9df}\n")
+            fp.write(f"{self.solute:9d}\n")
 
 
         return
