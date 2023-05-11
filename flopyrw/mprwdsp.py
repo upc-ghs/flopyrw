@@ -16,6 +16,7 @@ from .utils import count_instances # Increment COUNTER
 class ModpathRWDsp( Package ):
     """
     MODPATH-RW Dispersion Package Class.
+
     Parameters
     ----------
     model : model object
