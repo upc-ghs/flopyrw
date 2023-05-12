@@ -468,11 +468,21 @@ class ModpathRWSrc( Package ):
                     if ( 
                         ( self.INSTANCES[0]._parent.particlesmassoption == 2 ) 
                     ): 
+                        # Verify len
+                        if ( src['nspecies'] != len(src['speciesid']) ): 
+                            raise Exception(
+                                self.__class__.__name__ + ':' + 
+                                ' The number of species is not consistent with the number of given species ids. ' +
+                                str(src['nspecies']) + ' species were indicated at nspecies and ' +
+                                str(len(src['speciesid'])) + ' were given as species ids.' 
+                            )
+
                         # The format
                         sfmt = []
                         for nm in range(src['nspecies']):   
                             sfmt.append("{:3d}")
                         sfmt = " " + " ".join(sfmt) + "\n"
+                         
                         # and write 
                         f.write(sfmt.format(*src['speciesid']))
 
@@ -1026,9 +1036,12 @@ class ModpathRWSrc( Package ):
         # Do more advanced validation for each source specification 
         # Consider recycling the machinery for validating params in mf6 classes
         for src in sources:
+
+            # Get the current source keys
             keys = src.keys()
 
-            # Verify mandatory keys
+            # Verify keys specification
+
             # budgetname
             if ('budgetname' not in keys ):
                 raise ValueError(
@@ -1066,6 +1079,17 @@ class ModpathRWSrc( Package ):
                     str(src['nspecies']) + ' was given.'
                 )
             nsp = src['nspecies']
+            
+            # speciesid
+            # This is finally validated while writing, 
+            # as is the only place where particlesmassoption 
+            # can be accessed.
+            if ( isinstance( src['speciesid'], int ) ): 
+                # Create a list
+                src['speciesid'] = [src['speciesid']]
+            if ( isinstance( src['speciesid'], list ) ): 
+                src['speciesid'] = np.array( src['speciesid' ] ).astype(np.int32) + 1  # Notice the + 1, fortran index !
+                src['speciesid'] = src['speciesid'].tolist()
 
             # particlesmass
             if ('particlesmass' not in keys ):
@@ -1164,8 +1188,7 @@ class ModpathRWSrc( Package ):
                 src['template'] = self.__class__.defaulttemplate
             # Requires some default definition and validation
 
-            
-            # Verify cells parameter
+            # cells
             if ( ( src['cells'] is None ) and ( src['cellinput'] in [1,2] ) ):
                 raise ValueError(
                     self.__class__.__name__ + ':' + 
@@ -1196,7 +1219,7 @@ class ModpathRWSrc( Package ):
                 )
                 ncellsforinput = 1
 
-            # Verify timeintervals
+            # timeintervals
             if ('timeintervals' not in keys ):
                 raise ValueError(
                     self.__class__.__name__ + ':' + 
@@ -1224,7 +1247,7 @@ class ModpathRWSrc( Package ):
                 src['timeintervals'] = tintervals.tolist()
 
 
-            # Verify concentration
+            # concentration
             if ('concentration' not in keys ):
                 raise ValueError(
                     self.__class__.__name__ + ':' + 
