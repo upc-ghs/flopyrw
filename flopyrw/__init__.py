@@ -12,6 +12,6 @@ from .mprwdsp   import *
 from .mprwopts  import *
 from .mprwspc   import *
 from .mprwic    import *
+from .mprwimp   import *
 from .mprwsrc   import *
 from .mprwgpkde import *
-from .mprwimp   import *
