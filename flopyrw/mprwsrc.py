@@ -216,6 +216,14 @@ class ModpathRWSrc( Package ):
             self._parent = self.INSTANCES[0]._parent
 
         # Save model data 
+        shape = model.shape
+        if len(shape) == 3:
+            shape3d = shape
+        elif len(shape) == 2:
+            shape3d = (shape[0], 1, shape[1])
+        else:
+            shape3d = (1, 1, shape[0])
+        self.shape3d = shape3d
         self.model        = model
         self.modelversion = self._parent.flowmodel.version 
 
@@ -544,9 +552,9 @@ class ModpathRWSrc( Package ):
         '''
 
         # Default variables for initialization of sources
-        DEFAULTNP    = 2
-        DEFAULTMASS  = 1.0
-        DEFAULTSOLID = int(0)
+        DEFAULTNP    = self.__class__.defaultnparticles
+        DEFAULTMASS  = self.__class__.defaultparticlesmass
+        DEFAULTSOLID = self.__class__.defaultspeciesid
 
         # Validate that sources were given
         if (
@@ -1016,10 +1024,12 @@ class ModpathRWSrc( Package ):
                     )
         
         # Do more advanced validation for each source specification 
+        # Consider recycling the machinery for validating params in mf6 classes
         for src in sources:
             keys = src.keys()
 
             # Verify mandatory keys
+            # budgetname
             if ('budgetname' not in keys ):
                 raise ValueError(
                     self.__class__.__name__ + ':' + 
@@ -1028,18 +1038,221 @@ class ModpathRWSrc( Package ):
             if ( src['budgetname'] is None ): 
                 raise ValueError(
                     self.__class__.__name__ + ':' + 
-                    ' Invalid source specification. Budgetname is None.'
+                    ' Invalid source specification. The key budgetname is None.'
+                )
+            if ( not isinstance( src['budgetname'], str ) ): 
+                raise TypeError(
+                    self.__class__.__name__ + ':' + 
+                    ' Invalid source specification. The key budgetname is not a str.' + 
+                    str(type(src['budgetname'])) + ' was given.'
+                )
+            # It could be considered a check versus the packages available at the model 
+            # but headers could have different names e.g. "CONSTANT HEAD" in mf2005
+
+            # nspecies
+            if ('nspecies' not in keys ):
+                # Give the default
+                src['nspecies'] = self.__class__.defaultnspecies
+            if ( not isinstance( src['nspecies'], int ) ): 
+                raise TypeError(
+                    self.__class__.__name__ + ':' + 
+                    ' Invalid source specification. The key nspecies should be int. ' + 
+                    str(type(src['nspecies'])) + ' was given.'
+                )
+            if ( src['nspecies'] <= 0 ): 
+                raise ValueError(
+                    self.__class__.__name__ + ':' + 
+                    ' Invalid source specification. The nspecies should be a positive integer. ' + 
+                    str(src['nspecies']) + ' was given.'
+                )
+            nsp = src['nspecies']
+
+            # particlesmass
+            if ('particlesmass' not in keys ):
+                # Give the default
+                src['particlesmass'] = self.__class__.defaultparticlesmass
+            if ( not isinstance( src['particlesmass'], list ) ):
+                if ( not isinstance( src['particlesmass'], (int,float) ) ): 
+                    raise TypeError(
+                        self.__class__.__name__ + ':' + 
+                        ' Invalid source specification. The given particle is not int/float. ' + 
+                        str(type(src['particlesmass'])) + ' was given.'
+                    )
+                if ( nsp == 1 ): 
+                    src['particlesmass'] = [src['particlesmass']]
+                else:
+                    # Assign the default multiple times ( or throw exception ? ) 
+                    src['particlesmass'] = list(np.ones(shape=(nsp,))*src['particlesmass'])
+            else:
+                if( not ( len( src['particlesmass'] == nsp ) ) ):
+                    raise ValueError(
+                        self.__class__.__name__ + ':' + 
+                        ' Invalid source specification. The number of elements in particlesmass list '+
+                        'is not consistent with nspecies. Nspecies is ' + str(nsp) + ' and ' + 
+                        str(len(src['particlesmass'])) + ' masses were given.'
+                    )
+
+            # cellinput
+            if ('cellinput' not in keys ):
+                # Give the default
+                src['cellinput'] = self.__class__.defaultcellinput
+            if ( src['cellinput'] not in [0,1,2] ):
+                raise ValueError(
+                    self.__class__.__name__ + ':' + 
+                    ' Invalid source specification. The cellinput parameter is not 0, 1 or 2. ' + 
+                    str(src['cellinput']) + ' was given.'
                 )
 
+            # structured 
+            if ('structured' not in keys ):
+                # Give the default
+                src['structured'] = self.__class__.defaultstructured
+
+            # ifaceoption
+            if ('ifaceoption' not in keys ):
+                # Give the default
+                src['ifaceoption'] = self.__class__.defaultifaceoption
+            if ( src['ifaceoption'] not in [0,1] ):
+                raise ValueError(
+                    self.__class__.__name__ + ':' + 
+                    ' Invalid source specification. The ifaceoption parameter is not 0 or 1. ' + 
+                    str(src['ifaceoption']) + ' was given.'
+                )
+
+            # defaultiface
+            if ('defaultiface' not in keys ):
+                # Give the default
+                src['defaultiface'] = self.__class__.defaultdefaultiface
+            if ( not isinstance( src['defaultiface'], int ) ):
+                raise TypeError(
+                    self.__class__.__name__ + ':' + 
+                    ' Invalid source specification. The defaultiface is not an integer. ' + 
+                    str(type(src['defaultiface'])) + ' was given.'
+                )
+            if ( not (0<= src['defaultiface']<=6) ):
+                raise ValueError(
+                    self.__class__.__name__ + ':' + 
+                    ' Invalid source specification. Allowed values for defaultiface are from 0 to 6. ' + 
+                    str(src['defaultiface']) + ' was given.'
+                )
+
+            # concpercell
+            if ('concpercell' not in keys ):
+                # Give the default
+                src['concpercell'] = self.__class__.defaultconcpercell
+            if ( src['concpercell'] not in [0,1] ):
+                raise ValueError(
+                    self.__class__.__name__ + ':' + 
+                    ' Invalid source specification. The concpercell parameter is not 0 or 1. ' + 
+                    str(src['concpercell']) + ' was given.'
+                )
+
+            # templateoption 
+            if ('templateoption' not in keys ):
+                # Give the default
+                src['templateoption'] = self.__class__.defaulttemplateoption
+            if ( src['templateoption'] not in [0,1] ):
+                raise ValueError(
+                    self.__class__.__name__ + ':' + 
+                    ' Invalid source specification. The templateoption parameter is not 0 or 1. ' + 
+                    str(src['templateoption']) + ' was given.'
+                )
+
+            # template
+            if ('template' not in keys ):
+                # Give the default
+                src['template'] = self.__class__.defaulttemplate
+            # Requires some default definition and validation
+
             
-            # Complete optional keys with defaults
-            if ('ifaceoption' not in keys):
-                src['ifaceoption' ] = defaultifaceoption 
-            if ('defaultiface' not in keys):
-                src['defaultiface' ] = defaultiface
+            # Verify cells parameter
+            if ( ( src['cells'] is None ) and ( src['cellinput'] in [1,2] ) ):
+                raise ValueError(
+                    self.__class__.__name__ + ':' + 
+                    ' Invalid source specification. The cell input option ' + 
+                    str(src['cellinput']) + ' requires cells to be specified but None was given.' 
+                )
+            if ( src['cellinput'] == 1 ):
+                if ( not isinstance( src['cells'], list ) ):
+                    raise ValueError(
+                        self.__class__.__name__ + ':' + 
+                        ' Invalid source specification. The cell input option is 1 ' + 
+                        ' but no list of cells was given.' 
+                    )
+                # Requires something to validate versus the structured parameter
+                cells          = np.array(src['cells'])
+                ncellsforinput = cells.shape[0]
+            if ( src['cellinput'] == 2 ):
+                # This cellinput format forces the same concentration 
+                # for all cells.
+                cells = src['cells']
+                src['cells'] = Util3d(
+                    self.model,
+                    self.shape3d,
+                    np.int32,
+                    cells,
+                    name="SRCCELLS",
+                    locat=self.__class__.UNITNUMBER,
+                )
+                ncellsforinput = 1
+
+            # Verify timeintervals
+            if ('timeintervals' not in keys ):
+                raise ValueError(
+                    self.__class__.__name__ + ':' + 
+                    ' Invalid source specification. The key timeintervals was not found in specification.'
+                )
+            if ( not isinstance( src['concentration'], list ) ):
+                raise ValueError(
+                    self.__class__.__name__ + ':' + 
+                    ' Invalid source specification. The key timeintervals should be a list. ' 
+                )
+            else:
+                tintervals = np.array( src['timeintervals'] )
+                # Forgive if given only one tstart,tend
+                if ( ( tintervals.shape[1] == 1 ) and (len(tintervals)==2)): 
+                    tintervals = tintervals.transpose()
+                if ( not ( tintervals.shape[1] == 2 ) ): 
+                    raise ValueError(
+                        self.__class__.__name__ + ':' + 
+                        ' Invalid source specification. The key timeintervals should be have a ' +
+                        'shape of two in axis=1 indicating tstart, tend'
+                    )
+                ntin = tintervals.shape[0]
+        
+                # Give it back
+                src['timeintervals'] = tintervals.tolist()
 
 
+            # Verify concentration
+            if ('concentration' not in keys ):
+                raise ValueError(
+                    self.__class__.__name__ + ':' + 
+                    ' Invalid source specification. The key concentration was not found in specification.'
+                )
+            if ( isinstance( src['concentration'], list ) ):
+                # To numpy array 
+                conc = np.array(src['concentration'])
+                if ( (len(conc.shape)==1) ): 
+                    conc = np.expand_dims( conc, axis=1 )
+                if ( conc.shape[0] != ntin ): 
+                    raise ValueError(
+                        self.__class__.__name__ + ':' + 
+                        ' Invalid source specification. The given concentrations (' +
+                        str(conc.shape[0]) + ') are not consistent with the '+
+                        'number of time intervals ' + str(ntin) + '.' 
+                    )
+                if ( conc.shape[1] != nsp*ncellsforinput ):
+                    raise ValueError(
+                        self.__class__.__name__ + ':' + 
+                        ' Invalid source specification. The given concentrations in axis = 1 (' +
+                        str(conc.shape[1]) + ') are not consistent with the '+
+                        'number of species and cells for the given concpercell parameter.' 
+                    )
+                # Needs some review
 
+                # Pass it back 
+                src['concentration'] = conc.tolist()
 
 
         # Save to sources
