@@ -369,8 +369,8 @@ class ModpathRWSrc( Package ):
             if pkg is None:
                 raise Exception(
                     self.__class__.__name__ + ':' + 
-                    ' Package name ' + pname.lower() + ' was not found in model. ' 
-                    ' Available packages are: ' +  ','.join(self._parent.flowmodel.get_package_list()) 
+                    ' Package name ' + pname.upper() + ' was not found in model. ' 
+                    'Available packages are: ' +  ','.join(self._parent.flowmodel.get_package_list()) 
                 )
 
             # Extract the auxlist for package
@@ -383,7 +383,9 @@ class ModpathRWSrc( Package ):
                         ' Auxiliary property without data for package ' + pkg.name[0] 
                     )
                 aux     = pkg.auxiliary.array[0]
-                auxlist = [a.upper() for a in aux ] 
+                auxlist = [a.upper() for a in aux ]
+                # Remove the aux identifiers
+                auxlist = [ auxname for auxname in auxlist if auxname not in ('AUX','AUXILIARY')]
             else:
                 # Extract possible aux names and preliminary checks for != MF6
                 opts = pkg.options
@@ -630,7 +632,7 @@ class ModpathRWSrc( Package ):
                     raise Exception(
                         self.__class__.__name__ + ':' + 
                         ' Auxiliary name ' + an.upper() + ' was not found in aux variables ' + 
-                        'in package ' + pname.upper() + '. Check definition.'
+                        'of package ' + pname.upper() + '. Available variables are: ' + ','.join(auxlist)
                     )
                 # Definition is consistent, save the pair [sourcename,auxname]
                 tempair  = [pname.upper(),an.upper()]
