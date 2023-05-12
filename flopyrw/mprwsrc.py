@@ -101,6 +101,8 @@ class ModpathRWSrc( Package ):
             * 0: extract the cells from the budget file. Use all the cells related to the budgetname.
             * 1: cells are given as a list of cell ids in the cells keyword argument.
             * 2: cells are given as an array with u3d where 1 indicate that the cells should be considered.
+        notes: all of the given cells, regardless the specification format, will release particles
+               during the time intervals in which the flow-rate stored in budget is positive (into the aquifer).
     cells : list, np.array
         The list of cell ids to be related to the injection. If cellinput==2 then this should be the modelgrid 
         array with 1 for cells to be considered and 0 for those to be excluded.
@@ -164,6 +166,21 @@ class ModpathRWSrc( Package ):
     INSTANCES  = []
 
 
+    # Default options
+    defaultcellinput      = 0
+    defaultstructured     = True
+    defaultifaceoption    = 0
+    defaultdefaultiface   = 0
+    defaultconcpercell    = 0
+    defaultnspecies       = 1
+    defaultspeciesid      = 0
+    defaulttemplate       = [(2,2,2)]
+    defaulttemplateoption = 0
+    defaultparticlesmass  = 1.0
+    defaultnparticles     = 2
+
+
+    # Init
     @count_instances
     def __init__(
         self,
@@ -172,19 +189,19 @@ class ModpathRWSrc( Package ):
         sources        = None,
         budgetname     = None, 
         timeintervals  = None,
-        cellinput      = 0,
+        cellinput      = defaultcellinput,
         cells          = None, 
-        structured     = True, 
-        ifaceoption    = 0,
-        defaultiface   = 0,
-        concpercell    = 0,
-        nspecies       = 1,
-        speciesid      = 0,
+        structured     = defaultstructured, 
+        ifaceoption    = defaultifaceoption, 
+        defaultiface   = defaultdefaultiface, 
+        concpercell    = defaultconcpercell, 
+        nspecies       = defaultnspecies, 
+        speciesid      = defaultspeciesid, 
         concentration  = None,
-        template       = [(2,2,2)],
-        templateoption = 0, 
-        particlesmass  = 1.0,
-        nparticles     = 2,
+        template       = defaulttemplate, 
+        templateoption = defaulttemplateoption, 
+        particlesmass  = defaultparticlesmass, 
+        nparticles     = defaultnparticles, 
         id             = None, 
         stringid       = None, 
         extension      = 'src',
@@ -232,7 +249,24 @@ class ModpathRWSrc( Package ):
         if ( self.format in ['AUX', 'AUXILIARY'] ):
             self._process_aux_format(sources=sources)
         elif ( self.format in ['SPEC', 'SPECIFIED'] ):
-            self._process_spec_format(sources=sources)
+            self._process_spec_format(
+                    sources        = sources       ,
+                    budgetname     = budgetname    ,
+                    timeintervals  = timeintervals ,
+                    cellinput      = cellinput     ,
+                    cells          = cells         ,
+                    structured     = structured    ,
+                    ifaceoption    = ifaceoption   ,
+                    defaultiface   = defaultiface  ,
+                    concpercell    = concpercell   ,
+                    nspecies       = nspecies      ,
+                    speciesid      = speciesid     ,
+                    concentration  = concentration ,
+                    template       = template      ,
+                    templateoption = templateoption,
+                    particlesmass  = particlesmass ,
+                    nparticles     = nparticles    ,
+                )
 
         # Define id
         if (id is not None): 
@@ -364,7 +398,7 @@ class ModpathRWSrc( Package ):
                     elif ( src['cellinput'] == 1 ):
 
                         # If 1, write the list of cells
-                        f.write(f"{src['cellinput']}  {len(src['cells'])}  {int(not src['structured'])}  {src['concpercell']}\n")
+                        f.write(f"{src['cellinput']} {len(src['cells'])} {int(not src['structured'])} {src['concpercell']}\n")
 
                         if ( src['ifaceoption'] == 0 ):
                             # And the list
@@ -921,37 +955,46 @@ class ModpathRWSrc( Package ):
         return
 
 
-    def _process_spec_format( self, sources=None ):
+    def _process_spec_format( self, *args, **kwargs ):
         '''
         Specific protocols for interpretation of input format based on 
-        user specified variables 
-        '''
-       
-        defaultifaceoption = 0
-        defaultiface       = 0
+        user specified variables
 
-        sources = [
-            {
-                'budgetname'    : 'WEL-1',
-                'timeintervals' : [
-                    [ 0, 1*365*86400 ],
-                ],
-                'cellinput'     : 1,
-                'cells'         : [48],
-                'structured'    : False,
-                'ifaceoption'   : 0, 
-                'defaultiface'  : 0,
-                'concpercell'   : 0,
-                'nspecies'      : 1,
-                'speciesid'     : [0],
-                'templateoption': 0,
-                'template'      : [(2,2,2)],
-                'particlesmass' : [1.0],
-                'concentration' : [
-                        [55],
-                ],
-            },
-        ]
+        Will define self.sources with a variable following the format:
+                    
+            sources = [
+                    {
+                        'budgetname'    : 'WEL-1',
+                        'timeintervals' : [
+                            [ 0, 1*365*86400 ],
+                        ],
+                        'cellinput'     : 1,
+                        'cells'         : [48],
+                        'structured'    : False,
+                        'ifaceoption'   : 0, 
+                        'defaultiface'  : 0,
+                        'concpercell'   : 0,
+                        'nspecies'      : 1,
+                        'speciesid'     : [0],
+                        'templateoption': 0,
+                        'template'      : [(2,2,2)],
+                        'particlesmass' : [1.0],
+                        'concentration' : [
+                                [55],
+                        ],
+                    },
+                ]
+
+        '''
+      
+        # If sources is None, define one with 
+        # the keyword arguments 
+        if ( kwargs['sources'] is None ):
+            # Just to be consisten, remove the source kw
+            kwargs.pop( 'sources', None )
+            sources = [ kwargs ]
+        else:
+            sources = kwargs['sources']
 
         # Do some validation for the given sources
         # This format is more rigid, force reading specs from dicts
@@ -982,6 +1025,12 @@ class ModpathRWSrc( Package ):
                     self.__class__.__name__ + ':' + 
                     ' Invalid source specification. The key budgetname was not found in specification.'
                 )
+            if ( src['budgetname'] is None ): 
+                raise ValueError(
+                    self.__class__.__name__ + ':' + 
+                    ' Invalid source specification. Budgetname is None.'
+                )
+
             
             # Complete optional keys with defaults
             if ('ifaceoption' not in keys):
