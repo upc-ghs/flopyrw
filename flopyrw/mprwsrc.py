@@ -25,42 +25,128 @@ class ModpathRWSrc( Package ):
         this package will be added.
     format : str 
         The format specification for this source. Allowed values are:
-            * AUX or AUXILIARY: defines the source from aux variables stored in the flow model
-            * SPEC or SPECIFIED: user specifies time intervals and concentrations for injection
+            * AUX or AUXILIARY: defines the source from aux variables stored in the flow model. 
+                                Configured ONLY via the sources keyword argument and ifaceoption.
+            * SPEC or SPECIFIED: user specifies time intervals, concentrations and other properties
+                                 of the injection. Can be configured via the sources keyword or by 
+                                 specifying the individual keyword arguments of the __init__ function. 
     sources : list, tuple
-        The specification of sources to be used while using the AUX/AUXILIARY format. Simply stated, 
-        the class expects the data structure
-            sources = [
-                [ package_name, aux_var_name, particles_mass, (nx,ny,nz), speciesid ],
-            ]
-        or 
-            sources = [
-                package_name,
-                [
-                    [ aux_var_name_1, particles_mass_1, (nx,ny,nz)_1, speciesid_1 ],
-                    [ aux_var_name_2, particles_mass_2, (nx,ny,nz)_2, speciesid_2 ],
+        The specification of sources to be used. 
+        * While using the AUX/AUXILIARY format parameter expects the data structure:
+
+                sources = [
+                    [ package_name, aux_var_name, particles_mass, (nx,ny,nz), speciesid ],
+                    ...
                 ]
-            ]
-        * package_name : str : indicates the package name from where to extract the auxiliary variable
-        * aux_var_name : str : is the name of auxiliary varianle
-        * particles_mass : float : is the scale of mass assigned to particles. If not given a value particles_mass=1.0 is taken
-        * (nx,ny,nz) : int : is a template for particles release. It could be a int for a uniform template
-        * speciesid : int : is the zero-based index of the species to which the auxiliary variable will be related. It will only
-          be written to the package file if particlesmassoption == 2. It should be greater or equal to zero.
-        Notes: 
-            * The class will verify that pairs (package_name,aux_var_name) are unique.
-            * The minimum required specification is the package_name and aux_var_name, and 
-              the rest of parameters are interpreted incrementally, meaning for example that
-              if particles_mass is not given, none of the following will be interpreted 
-              and default values are assigned.
-        Defaults:
-            * particles_mass = 1.0
-            * (nx,ny,nz)     = 2
-            * speciesid      = 0
+
+            or:
+
+                sources = [
+                    [
+                        package_name,
+                        [
+                            [ aux_var_name_1, particles_mass_1, (nx,ny,nz)_1, speciesid_1 ],
+                            [ aux_var_name_2, particles_mass_2, (nx,ny,nz)_2, speciesid_2 ],
+                            ...
+                        ]
+                    ],
+                    ...
+                ]
+
+            where:
+
+                * package name : str : indicates the package name from where to extract the aux variables
+                * aux_var_name : str : is the name of auxiliary variable
+                * particles_mass : float : the mass assigned to particles. It should be greater than zero.
+                * (nx,ny,nz) : int : a template for particles release. It could be a single int
+                                     for a uniform template. It should be greater than one.
+                * speciesid : int : zero-based index of species to which the auxiliary variable will be related.
+                                    It will only be written to the file if particlesmassoption == 2.
+                                    It should be greater or equal to zero.
+            notes: 
+                * The class will verify that pairs (package_name,aux_var_name) are unique.
+                * The minimum required specification is the package_name and aux_var_name, and 
+                  the rest of parameters are interpreted incrementally, meaning for example that
+                  if particles_mass is not given, none of the following will be interpreted 
+                  and default values are assigned
+        * While using the SPEC/SPECIFIED input format, sources could be given as a list of dictionaries 
+          with keys as the keyword parameters of the __init__ function starting from budgetname until
+          particlesmass, like:
+            
+                sources = [
+                    {
+                        'budgetname': 'WEL', 
+                        'timeintervals' : [
+                            [ts1,te1],
+                            [ts2,te2],
+                            ...
+                        ],
+                        'cellinput': 0, 
+                        ...
+                    },
+                    ...
+                ]
+            notes: if the format is SPEC/SPECIFIED and sources is given as before, then the keyword 
+                   parameters are overriden. If sources=None, then a dictionary will be filled by the 
+                   class with the values obtained from the keyword arguments, creating a single source.
+
+    budgetname : str
+        The budget header from where to extract flow-rates. For mf6 is the name given to the package, 
+        stored in TXTID2 (see mf6io.docs). 
+    timeintervals : list[ [float,float] ]
+        A list of time intervals delimited by [tstart,tend]. Each interval defines the duration of 
+        an injection at a given concentration. 
+    cellinput : int
+        Determines how to define the cells related to the source. Allowed values are:
+            * 0: extract the cells from the budget file. Use all the cells related to the budgetname.
+            * 1: cells are given as a list of cell ids in the cells keyword argument.
+            * 2: cells are given as an array with u3d where 1 indicate that the cells should be considered.
+    cells : list, np.array
+        The list of cell ids to be related to the injection. If cellinput==2 then this should be the modelgrid 
+        array with 1 for cells to be considered and 0 for those to be excluded.
+    structured : bool
+        The format to interpret the cells if cellinput == 1. True stands for (lay row col) and False 
+        for the linear cellnumber
     ifaceoption : int
-        For the input format AUX, specifies whether the IFACE variable:
-            * 0: should not be interpret in budgets
-            * 1: should be read from budget
+        Flag to indicate whether an iface shall be applied for injection cells. iface can be specified 
+        individually for each cell.
+            * 0: do not read iface
+            * 1: read iface
+        notes: if the source format is AUX/AUXILIARY, this flag will indicate whether to extract or not
+               the value of iface from the budget file. In the context of the source package, the iface
+               value modifies a given particle template to be consistent with the idea of releasing 
+               from a given cell face, compressing the corresponding orthogonal dimension.
+    defaultiface : int
+        Default value of iface for cells without an explicitly given value, when ifaceoption==1. Only 
+        applies for the format SPEC/SPECIFIED. A value of 0 preserves the given template as it is. 
+    concpercell : int
+        Flag to indicate that different concentrations are given for each cell in the source. Only
+        applies if cellinput == 1.
+            * 0: all cells with the same concentration
+            * 1: cells with specific concentration
+    nspecies : int
+        The number of species being injected. Defines how many concentrations per time interval shall 
+        be written to the package file. At least 1.
+    speciesid : list[int]
+        The zero based indexes of species to which relate concentrations. Only written to the package
+        file if particlesmassoption==2.
+    concentration : list
+        The concentrations for each time interval. The list should have as many entries as time intervals, 
+        and each entry is expected to as many values as nspecies. For the specific case that concpercell == 1, 
+        then each time interval should contain nspecies*ncells concentrations, with the rationale of nspecies
+        index moving first.
+    template : list[tuple(int)]
+        The distribution of particles on a cell for a given species. If templateoption==1,
+        then one template is expected for different species. These, in combination with 
+        the particlesmass, determine the number of particles and overall the resolution 
+        with which the source injection is characterized. 
+    templateoption : int
+        Flag to indicate whether one template is employed for all species (templateoption = 0)
+        or different templates for each species (templateoption=1). 
+    particlesmass : list[float]
+        The particlemass for each species.
+    nparticles : int
+        If a template is not given, it will be filled with (nparticles nparticles nparticles)
     id : int 
         A positive integer identifier. If None given is automatically assigned with 
         the instance counter. 
@@ -82,19 +168,26 @@ class ModpathRWSrc( Package ):
     def __init__(
         self,
         model,
-        format        = 'aux',
-        sources       = None,
-        ifaceoption   = 0, 
-        cells         = None, 
-        mass          = 1.0,
-        nparticles    = 2,
-        concentration = None, 
-        soluteid      = None,
-        sourcename    = None, 
-        auxiliary     = None,
-        id            = None, 
-        stringid      = None, 
-        extension     = 'src',
+        format         = 'aux',
+        sources        = None,
+        budgetname     = None, 
+        timeintervals  = None,
+        cellinput      = 0,
+        cells          = None, 
+        structured     = True, 
+        ifaceoption    = 0,
+        defaultiface   = 0,
+        concpercell    = 0,
+        nspecies       = 1,
+        speciesid      = 0,
+        concentration  = None,
+        template       = [(2,2,2)],
+        templateoption = 0, 
+        particlesmass  = 1.0,
+        nparticles     = 2,
+        id             = None, 
+        stringid       = None, 
+        extension      = 'src',
     ):
        
         # Define UNITNUMBER if the first instance is created
@@ -124,7 +217,6 @@ class ModpathRWSrc( Package ):
                 '. Allowed values are AUX (AUXILIARY) or SPEC (SPECIFIED). '
             )
         self.format = format.upper()
-
         # Save ifaceoption
         if ( ifaceoption not in [0,1] ): 
             raise ValueError(
@@ -133,6 +225,7 @@ class ModpathRWSrc( Package ):
                 '. The allowed values are 0 (do not read in budgets) or 1 (read from budgets).'
             )
         self.ifaceoption = ifaceoption
+
 
         # Process sources on the given format 
         # Will define self.sources
@@ -178,7 +271,8 @@ class ModpathRWSrc( Package ):
         # Open file for writing
         f = open(self.INSTANCES[0].fn_path, "w")
 
-        # Create format        
+
+        # Create data format for AUX input 
         fmts = []
         fmts.append("{:20s}")  # auxvarname
         fmts.append("{:.6f}")  # particles mass
@@ -193,10 +287,10 @@ class ModpathRWSrc( Package ):
             fmts.append("{:4d}")
             iend = 6
         fmt  = " ".join(fmts) + "\n"
-
         srcfmts = []
         srcfmts.append("{:20s}") # srcname
         srcfmt = " ".join(srcfmts) + "\n"
+
 
         # Write how many INSTANCES 
         # and loop over them
@@ -210,15 +304,17 @@ class ModpathRWSrc( Package ):
             # Write format
             f.write(f"{ins.format.upper()}\n")
 
+            # Specifics for the aux input format
             if (
                 ( ins.format.upper() == 'AUX' ) or 
-                ( ins.format.upper() == 'AUXILIARY' ) ):
+                ( ins.format.upper() == 'AUXILIARY' )
+            ):
 
                 # Inform about the number of source budgets
                 f.write(f"{len(ins.uniquesources)}\n")
 
                 # (...) and loop over them
-                for isrc, src in enumerate(ins.uniquesources):
+                for isrc, src in enumerate( ins.uniquesources ):
 
                     # Write src name
                     if ( ins.ifaceoption == 1 ): 
@@ -233,6 +329,139 @@ class ModpathRWSrc( Package ):
                     for iaux, auxdata in enumerate(ins.alldataperaux[isrc]):
                         f.write(fmt.format(*auxdata[istart:iend]))
 
+
+            # Specifics for the spec input format
+            elif (
+                ( ins.format.upper() == 'SPEC' ) or 
+                ( ins.format.upper() == 'SPECIFIED' )
+            ):
+                # Format for release template
+                tfmt = []
+                for nt in range(3):    # (nx,ny,nz)
+                    tfmt.append("{:3d}")
+                tfmt = " " + " ".join(tfmt) + "\n"
+
+                # Inform about the number of source budgets
+                f.write(f"{len(ins.sources)}\n")
+
+                for isrc, src in enumerate( ins.sources ):
+                
+                    if ( src['ifaceoption'] == 0 ):
+                        # Only the budgetname
+                        f.write(f"{src['budgetname'].upper()}\n")
+                    elif ( src['ifaceoption'] == 1 ):
+                        # The budgetname plus iface options
+                        f.write(f"{src['budgetname'].upper()}    1    {src['defaultiface']}\n")
+
+                    if ( src['cellinput'] in [0,2] ):
+                        f.write(f"{src['cellinput']}\n")
+                        # If zero, skip, will be read from budget internally by the program
+
+                        # If 2, write with u3d
+                        if (src['cellinput'] == 2 ):
+                            src['cells'].get_file_entry()
+
+                    elif ( src['cellinput'] == 1 ):
+
+                        # If 1, write the list of cells
+                        f.write(f"{src['cellinput']}  {len(src['cells'])}  {int(not src['structured'])}  {src['concpercell']}\n")
+
+                        if ( src['ifaceoption'] == 0 ):
+                            # And the list
+                            fmts = []
+                            if src['structured']:
+                                fmts.append("{:9d}") # lay
+                                fmts.append("{:9d}") # row
+                                fmts.append("{:9d}") # col
+                            else:
+                                fmts.append("{:9d}") # cellid
+                            fmt = " " + " ".join(fmts) + "\n"
+                            for oc in src['cells']:
+                                woc = np.array(oc).astype(np.int32)+1 # Correct the zero-based indexes
+                                if src['structured']:
+                                    f.write(fmt.format(*woc))
+                                else:
+                                    f.write(fmt.format(woc))
+
+                        # Think what to do with specific ifaces when ifaceoption == 1
+                        elif ( src['ifaceoption'] == 1 ):
+                            # And the list
+                            fmts = []
+                            if src['structured']:
+                                fmts.append("{:9d}") # lay
+                                fmts.append("{:9d}") # row
+                                fmts.append("{:9d}") # col
+                            else:
+                                fmts.append("{:9d}") # cellid
+                            fmt = " " + " ".join(fmts) + "\n"
+                            for oc in src['cells']:
+                                woc = np.array(oc).astype(np.int32)+1 # Correct the zero-based indexes
+                                if src['structured']:
+                                    f.write(fmt.format(*woc))
+                                else:
+                                    f.write(fmt.format(woc))
+
+                    # Write nspecies and template option
+                    f.write(f"{src['nspecies']}  {src['templateoption']}\n")
+
+                    # Templates
+                    # A single template for all species
+                    if ( src['templateoption'] == 0 ):
+                        f.write( tfmt.format(*src['template'][0]) )
+                    # Species specific template
+                    elif ( src['templateoption'] == 1 ):
+                        for isp in range(src['nspecies']):
+                            f.write( tfmt.format(*src['template'][isp]) )
+
+                    # Format for particles mass
+                    mfmt = []
+                    for nm in range(src['nspecies']):   
+                        mfmt.append("{:.6f}")
+                    mfmt = " " + " ".join(mfmt) + "\n"
+
+                    # Write the mass
+                    f.write(mfmt.format(*src['particlesmass']))
+
+                    # Give the species id if requested. 
+                    if ( 
+                        ( self.INSTANCES[0]._parent.particlesmassoption == 2 ) 
+                    ): 
+                        # The format
+                        sfmt = []
+                        for nm in range(src['nspecies']):   
+                            sfmt.append("{:3d}")
+                        sfmt = " " + " ".join(sfmt) + "\n"
+                        # and write 
+                        f.write(sfmt.format(*src['speciesid']))
+
+                    # And finally the time and concentration data
+                    dfmt = []
+                    dfmt.append("{:.6f}") # ts
+                    dfmt.append("{:.6f}") # te
+                    if ( src['cellinput'] in [0,2] ):
+                        # One concentration column per species
+                        for ns in range(src['nspecies']):   
+                            dfmt.append("{:.6f}")
+                    elif ( (src['cellinput'] == 1)and(src['concpercell']==0) ):
+                        # One concentration column per species
+                        for ns in range(src['nspecies']):   
+                            dfmt.append("{:.6f}")
+                    elif ( (src['cellinput'] == 1)and(src['concpercell']==1) ):
+                        # nspecies concentrations per cell
+                        for ns in range(src['nspecies']):   
+                            dfmt.append("{:.6f}")
+                    dfmt = " " + " ".join(dfmt) + "\n"
+
+                    # Write the number of time intervals
+                    f.write(f"{len(src['timeintervals'])}\n")
+
+                    # And write the data
+                    for itin, tin in enumerate(src['timeintervals']):
+                        data = [tin[0], tin[1]]
+                        data.extend(src['concentration'][itin])
+                        f.write(dfmt.format(*data))
+
+                    # And done
 
         # And close
         f.close()
@@ -692,12 +921,80 @@ class ModpathRWSrc( Package ):
         return
 
 
-    def _process_spec_format( self ):
+    def _process_spec_format( self, sources=None ):
         '''
         Specific protocols for interpretation of input format based on 
         user specified variables 
         '''
+       
+        defaultifaceoption = 0
+        defaultiface       = 0
+
+        sources = [
+            {
+                'budgetname'    : 'WEL-1',
+                'timeintervals' : [
+                    [ 0, 1*365*86400 ],
+                ],
+                'cellinput'     : 1,
+                'cells'         : [48],
+                'structured'    : False,
+                'ifaceoption'   : 0, 
+                'defaultiface'  : 0,
+                'concpercell'   : 0,
+                'nspecies'      : 1,
+                'speciesid'     : [0],
+                'templateoption': 0,
+                'template'      : [(2,2,2)],
+                'particlesmass' : [1.0],
+                'concentration' : [
+                        [55],
+                ],
+            },
+        ]
+
+        # Do some validation for the given sources
+        # This format is more rigid, force reading specs from dicts
+        if ( not isinstance(sources,(list,dict)) ):
+            raise TypeError(
+                self.__class__.__name__ + ':' + 
+                ' Invalid type for sources in specified input format, expected list or dict. ' + 
+                str(type(sources))+ ' was given.'
+            )
+        if ( isinstance(sources,(dict)) ):
+            sources = [sources]
+        if ( isinstance(sources,list) ):
+            for src in sources:
+                if ( not isinstance( src, dict ) ): 
+                    raise TypeError(
+                        self.__class__.__name__ + ':' + 
+                        ' Invalid type for source in specified input format, expected dict. ' + 
+                        str(type(src))+ ' was given.'
+                    )
         
-        pass
+        # Do more advanced validation for each source specification 
+        for src in sources:
+            keys = src.keys()
+
+            # Verify mandatory keys
+            if ('budgetname' not in keys ):
+                raise ValueError(
+                    self.__class__.__name__ + ':' + 
+                    ' Invalid source specification. The key budgetname was not found in specification.'
+                )
+            
+            # Complete optional keys with defaults
+            if ('ifaceoption' not in keys):
+                src['ifaceoption' ] = defaultifaceoption 
+            if ('defaultiface' not in keys):
+                src['defaultiface' ] = defaultiface
 
 
+
+
+
+        # Save to sources
+        self.sources = sources
+
+        # And done
+        return
