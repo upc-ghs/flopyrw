@@ -64,51 +64,58 @@ class ModpathRWGpkde( Package ):
         a range of discrete kernel sizes for allocation. This range is relative to the bin size, 
         meaning, parameters hl indicate the ratio smoothing(h)/binsize(l) for each model dimension.
     isotropickernels : bool
-        Flag to indicate that kernels are considered as isotropic. This consideration is done in terms 
-        of the size given by the kernel smoothing (h), meaning that if the bin sizes are non-isotropic, 
-        then the program will force the same kernel smoothing taking into account the different cell sizes.
+        Flag to indicate that kernels are considered as isotropic. This consideration is done 
+        in terms of the kernel smoothing (h), meaning that if the bin sizes are non-isotropic, 
+        then the program will force the same kernel smoothing taking into account the 
+        different cell sizes.
     boundkernelsize : int
         Determines the protocol for bounding the kernel size. Allowed values are: 
             * 0: bound size by domain constraints. 
             * 1: bound using minhl and maxhl
             * 2: unbounded
     minhl : float
-        Minimum ratio smoothing(h)/binsize(l). It is written to the package file if kerneldatabase=True or 
-        boundkernelsize = 1.
+        Minimum ratio smoothing(h)/binsize(l). It is written to the package file 
+        if kerneldatabase=True or boundkernelsize = 1.
     deltahl : float
-        Step of ration smoothing(h)/binsize(l) used for defining a set of discrete kernel sizes for the 
-        kernel database. Only written to the package file if kerneldatabase=True.
+        Step of ration smoothing(h)/binsize(l) used for defining a set of discrete
+        kernel sizes for the kernel database. Only written to the package file 
+        if kerneldatabase=True.
     maxhl : float
-        Maximum ration smoothing(h)/binsize(l). It is written to the package file if kerneldatabase=True or
-        boundkernelsize = 1.
+        Maximum ration smoothing(h)/binsize(l). It is written to the package file if
+        kerneldatabase=True or boundkernelsize = 1.
     initialsmoothingformat : int
-        Determines the protocol for selection of the initial kernel size from where to begin the optimization 
-        for bandwidth selection. Allowed values are: 
-            * 0: selects initial bandwidth from the expression of Silverman (1986) for Gaussian distributions. It is 
-                 based on the standard deviation of the particle coordinates, and the number of particles.
-            * 1: initial bandwidth as a factor multiplying the characteristic cell size. It will use the parameter
-                 binsizefactor to perform the scaling.
+        Determines the protocol for selection of the initial kernel size from where to
+        begin the optimization for bandwidth selection. Allowed values are: 
+            * 0: selects initial bandwidth from the expression of Silverman (1986) 
+                 for Gaussian distributions. It is based on the standard deviation of
+                 the particle coordinates, and the number of particles. 
+            * 1: initial bandwidth as a factor multiplying the characteristic cell size.
+                 It will use the parameter binsizefactor to perform the scaling.
     binsizefactor : float
-        Scaling factor employed for determining the initial kernel size from where starting the bandwidth optimization. 
-        Amplifies the characteristic cell size.
+        Scaling factor employed for determining the initial kernel size from where to start
+        the bandwidth optimization. Amplifies the characteristic cell size.
     asconcentration: bool
-        Flag to indicate whether the density reconstruction should be returned as resident concentration (dissolved). 
-        Because the reconstruction grid is different than the flowmodel grid, said transformation can be 
-        easily achieved only in case both porosities and delaying factors are spatially uniform. Otherwise, 
-        density is returned as total mass concentration, including both sorbed and aqueous phases.
+        Flag to indicate whether the density reconstruction should be returned as 
+        resident concentration (dissolved). Because the reconstruction grid is different
+        than the flowmodel grid, said transformation can be easily achieved only in case
+        both porosities and delaying factors are spatially uniform. Otherwise, density is 
+        returned as total mass concentration, including both sorbed and aqueous phases.
     effectiveweightformat : int
-        Determines the protocol for handling the reconstruction of particle distributions with different weights. 
-        Allowed values are: 
-            * 0: computes a unique effective number of particles and determines a domain-effective
-                 particle weight (Kish, 1965,1992), which is used to transform the mass histogram 
-                 into an equivalent particle distribution used for the bandwidth selection 
-            * 1: similar to the previous alternative, but the employed characteristic particle weight 
-                 is the average over all particles. 
-            * 2: Bandwidth selection is performed taking into account only the particle coordinates and a final 
-                 density estimation is performed over the mass histogram with the obtain distribution of kernel sizes.
-            * 3: An effective number of particles is computed for each histogram cell and is employed to transform 
-                 the mass distribution into an effective particle distribution used for the bandwidth optimization. 
-                 A final reconstruction stage is performed considering the obtained distribution of kernel sizes.
+        Determines the protocol for handling the reconstruction of particle distributions 
+        with different weights. Allowed values are: 
+            * 0: computes a unique effective number of particles and determines a 
+                 domain-effective particle weight (Kish, 1965,1992), which is used to
+                 transform the mass histogram into an equivalent particle distribution 
+                 used for the bandwidth selection.
+            * 1: similar to the previous alternative, but the employed characteristic particle 
+                 weight is the average over all particles. 
+            * 2: Bandwidth selection is performed taking into account only the particle 
+                 coordinates and a final density estimation is performed over the mass histogram
+                 with the obtain distribution of kernel sizes.
+            * 3: An effective number of particles is computed for each histogram cell and 
+                 is employed to transform the mass distribution into an effective particle 
+                 distribution used for the bandwidth optimization. A final reconstruction stage 
+                 is performed considering the obtained distribution of kernel sizes.
     extension : str, optional
         File extension (default is 'dispersion').
     """
