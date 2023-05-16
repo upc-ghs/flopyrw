@@ -20,10 +20,10 @@ class ModpathRWOpts( Package ):
         this package will be added.
     timestep  : str
         Define method for computing particles time step. Allowed values are:
-            'adv'   : local time step computed with advection criteria
-            'disp'  : local time step computed with dispersion criteria
-            'min'   : local time step obtained as the minimum between 'adv' and 'disp'
-            'fixed' : the same for all particles, given by the user in the 'deltat' keyword 
+            * 'adv'   : local time step computed with advection criteria
+            * 'disp'  : local time step computed with dispersion criteria
+            * 'min'   : local time step obtained as the minimum between 'adv' and 'disp'
+            * 'fixed' : the same for all particles, given by the user in the 'deltat' keyword 
     courant   : float
         Courant number that will be used at each cell for computing time step with 'adv' criteria. 
         Should be greater than zero. 
@@ -39,7 +39,12 @@ class ModpathRWOpts( Package ):
         A value of 1 indicates that dimension is active and 0 inactive.
         For example, for a 2D RW model (x,y model and single layer), dimensionsmask should be [1,1,0].
         At least one dimension is required. Defaults to 3D ( [1,1,1] )
-    extension      : str, optional
+    randomgenerator : int 
+        Determine the function for random number generation. Allowed values are: 
+            * 0: determined by compiler (gfortran - based on random_number; ifort - Ziggurat)
+            * 1: based on random_number (parallel scalability with gfortran, not with ifort)
+            * 2: based on Ziggurat method (parallel scalability with gfortran and ifort)
+    extension : str, optional
         File extension (default is 'rwopts').
     """
 
@@ -52,6 +57,7 @@ class ModpathRWOpts( Package ):
         deltat           = 1.0,
         advection        = 'eulerian',
         dimensionsmask   = [1,1,1],
+        randomgenerator  = 0, 
         extension        = 'rwopts',
     ):
 
@@ -125,7 +131,17 @@ class ModpathRWOpts( Package ):
                 )
         self.dimensionsmask = dimensionsmask
 
+        # randomgenerator
+        if ( randomgenerator not in [0,1,2] ): 
+            raise ValueError(
+                self.__class__.__name__ + ':' + 
+                ' Invalid value for randomgenerator. Allowed values are 0 (determined by compiler)'+
+                ' 1 (based on random_number) or 2 (Ziggurat method). ' +
+                str(randomgenerator) + ' was given. ' 
+            )
+        self.randomgenerator = randomgenerator
 
+        
         self.parent.add_package(self)
 
 
@@ -145,6 +161,7 @@ class ModpathRWOpts( Package ):
         -------
         None
         """
+
 
         # Open file for writing
         f = open(self.fn_path, "w")
@@ -175,8 +192,11 @@ class ModpathRWOpts( Package ):
             else:
                 f.write(f"{b:10d}\t")
 
+        # randomgenerator
+        if ( self.randomgenerator != 0 ): 
+            f.write(f"{self.randomgenerator}\n")
+
         # And close
         f.close()
 
         return
-        
