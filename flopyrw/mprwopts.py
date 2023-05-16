@@ -9,7 +9,7 @@ import numpy as np
 from flopy.pakbase import Package
 
 
-class ModpathRWOptions( Package ):
+class ModpathRWOpts( Package ):
     """
     MODPATH-RW Options Package Class. 
 

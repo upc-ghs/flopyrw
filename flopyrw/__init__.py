@@ -2,16 +2,21 @@
 Implement classes and methods for configuring MODPATH-RW sims with flopy
 '''
 
-from .mprw    import *
-from .mprwsim import *
-from .mprwbas import *
-from .mprwparticlegroup import *
+from .mprw    import ModpathRW
+from .mprwsim import ModpathRWSim 
+from .mprwbas import ModpathRWBas 
+from .mprwparticlegroup import (
+        ParticleGroup, 
+        ParticleGroupLRCTemplate, 
+        ParticleGroupNodeTemplate
+    )
 
-from .mprwobs   import *
-from .mprwdsp   import *
-from .mprwopts  import *
-from .mprwspc   import *
-from .mprwic    import *
-from .mprwimp   import *
-from .mprwsrc   import *
-from .mprwgpkde import *
+
+from .mprwobs   import ModpathRWObs
+from .mprwdsp   import ModpathRWDsp
+from .mprwopts  import ModpathRWOpts
+from .mprwspc   import ModpathRWSpc
+from .mprwic    import ModpathRWIc
+from .mprwimp   import ModpathRWImp
+from .mprwsrc   import ModpathRWSrc
+from .mprwgpkde import ModpathRWGpkde
