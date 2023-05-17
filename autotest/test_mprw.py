@@ -11,7 +11,7 @@ from flopy import modpathrw
 
 def test_mprw_nopkgs_mf6(function_tmpdir):
     '''
-    Try to write a modpatrw model without mandatory packages
+    Try to write a modpathrw model without mandatory packages
     '''
 
     # get the mf6 case
