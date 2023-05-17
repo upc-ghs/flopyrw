@@ -3,6 +3,7 @@
 env/
 .env/
 *.egg-info/
+build/*
 *.swp
 *.swn
 *.swo
