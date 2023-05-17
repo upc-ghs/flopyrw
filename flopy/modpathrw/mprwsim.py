@@ -3,8 +3,8 @@ Configuration of MODPATH-RW simulation
 '''
 
 # python
-from enum import Enum
 import numpy as np
+from enum import Enum
 
 # flopy
 import flopy.modpath.mp7sim as mp7
