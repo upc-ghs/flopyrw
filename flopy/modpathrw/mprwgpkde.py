@@ -44,30 +44,33 @@ class ModpathRWGpkde( Package ):
             * 0: allocate following domain size 
             * 1: allocate according to the particle distribution
     gridborderfraction : float
-        While allocating according to the particle locations, border fraction determines an additional 
-        allocated space surrounding the particle cloud, extends the bounding box allowing the boundaries
-        to receive information from the interior histogram cells. For a given dimension, the distance
-        considered as buffer is equal to gridborderfraction*extentdimension and is distributed as half
+        While allocating according to the particle locations, border fraction determines 
+        an additional allocated space surrounding the particle cloud, extends the 
+        bounding box allowing the boundaries to receive information from the interior
+        histogram cells. For a given dimension, the distance considered as buffer
+        is equal to gridborderfraction*extentdimension and is distributed as half
         for each side. Should be between [',1].
     noptloops : int
         The number of bandwidth optimization loops. It should be a positive integer.
     skiperror : bool
-        Flag to indicate whether the error checks for the optimization of bandwidth selection 
-        should be skipped or not. If skipped, optimization is performed until noptloops.
+        Flag to indicate whether the error checks for the optimization of bandwidth
+        selection should be skipped or not. If skipped, optimization is performed 
+        until noptloops.
     convergence : float
         The limit relative change of the variables monitored during bandwidth optimization 
         to determine the convergence of reconstruction. It should be positive.
     kerneldatabase : bool
-        Flag to indicate whether reconstruction should be performed with a database of kernels 
-        (True) or by computing kernels in real time (False). In case a kernel database is 
-        allocated, then the class will employ the parameters minhl: deltahl: maxhl to determine
-        a range of discrete kernel sizes for allocation. This range is relative to the bin size, 
-        meaning, parameters hl indicate the ratio smoothing(h)/binsize(l) for each model dimension.
+        Flag to indicate whether reconstruction should be performed with a database of 
+        kernels (True) or by computing kernels in real time (False). In case a kernel 
+        database is allocated, then the class will employ the parameters 
+        minhl: deltahl: maxhl to determine a range of discrete kernel sizes for
+        allocation. This range is relative to the bin size, meaning, 
+        parameters hl indicate the ratio smoothing(h)/binsize(l) for each model dimension.
     isotropickernels : bool
-        Flag to indicate that kernels are considered as isotropic. This consideration is done 
-        in terms of the kernel smoothing (h), meaning that if the bin sizes are non-isotropic, 
-        then the program will force the same kernel smoothing taking into account the 
-        different cell sizes.
+        Flag to indicate that kernels are considered as isotropic. This consideration 
+        is done in terms of the kernel smoothing (h), meaning that if the bin sizes 
+        are non-isotropic, then the program will force the same kernel smoothing taking 
+        into account the different cell sizes.
     boundkernelsize : int
         Determines the protocol for bounding the kernel size. Allowed values are: 
             * 0: bound size by domain constraints. 
@@ -107,17 +110,17 @@ class ModpathRWGpkde( Package ):
                  domain-effective particle weight (Kish, 1965,1992), which is used to
                  transform the mass histogram into an equivalent particle distribution 
                  used for the bandwidth selection.
-            * 1: similar to the previous alternative, but the employed characteristic particle 
-                 weight is the average over all particles. 
+            * 1: similar to the previous alternative, but the employed characteristic 
+                 particle weight is the average over all particles. 
             * 2: Bandwidth selection is performed taking into account only the particle 
-                 coordinates and a final density estimation is performed over the mass histogram
-                 with the obtain distribution of kernel sizes.
+                 coordinates and a final density estimation is performed over the mass 
+                 histogram with the obtain distribution of kernel sizes.
             * 3: An effective number of particles is computed for each histogram cell and 
                  is employed to transform the mass distribution into an effective particle 
-                 distribution used for the bandwidth optimization. A final reconstruction stage 
-                 is performed considering the obtained distribution of kernel sizes.
+                 distribution used for the bandwidth optimization. A final reconstruction
+                 stage is performed considering the obtained distribution of kernel sizes.
     extension : str, optional
-        File extension (default is 'dispersion').
+        File extension (default is 'gpkde').
     """
 
     def __init__(
@@ -216,7 +219,7 @@ class ModpathRWGpkde( Package ):
                 ' The type of the domainsize parameter should be list or np.array. ' + 
                 str(type(domainsize)) + ' was given.' 
             )
-        self.domainsize    = np.array(domainsize).astype(np.float32)
+        self.domainsize = np.array(domainsize).astype(np.float32)
         if ( len(self.domainsize.shape) != 1 ):
             raise ValueError(
                 self.__class__.__name__ + ':' + 
@@ -360,7 +363,7 @@ class ModpathRWGpkde( Package ):
 
         # minhl
         # Verify only if required 
-        if ( ( self.kerneldatabase ) or (self.boundkernelsize==1) ):
+        if ( ( self.kerneldatabase ) or ( self.boundkernelsize==1 ) ):
             if ( not isinstance( minhl, (float,int) ) ):
                 raise TypeError(
                     self.__class__.__name__ + ':' + 
@@ -394,7 +397,7 @@ class ModpathRWGpkde( Package ):
 
         # maxhl
         # Verify only if required 
-        if ( ( self.kerneldatabase ) or (self.boundkernelsize==1) ):
+        if ( ( self.kerneldatabase ) or ( self.boundkernelsize==1 ) ):
             if ( not isinstance( maxhl, (float,int) ) ):
                 raise TypeError(
                     self.__class__.__name__ + ':' + 
@@ -457,7 +460,6 @@ class ModpathRWGpkde( Package ):
                 str(type(asconcentration)) + ' was given.' 
             )
         self.asconcentration = asconcentration
-
 
         # effectiveweightformat
         if effectiveweightformat not in [0,1,2,3]: 
