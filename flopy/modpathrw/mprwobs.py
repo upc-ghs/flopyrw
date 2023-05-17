@@ -84,14 +84,21 @@ class ModpathRWObs( Package ):
         extension         = 'obs',
     ):
 
-        # Define UNITNUMBER for the first instance
         if self.__class__.COUNTER == 1:
+            # Define UNITNUMBER if the first instance is created
+            unitnumber = model.next_unit()
+            super().__init__(model, extension, "OBS", unitnumber)
+            self.__class__.UNITNUMBER = self.unit_number[0]
+        elif ( len(self.INSTANCES)==0 ):
+            # If counter was not one and no instances, treat it like the first
+            self.__class__.COUNTER = 1
             unitnumber = model.next_unit()
             super().__init__(model, extension, "OBS", unitnumber)
             self.__class__.UNITNUMBER = self.unit_number[0]
         else:
-            # Needed for Util3d
+            # pass the parent 
             self._parent = self.INSTANCES[0]._parent
+
 
         # Observation kind
         if ( kind not in [0,1] ): 

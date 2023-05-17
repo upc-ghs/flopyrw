@@ -23,17 +23,19 @@ class ModpathRWSpc( Package ):
         The model object (of type :class: ModpathRW) to which
         this package will be added.
     dispersion: ModpathRWDsp object
-        Defines dispersion model and properties for this solute. Is a required foreign key. 
+        Defines dispersion model and properties for this solute.
+        Is a required foreign key. 
     pgroups : list, np.array (int)
-        Particle groups related to this specie. These are interpreted only if 
-        particlesmassoption != 2. These ids are zero based (while writing is corrected to one based)
-        and are related to the order in which the particle groups are specified to the program.
+        Particle groups related to this specie. These are interpreted 
+        only if particlesmassoption != 2. These ids are zero based 
+        (while writing is corrected to one based) and are related to 
+        the order in which the particle groups are specified to the program.
         In case the simulation is configured with particlesmassoption == 2, 
-        then the particle groups associated to a specie are interpreted (internally)
-        from the specified solute ids for each particle group.
+        then the particle groups associated to a specie are interpreted 
+        (internally) from the specified solute ids for each particle group.
     id : int 
-        A positive integer identifier. If None given is automatically assigned with 
-        the instance counter. 
+        A positive integer identifier. If None given is automatically 
+        assigned with the instance counter. 
     stringid : str
         String identifier for this species. 
     extension : str
@@ -57,13 +59,21 @@ class ModpathRWSpc( Package ):
         extension  = 'spc',
     ):
         
-        # Define UNITNUMBER if the first instance is created
         if self.__class__.COUNTER == 1:
+            # Define UNITNUMBER if the first instance is created
+            unitnumber = model.next_unit()
+            super().__init__(model, extension, "SPC", unitnumber)
+            self.__class__.UNITNUMBER = self.unit_number[0]
+        elif ( len(self.INSTANCES)==0 ):
+            # If counter was not one and no instances, treat it like the first
+            self.__class__.COUNTER = 1
             unitnumber = model.next_unit()
             super().__init__(model, extension, "SPC", unitnumber)
             self.__class__.UNITNUMBER = self.unit_number[0]
         else:
+            # pass the parent 
             self._parent = self.INSTANCES[0]._parent
+
 
         # Assign dispersion
         if not isinstance( dispersion, ModpathRWDsp ):

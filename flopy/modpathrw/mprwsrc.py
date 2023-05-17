@@ -23,52 +23,55 @@ class ModpathRWSrc( Package ):
     model : model object
         The model object (of type :class: ModpathRW) to which
         this package will be added.
-    format : str 
+    inputformat : str 
         The format specification for this source. Allowed values are:
-            * AUX or AUXILIARY: defines the source from aux variables stored in the flow model. 
-                                Configured ONLY via the sources keyword argument and ifaceoption.
-            * SPEC or SPECIFIED: user specifies time intervals, concentrations and other properties
-                                 of the injection. Can be configured via the sources keyword or by 
-                                 specifying the individual keyword arguments of the __init__ function. 
+            * AUX or AUXILIARY: defines the source from aux variables
+              stored in the flow model. Configured ONLY via the sources
+              keyword argument and ifaceoption.
+            * SPEC or SPECIFIED: user specifies time intervals,
+              concentrations and other properties of the injection.
+              Can be configured via the sources keyword or by 
+              specifying the individual keyword arguments of the __init__ 
+              function. 
     sources : list, tuple
         The specification of sources to be used. 
         * While using the AUX/AUXILIARY format parameter expects the data structure:
 
-                sources = [
-                    [ package_name, aux_var_name, particles_mass, (nx,ny,nz), speciesid ],
-                    ...
-                ]
+              sources = [
+                  [ package_name, aux_var_name, particles_mass, (nx,ny,nz), speciesid ],
+                  ...
+              ]
 
             or:
 
-                sources = [
-                    [
-                        package_name,
-                        [
-                            [ aux_var_name_1, particles_mass_1, (nx,ny,nz)_1, speciesid_1 ],
-                            [ aux_var_name_2, particles_mass_2, (nx,ny,nz)_2, speciesid_2 ],
-                            ...
-                        ]
-                    ],
-                    ...
-                ]
+              sources = [
+                  [
+                      package_name,
+                      [
+                          [ aux_var_name_1, particles_mass_1, (nx,ny,nz)_1, speciesid_1 ],
+                          [ aux_var_name_2, particles_mass_2, (nx,ny,nz)_2, speciesid_2 ],
+                          ...
+                      ]
+                  ],
+                  ...
+              ]
 
             where:
 
-                * package name : str : indicates the package name from where to extract the aux variables
-                * aux_var_name : str : is the name of auxiliary variable
-                * particles_mass : float : the mass assigned to particles. It should be greater than zero.
-                * (nx,ny,nz) : int : a template for particles release. It could be a single int
-                                     for a uniform template. It should be greater than one.
-                * speciesid : int : zero-based index of species to which the auxiliary variable will be related.
-                                    It will only be written to the file if particlesmassoption == 2.
-                                    It should be greater or equal to zero.
+              * package name : str : indicates the package name from where to extract the aux variables
+              * aux_var_name : str : is the name of auxiliary variable
+              * particles_mass : float : the mass assigned to particles. It should be greater than zero.
+              * (nx,ny,nz) : int : a template for particles release. It could be a single int
+                                   for a uniform template. It should be greater than one.
+              * speciesid : int : zero-based index of species to which the auxiliary variable will be related.
+                                  It will only be written to the file if particlesmassoption == 2.
+                                  It should be greater or equal to zero.
             notes: 
-                * The class will verify that pairs (package_name,aux_var_name) are unique.
-                * The minimum required specification is the package_name and aux_var_name, and 
-                  the rest of parameters are interpreted incrementally, meaning for example that
-                  if particles_mass is not given, none of the following will be interpreted 
-                  and default values are assigned
+              * The class will verify that pairs (package_name,aux_var_name) are unique.
+              * The minimum required specification is the package_name and aux_var_name, and 
+                the rest of parameters are interpreted incrementally, meaning for example that
+                if particles_mass is not given, none of the following will be interpreted 
+                and default values are assigned
         * While using the SPEC/SPECIFIED input format, sources could be given as a list of dictionaries 
           with keys as the keyword parameters of the __init__ function starting from budgetname until
           particlesmass, like:
@@ -180,12 +183,12 @@ class ModpathRWSrc( Package ):
     defaultnparticles     = 2
 
 
-    # Init
+    # init
     @count_instances
     def __init__(
         self,
         model,
-        format         = 'aux',
+        inputformat    = 'aux',
         sources        = None,
         budgetname     = None, 
         timeintervals  = None,
@@ -206,13 +209,20 @@ class ModpathRWSrc( Package ):
         stringid       = None, 
         extension      = 'src',
     ):
-       
-        # Define UNITNUMBER if the first instance is created
+
         if self.__class__.COUNTER == 1:
+            # Define UNITNUMBER if the first instance is created
+            unitnumber = model.next_unit()
+            super().__init__(model, extension, "SRC", unitnumber)
+            self.__class__.UNITNUMBER = self.unit_number[0]
+        elif ( len(self.INSTANCES)==0 ):
+            # If counter was not one and no instances, treat it like the first
+            self.__class__.COUNTER = 1
             unitnumber = model.next_unit()
             super().__init__(model, extension, "SRC", unitnumber)
             self.__class__.UNITNUMBER = self.unit_number[0]
         else:
+            # pass the parent 
             self._parent = self.INSTANCES[0]._parent
 
         # Save model data 
@@ -228,20 +238,20 @@ class ModpathRWSrc( Package ):
         self.modelversion = self._parent.flowmodel.version 
 
         # Verify format type
-        if ( not isinstance(format,str) ):
+        if ( not isinstance(inputformat,str) ):
             raise TypeError(
                 self.__class__.__name__ + ':' + 
-                ' Invalid type ' +str(type(format))+ ' for the format specification.' +
+                ' Invalid type ' +str(type(inputformat))+ ' for the format specification.' +
                 '. It should be str. '
             )
         # Validate given format 
-        if ( ( format.upper() not in ['AUX','AUXILIARY','SPEC','SPECIFIED'] ) ):
+        if ( ( inputformat.upper() not in ['AUX','AUXILIARY','SPEC','SPECIFIED'] ) ):
             raise ValueError(
                 self.__class__.__name__ + ':' + 
-                ' Invalid input format ' +str(format)+
+                ' Invalid input format ' +str(inputformat)+
                 '. Allowed values are AUX (AUXILIARY) or SPEC (SPECIFIED). '
             )
-        self.format = format.upper()
+        self.inputformat = inputformat.upper()
         # Save ifaceoption
         if ( ifaceoption not in [0,1] ): 
             raise ValueError(
@@ -254,9 +264,9 @@ class ModpathRWSrc( Package ):
 
         # Process sources on the given format 
         # Will define self.sources
-        if ( self.format in ['AUX', 'AUXILIARY'] ):
+        if ( self.inputformat in ['AUX', 'AUXILIARY'] ):
             self._process_aux_format(sources=sources)
-        elif ( self.format in ['SPEC', 'SPECIFIED'] ):
+        elif ( self.inputformat in ['SPEC', 'SPECIFIED'] ):
             self._process_spec_format(
                     sources        = sources       ,
                     budgetname     = budgetname    ,
@@ -290,7 +300,7 @@ class ModpathRWSrc( Package ):
 
         # Add package and save instance        
         if self.__class__.COUNTER == 1:
-            self.parent.add_package(self)
+            self.parent.add_package( self )
         self.__class__.INSTANCES.append( self )
 
 
@@ -344,12 +354,12 @@ class ModpathRWSrc( Package ):
             f.write(f"{ins.stringid}\n")
 
             # Write format
-            f.write(f"{ins.format.upper()}\n")
+            f.write(f"{ins.inputformat.upper()}\n")
 
             # Specifics for the aux input format
             if (
-                ( ins.format.upper() == 'AUX' ) or 
-                ( ins.format.upper() == 'AUXILIARY' )
+                ( ins.inputformat.upper() == 'AUX' ) or 
+                ( ins.inputformat.upper() == 'AUXILIARY' )
             ):
 
                 # Inform about the number of source budgets
@@ -374,8 +384,8 @@ class ModpathRWSrc( Package ):
 
             # Specifics for the spec input format
             elif (
-                ( ins.format.upper() == 'SPEC' ) or 
-                ( ins.format.upper() == 'SPECIFIED' )
+                ( ins.inputformat.upper() == 'SPEC' ) or 
+                ( ins.inputformat.upper() == 'SPECIFIED' )
             ):
                 # Format for release template
                 tfmt = []
@@ -628,8 +638,9 @@ class ModpathRWSrc( Package ):
         sourceslist = []
         alldatalist = []
 
-        ## read sources ##
-        for isrc in range(NSOURCES): 
+        # Read sources #
+        for isrc in range(NSOURCES):
+
             # It NSOURCES is one, then source data is the whole spec
             if ( NSOURCES == 1): 
                 sd = sources
@@ -648,15 +659,14 @@ class ModpathRWSrc( Package ):
             # With the package name, look for the package in the model
             pkg = self._parent.flowmodel.get_package(pname.lower())
             if pkg is None:
-                raise Exception(
+                raise ValueError(
                     self.__class__.__name__ + ':' + 
                     ' Package name ' + pname.upper() + ' was not found in model. ' 
                     'Available packages are: ' +  ','.join(self._parent.flowmodel.get_package_list()) 
                 )
 
-            # Extract the auxlist for package
+            # Extract the list of aux vars for package
             # Note: auxlist filled only with str.upper()
-            # After this block the list auxlist is expected to be defined
             if self.modelversion == 'mf6':
                 if not pkg.auxiliary.has_data():
                     raise Exception(
@@ -680,7 +690,7 @@ class ModpathRWSrc( Package ):
                         ' Unexpected options type in package ' + pkg.name[0] + 
                         'for the modelversion '+ self.modelversion
                     )
-                # Veriy at least one candidate
+                # Verify at least one candidate
                 if ( len(auxlistcand) == 0):
                     raise Exception(
                         self.__class__.__name__ + ':' + 
@@ -717,6 +727,7 @@ class ModpathRWSrc( Package ):
                             ' Unexpected definition of aux variable in ' + pkg.name[0] +
                             'Found name was ' + ' '.join(cand) + '. Maybe multiple white spaces ?' 
                         )
+
             # Short circuit just in case 
             if (len(auxlist) == 0):
                 raise Exception(
@@ -724,21 +735,21 @@ class ModpathRWSrc( Package ):
                     ' No auxiliary variables were found, something wrong. Package ' + pkg.name[0]
                 )
             
-            # Now process the sources specification
+            # Now process the source specification #
 
             # Determine the format in which the aux variables were given 
             auxspec = sd[1]
 
             # If a single aux var spec
             if isinstance( auxspec, str ):
+                # Initialize source variables with default values
                 # List to store aux specs
                 auxnames     = [auxspec.upper()]
-                # Initialize source variables with default values
                 auxmasses    = [DEFAULTMASS]
                 auxtemplates = DEFAULTNP*np.ones(shape=(1,3),dtype=np.int32)
                 auxsolutes   = [DEFAULTSOLID]
+                lensd        = len(sd)
 
-                lensd = len(sd)
                 if ( (lensd >= 3 ) and (lensd <= 5 ) ):
                     # Verify particles mass
                     if not isinstance( sd[2], (int,float) ):
@@ -756,15 +767,26 @@ class ModpathRWSrc( Package ):
                     # Save mass 
                     auxmasses[0] = sd[2]
                            
-                    # Continue reading 
+                    # Source specification as [auxvar,mass,template]
                     if lensd >= 4:
-                        # Source specification as [auxvar,mass,template]
                         if isinstance(sd[3],(list,tuple)):
-                            # Save template
+                            # Save template, if valid
                             for inp, npa in enumerate(sd[3]):
+                                if ( npa <= 0 ): 
+                                    raise ValueError(
+                                        self.__class__.__name__ + ':' + 
+                                        ' Invalid particle template. All entries should be greater than zero. ' +  
+                                        str(npa)+ ' was given at position ' + str(inp) + '.'
+                                    )
                                 auxtemplates[0,inp] = npa
                         elif isinstance( sd[3], int ):
-                            # Assume uniform template 
+                            # Assume uniform template
+                            if ( sd[3] <= 0 ): 
+                                raise ValueError(
+                                    self.__class__.__name__ + ':' + 
+                                    ' Invalid particle template. All entries should be greater than zero. ' +  
+                                    str(sd[3])+ ' was given.'
+                                )
                             auxtemplates[0,:] = sd[3]
                         else:
                             raise TypeError(
@@ -795,9 +817,9 @@ class ModpathRWSrc( Package ):
 
             # If a list of aux var specs
             elif isinstance( auxspec, (list,tuple)):
+                # Initialize source variables with default values
                 # List to store aux specs
                 auxnames     = []
-                # Initialize source variables with default values
                 auxmasses    = DEFAULTMASS*np.ones( shape=(len(auxspec),) )
                 auxtemplates = DEFAULTNP*np.ones(shape=(len(auxspec),3),dtype=np.int32)
                 auxsolutes   = DEFAULTSOLID*np.ones( shape=(len(auxspec),),dtype=np.int32 )
@@ -851,9 +873,21 @@ class ModpathRWSrc( Package ):
                                 if isinstance(aspc[2],(list,tuple)):
                                     # Save template
                                     for inp, npa in enumerate(aspc[2]):
+                                        if ( npa <= 0 ): 
+                                            raise ValueError(
+                                                self.__class__.__name__ + ':' + 
+                                                ' Invalid particle template. All entries should be greater than zero. ' +  
+                                                str(npa)+ ' was given at position ' + str(inp) + '.'
+                                            )
                                         auxtemplates[iaspc,inp] = npa
                                 elif isinstance( aspc[2], int ):
                                     # Assume uniform template 
+                                    if ( aspc[2] <= 0 ): 
+                                        raise ValueError(
+                                            self.__class__.__name__ + ':' + 
+                                            ' Invalid particle template. All entries should be greater than zero. ' +  
+                                            str(aspc[2])+ ' was given.'
+                                        )
                                     auxtemplates[iaspc,:] = aspc[2]
                                 else:
                                     raise TypeError(
@@ -898,6 +932,7 @@ class ModpathRWSrc( Package ):
                     'str or a list/tuple. '+str(type(auxspec))+ ' was given.'
                 )
 
+
             # Validate given auxnames
             for ian, an in enumerate(auxnames):
                 acount = auxlist.count(an.upper())
@@ -910,7 +945,7 @@ class ModpathRWSrc( Package ):
                     )
                 # If the given name is not in the list of aux vars of the package
                 if (an.upper() not in auxlist):
-                    raise Exception(
+                    raise ValueError(
                         self.__class__.__name__ + ':' + 
                         ' Auxiliary name ' + an.upper() + ' was not found in aux variables ' + 
                         'of package ' + pname.upper() + '. Available variables are: ' + ','.join(auxlist)
@@ -927,7 +962,7 @@ class ModpathRWSrc( Package ):
                     auxsolutes[ian] + 1 # Notice the + 1, fortran index !
                 ]
                 alldatalist.append(tempdata)
-        ## end read sources ## 
+        # end read sources # 
 
         # Validate that combinations of [sourcename, auxname] are unique 
         counter       =  Counter(frozenset(sl) for sl in sourceslist )
