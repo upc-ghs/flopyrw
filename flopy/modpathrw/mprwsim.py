@@ -13,16 +13,22 @@ from flopy.utils import Util2d
 
 # Updates enumeration of available simulations
 class simType(Enum):
-    """
+    '''
     Enumeration of different simulation types
-    """
-    endpoint       = 1
-    pathline       = 2
-    timeseries     = 3
-    combined       = 4
-    rwpttimeseries = 5
-    rwptcombined   = 6
-    rwptendpoint   = 7
+    
+    With respect to modpath-v7, add:
+        rwtimeseries
+        rwcombined
+        rwendpoint
+    '''
+
+    endpoint     = 1
+    pathline     = 2
+    timeseries   = 3
+    combined     = 4
+    rwtimeseries = 5
+    rwcombined   = 6
+    rwendpoint   = 7
 mp7.simType = simType
 
 
@@ -35,21 +41,21 @@ class ModpathRWSim( mp7.Modpath7Sim ):
     New Parameters
     --------------
     timeseriesoutputoption : int
-        Specify behavior of timeseries writer. Allowed values are 
-            0: Write timeseries records only for active particles
-            1: Write timesereis records for all particles
-            2: Skip the timeseries writer
+        Specify behavior of timeseries writer. Allowed values are: 
+            * 0: Write timeseries records only for active particles
+            * 1: Write timesereis records for all particles
+            * 2: Skip the timeseries writer
     particlesmassoption: int
         Indicates whether a mass shall be read for classical particle groups
         specifications. Allowed values are: 
-            0: do not read a particle mass 
-            1: read the particle mass for particle groups
-            2: read a mass and a solute identifier for all specified particle groups
+            * 0: do not read a particle mass 
+            * 1: read the particle mass for particle groups
+            * 2: read a mass and a solute identifier for all specified particle groups
     speciesdispersionoption: int
         Configures if particles are displaced with the same dispersion parameters or
         with species specific properties depending on solute id. Allowed values are:
-            0: all particles displaced with the same dispersion properties
-            1: particles displaced with specific dispersion properties
+            * 0: all particles displaced with the same dispersion properties
+            * 1: particles displaced with specific dispersion properties
     '''
 
     def __init__(
@@ -62,7 +68,12 @@ class ModpathRWSim( mp7.Modpath7Sim ):
         ):
 
         # Call parent constructor
-        super().__init__(*args,**kwargs, extension='mprw' )
+        super().__init__(*args,**kwargs, extension='mprw')
+        
+        # Not the most elegant solution but consistent
+        self.name  = ['MPRWSIM']
+        self._name = ['MPRWSIM']
+        self._generate_heading()
 
         # Extract model
         model = args[0]
@@ -102,7 +113,7 @@ class ModpathRWSim( mp7.Modpath7Sim ):
         # If simulation is RW
         if self.simulationtype > 4: 
             # Assign some properties to parent obj
-            # Needed by: SPC, IC
+            # Needed by: SPC, IC, SRC
             self._parent.particlesmassoption = particlesmassoption
             self._parent.speciesdispersionoption = speciesdispersionoption
 
@@ -255,7 +266,7 @@ class ModpathRWSim( mp7.Modpath7Sim ):
             elif ( self.particlesmassoption == 2):
                 for pg in self.particlegroups:
                     pg.write(f, ws=self.parent.model_ws, mass=True, solute=True)
-  
+ 
 
         # And close
         f.close()

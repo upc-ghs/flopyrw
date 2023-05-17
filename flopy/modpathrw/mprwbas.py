@@ -17,3 +17,7 @@ class ModpathRWBas( Modpath7Bas ):
         # Call parent constructor
         super().__init__(*args,**kwargs)
 
+        # Not the most elegant solution but consistent
+        self.name  = ['MPRWBAS']
+        self._name = ['MPRWBAS']
+        self._generate_heading()
