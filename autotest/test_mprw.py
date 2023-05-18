@@ -26,9 +26,13 @@ def test_mprw_nopkgs_mf6(function_tmpdir):
     
     # try to write incomplete #
     #--------------------------
+    # write without checking
+    mp.write_input(check=False)
+
+    # write checking
     with pytest.raises(Exception):
         # write without sim, bas, dsp, rwopts
-        mp.write_input()
+        mp.write_input(check=True)
    
     # bas
     modpathrw.ModpathRWBas(
@@ -37,7 +41,7 @@ def test_mprw_nopkgs_mf6(function_tmpdir):
         )
     with pytest.raises(Exception):
         # write without sim, dsp, rwopts
-        mp.write_input()
+        mp.write_input(check=True)
 
     # sim
     simconfig = {
@@ -59,16 +63,16 @@ def test_mprw_nopkgs_mf6(function_tmpdir):
     )
     with pytest.raises(Exception):
         # write without dsp, rwopts
-        mp.write_input()
+        mp.write_input(check=True)
  
     # rwopts
     modpathrw.ModpathRWOpts(mp)
     with pytest.raises(Exception):
         # write without dsp
-        mp.write_input()
+        mp.write_input(check=True)
     
     # dsp 
     modpathrw.ModpathRWDsp(mp)
 
     # write    
-    mp.write_input()
+    mp.write_input(check=True)

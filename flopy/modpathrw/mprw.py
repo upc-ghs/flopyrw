@@ -56,10 +56,76 @@ class ModpathRW( Modpath7 ):
         return "MODPATH-RW model"
 
 
+    # Overload the write_input method
+    def write_input(self, SelPackList=False, check=False):
+        """
+        Write the input.
+
+        Parameters
+        ----------
+        SelPackList : False or list of packages
+
+        Note: is practically the same than BaseModel but passing
+        the check parameter until the write_name_file function
+        """
+        if check:
+            # run check prior to writing input
+            self.check(f=f"{self.name}.chk", verbose=self.verbose, level=1)
+
+        # reset the model to free_format if parameter substitution was
+        # performed on a model load
+        if self.parameter_load and not self.free_format_input:
+            if self.verbose:
+                print(
+                    "\nResetting free_format_input to True to "
+                    "preserve the precision of the parameter data."
+                )
+            self.free_format_input = True
+
+        if self.verbose:
+            print("\nWriting packages:")
+
+        if SelPackList == False:
+            for p in self.packagelist:
+                if self.verbose:
+                    print("   Package: ", p.name[0])
+                # prevent individual package checks from running after
+                # model-level package check above
+                # otherwise checks are run twice
+                # or the model level check procedure would have to be split up
+                # or each package would need a check argument,
+                # or default for package level check would have to be False
+                try:
+                    p.write_file(check=False)
+                except TypeError:
+                    p.write_file()
+        else:
+            for pon in SelPackList:
+                for i, p in enumerate(self.packagelist):
+                    if pon in p.name:
+                        if self.verbose:
+                            print("   Package: ", p.name[0])
+                        try:
+                            p.write_file(check=False)
+                        except TypeError:
+                            p.write_file()
+                            break
+        if self.verbose:
+            print(" ")
+
+        # write name file
+        self.write_name_file(check=check)
+        # os.chdir(org_dir)
+
+
+
     # Overload the write_name_file method
-    def write_name_file(self):
+    def write_name_file(self,check=False):
         """
         Write the name file
+        
+        check: bool
+            Verifies consistency of the model before writting
 
         Returns
         -------
@@ -73,33 +139,36 @@ class ModpathRW( Modpath7 ):
         # Write the mpnam file
         f.write(f"{self.heading}\n")
 
-        # enforce sim
-        simpkg   = self.get_package('MPRWSIM')
-        isrw     = False
-        foundsim = False
-        if simpkg is not None:
-            foundsim = True
-            if simpkg.simulationtype >= 5:
-                isrw = True
-        if not foundsim: 
-            simpkg = self.get_package('MPSIM')
-            if simpkg is None: 
-                raise Exception( 
-                    self.__class__.__name__ + ':' + 
-                    ' A simulation package is necessary for modpath models, ' + 
-                    'but None was given. Define a ModpathRWSim or Modpath7Sim package. ' 
-                )
+        # check consistency 
+        if check: 
+            # enforce sim
+            simpkg   = self.get_package('MPRWSIM')
+            isrw     = False
+            foundsim = False
+            if simpkg is not None:
+                foundsim = True
+                if simpkg.simulationtype >= 5:
+                    isrw = True
+            if not foundsim: 
+                simpkg = self.get_package('MPSIM')
+                if simpkg is None: 
+                    raise Exception( 
+                        self.__class__.__name__ + ':' + 
+                        ' A simulation package is necessary for modpath models, ' + 
+                        'but None was given. Define a ModpathRWSim or Modpath7Sim package. ' 
+                    )
 
-        # enforce bas
-        baspkg = self.get_package('MPRWBAS')
-        if baspkg is None:
-            baspkg = self.get_package('MPBAS')
-            if baspkg is None: 
-                raise Exception( 
-                    self.__class__.__name__ + ':' + 
-                    ' The basic package is necessary for modpath models, ' + 
-                    'but None was given. Define a ModpathRWBas or Modpath7Bas package. ' 
-                )
+            # enforce bas
+            baspkg = self.get_package('MPRWBAS')
+            if baspkg is None:
+                baspkg = self.get_package('MPBAS')
+                if baspkg is None: 
+                    raise Exception( 
+                        self.__class__.__name__ + ':' + 
+                        ' The basic package is necessary for modpath models, ' + 
+                        'but None was given. Define a ModpathRWBas or Modpath7Bas package. ' 
+                    )
+
         if self.mpbas_file is not None:
             f.write(f"MPBAS      {self.mpbas_file}\n")
         if self.dis_file is not None:
@@ -117,22 +186,24 @@ class ModpathRW( Modpath7 ):
         # MODPATH-RW specifc files
         # dsp ( enforced if isrw )
         dsppkg = self.get_package('DSP')
-        if ( (dsppkg is None) and isrw ): 
-            raise Exception( 
-                self.__class__.__name__ + ':' + 
-                ' A dispersion package is required for a random walk model, ' + 
-                'but None was given. Define a ModpathRWDsp package. ' 
-            )
+        if check:
+            if ( (dsppkg is None) and isrw ): 
+                raise Exception( 
+                    self.__class__.__name__ + ':' + 
+                    ' A dispersion package is required for a random walk model, ' + 
+                    'but None was given. Define a ModpathRWDsp package. ' 
+                )
         if dsppkg is not None:
             f.write(f"DSP        {dsppkg.file_name[0]}\n")
         # rwopts ( enforced if isrw )
         rwoptspkg = self.get_package('RWOPTS')
-        if ( (rwoptspkg is None) and isrw ): 
-            raise Exception( 
-                self.__class__.__name__ + ':' + 
-                ' A random walk options package is required for a random walk model, ' + 
-                'but None was given. Define a ModpathRWOpts package. ' 
-            )
+        if check:
+            if ( (rwoptspkg is None) and isrw and check ): 
+                raise Exception( 
+                    self.__class__.__name__ + ':' + 
+                    ' A random walk options package is required for a random walk model, ' + 
+                    'but None was given. Define a ModpathRWOpts package. ' 
+                )
         if rwoptspkg is not None:
             f.write(f"RWOPTS     {rwoptspkg.file_name[0]}\n")
         # spc
