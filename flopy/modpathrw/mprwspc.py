@@ -22,9 +22,8 @@ class ModpathRWSpc( Package ):
     model : model object
         The model object (of type :class: ModpathRW) to which
         this package will be added.
-    dispersion: ModpathRWDsp object
-        Defines dispersion model and properties for this solute.
-        Is a required foreign key. 
+    dispersion: ModpathRWDsp object (required)
+        Relates a dispersion model to this solute. Is a required foreign key. 
     pgroups : list, np.array (int)
         Particle groups related to this specie. These are interpreted 
         only if particlesmassoption != 2. These ids are zero based 
@@ -77,27 +76,31 @@ class ModpathRWSpc( Package ):
 
         # Assign dispersion
         if not isinstance( dispersion, ModpathRWDsp ):
-            raise ValueError(
+            raise TypeError(
                 self.__class__.__name__ + ':' + 
                 ' Invalid dispersion parameter of type ' +str(type(dispersion))+
                 '. It should be type ModpathRWDsp. '
             )
         self.dispersion = dispersion
 
+
         # Will be written only if particlesmassoption != 2
         if pgroups is not None:
-            if not isinstance(pgroups, (list,np.array)):
-                raise ValueError(
+            if not isinstance(pgroups, (int,list,np.ndarray)):
+                raise TypeError(
                     self.__class__.__name__ + ':' + 
                     ' Invalid pgroups parameter of type ' +str(type(pgroups))+
-                    '. It should be of type list or np.array.'
+                    '. It should be of type int, list or np.ndarray.'
                 )
             if isinstance( pgroups, list ):
                 pgroups = np.array( pgroups )
+            if isinstance( pgroups, int ):
+                pgroups = np.array( [pgroups] )
         # Requires some more sanity checks to verify integer id's.
         # Might be worth considering a verification versus already 
         # specified particle groups, which in the end would require
-        # forcing giving this package after IC, SRC.
+        # checking the existence of pgroups at the simulation,
+        # or valid IC or SRC packages.
         self.pgroups = pgroups
         
         # Define id
@@ -148,6 +151,19 @@ class ModpathRWSpc( Package ):
             # only if particlesmassoption not equal 2
             # If particlesmassoption equal 2, then 
             # soluteId is infered from given particlegroups
+
+            # BaseModel has a weird getattr method and if
+            # for any reason the program is trying to write
+            # a model without a defined simulation package, 
+            # particlesmassoption is undefined and throws 
+            # an unclear message obtained from the overloaded
+            # __getattr__
+            if ( not hasattr(self.INSTANCES[0]._parent,'particlesmassoption') ):
+                raise Exception( 
+                    self.__class__.__name__ + ':' + 
+                    ' The particlesmassoption was not found in parent package. ' + 
+                    'Did you define a ModpathRWSim package ? '
+                )
             if ( self.INSTANCES[0]._parent.particlesmassoption != 2 ):
                 if ( 
                     ( ins.pgroups is not None ) and
@@ -164,9 +180,16 @@ class ModpathRWSpc( Package ):
                     raise ValueError(
                         self.__class__.__name__ + ':' + 
                         ' Invalid pgroups parameter of type ' +str(type(ins.pgroups))+
-                        '. It should be of type list or np.array with at least one element.'
+                        '. While using particlesmassoption != 2, the ModpathRWSpc package '+
+                        'requires the list of pgroups indexes related to this species.'
                     )
 
+            if ( not hasattr(self.INSTANCES[0]._parent,'speciesdispersionoption') ):
+                raise Exception( 
+                    self.__class__.__name__ + ':' + 
+                    ' The speciesdispersionoption was not found in parent package. ' + 
+                    'Did you define a ModpathRWSim package ? '
+                )
             # Write dispersion "foreign key", only if
             # speciesdispersionoption == 1
             if  self.INSTANCES[0]._parent.speciesdispersionoption == 1:
