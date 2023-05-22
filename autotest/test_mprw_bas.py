@@ -28,11 +28,11 @@ def test_mprw_bas_input_mf6(function_tmpdir):
     # write distributed # 
     #-------------------#
     mgrid = flowmf6.modelgrid
-    zeroporosity = np.zeros(shape=(mgrid.nlay,mgrid.nrow,mgrid.ncol), dtype=np.int32)
-    badporosity = np.zeros(shape=(mgrid.nlay,mgrid.nrow,mgrid.ncol), dtype=np.int32)
+    zeroporosity = np.zeros(shape=(mgrid.nlay,mgrid.nrow,mgrid.ncol), dtype=np.float32)
+    badporosity = np.zeros(shape=(mgrid.nlay,mgrid.nrow,mgrid.ncol), dtype=np.float32)
     badporosity[0,3,6] = 2.0 
     badporosity[0,3,8] = -2.0 
-    porosity = 0.3*np.ones(shape=(mgrid.nlay,mgrid.nrow,mgrid.ncol), dtype=np.int32)
+    porosity = 0.3*np.ones(shape=(mgrid.nlay,mgrid.nrow,mgrid.ncol), dtype=np.float32)
 
 
     with pytest.raises(ValueError):
