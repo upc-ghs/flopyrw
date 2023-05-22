@@ -34,15 +34,14 @@ def test_mprw_obs_input_mf6(function_tmpdir):
     # simple checks #
     #---------------#
     # by default cellinputoption = 0 (list of cells)
+    # by default structured = True (lay,row,col)
+    cells = [(0,3,6)]
     with pytest.raises(ValueError):
         # define without list of cells
         modpathrw.ModpathRWObs(mp)
     with pytest.raises(TypeError):
         # define with invalid type of cells
         modpathrw.ModpathRWObs(mp, cells='cells')
-    
-    # by default structured = True (lay,row,col)
-    cells = [(0,3,6)]
     with pytest.raises(ValueError):
         # define with invalid list of structured cells
         modpathrw.ModpathRWObs(mp, cells=[0,1])
@@ -56,8 +55,30 @@ def test_mprw_obs_input_mf6(function_tmpdir):
         # define with unstructured and invalid type list of cells
         modpathrw.ModpathRWObs(mp, cells=['asd',1,2], structured=False)
   
-    # obs: define a consistent
+    # obs: define a consistent observation
     modpathrw.ModpathRWObs(mp, cells=cells)
+    
+    # write distributed # 
+    #-------------------#
+    mgrid = flowmf6.modelgrid
+    cells = np.zeros(shape=(mgrid.nlay,mgrid.nrow,mgrid.ncol), dtype=np.int32)
+    cells[0,3,6] = 1
+    badcells = np.zeros(shape=(mgrid.nlay,mgrid.nrow,mgrid.ncol), dtype=np.int32)
+    badcells[0,3,6] = 1
+    badcells[0,3,8] = 2
 
-    # and write ( without checking model consistency )
+    with pytest.raises(ValueError):
+        # define without the cells array 
+        modpathrw.ModpathRWObs(mp, cellinputoption=1)
+    with pytest.raises(Exception):
+        # define with inconsistent shape for cells array 
+        modpathrw.ModpathRWObs(mp, cellinputoption=1, cells=[[0,1],[1,0]])
+    with pytest.raises(ValueError):
+        # define with inconsistent values for cells array 
+        modpathrw.ModpathRWObs(mp, cellinputoption=1, cells=badcells)
+
+    # define with inconsistent shape for cells array 
+    modpathrw.ModpathRWObs(mp, cellinputoption=1, cells=cells)
+
+    # and write (without checking model consistency)
     mp.write_input()

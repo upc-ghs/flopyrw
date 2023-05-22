@@ -255,20 +255,39 @@ class ModpathRWObs( Package ):
                     + ' No cells were given for the observation.'
                 )
             else:
-                if not isinstance( cells, (list,np.ndarray) ):
+                if not isinstance( cells, (int,list,np.ndarray) ):
                     raise TypeError(
                         self.__class__.__name__ + ':'
-                        + ' Invalid cells type. It should be list, or np.array. '
-                        + str(type( cells )) + ' was given.'
+                        + ' Invalid type for cells . It should be list, or np.ndarray. '
+                        + str(type(cells)) + ' was given.'
                     )
-                self.cells = Util3d(
-                    model,
-                    shape3d,
-                    np.int32,
-                    cells,
-                    name="OBSCELLS",
-                    locat=self._parent.multipackage[ftype]['unitnumber'], 
-                )
+                cells  = np.array(cells)
+                ucells = np.unique(cells)
+                for uc in ucells: 
+                    if uc not in [0,1]:
+                        raise ValueError( 
+                            self.__class__.__name__ + ':'
+                            + ' Invalid values for cells specification. '
+                            + 'While using cellinputoption=1, the cells specification'
+                            + 'should only contain values 0 or 1. '
+                            + 'The value ' + str(uc) + ' was found.'
+                        )
+
+                try:
+                    self.cells = Util3d(
+                        model,
+                        shape3d,
+                        np.int32,
+                        cells,
+                        name="OBSCELLS",
+                        locat=self._parent.multipackage[ftype]['unitnumber'], 
+                    )
+                except:
+                    raise Exception(
+                        self.__class__.__name__ + ':'
+                        + ' Error while initializing distributed variable cells. '
+                        + 'Is the input shape consistent with flow model dimensions ? '
+                    )
 
         # String id
         if (stringid is not None): 
