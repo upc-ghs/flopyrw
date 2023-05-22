@@ -57,20 +57,20 @@ class ModpathRWImp( Package ):
         # Default boundary 
         if ( defaultboundary not in [0,1] ): 
             raise ValueError(
-                self.__class__.__name__ + ':'
-                + ' Invalid defaultboundary ' + str(defaultboundary)
-                + '. Allowed values are 0 (open boundaries) '
-                + 'or 1 (impermeable boundaries).'
+                f"{self.__class__.__name__}:"
+                f" Invalid defaultboundary {str(defaultboundary)}"
+                f". Allowed values are 0 (open boundaries) "
+                f"or 1 (impermeable boundaries)."
             )
         self.defaultboundary = defaultboundary
 
         # Impermeable cells format 
         if ( impformat not in [0,1,2] ): 
             raise ValueError(
-                self.__class__.__name__ + ':'
-                + ' Invalid impformat ' + str(impformat)
-                + '. Allowed values are 0 (follow ibound), ' 
-                + '1 (follow iboundts) or 2 (given in icbound param).'
+                f"{self.__class__.__name__}:"
+                f" Invalid impformat {str(impformat)}."
+                f" Allowed values are 0 (follow ibound), "
+                f"1 (follow iboundts) or 2 (given in icbound param)."
             )
         self.impformat = impformat
 
@@ -79,9 +79,9 @@ class ModpathRWImp( Package ):
 
             if icbound is None:
                 raise ValueError(
-                    self.__class__.__name__ + ':' 
-                    + ' Impermeable cells format was ' 
-                    + 'specified as 2, but no icbound was given.' 
+                    f"{self.__class__.__name__}:"
+                    f" Impermeable cells format was " 
+                    f"specified as 2, but no icbound was given."
                 )
 
             shape = model.shape
@@ -96,9 +96,9 @@ class ModpathRWImp( Package ):
 
             if not isinstance( icbound, (int,list,np.ndarray) ):
                 raise TypeError(
-                    self.__class__.__name__ + ':'
-                    + ' Invalid type for icbound. It should be list, or np.ndarray. '
-                    + str(type(icbound)) + ' was given.'
+                    f"{self.__class__.__name__}:"
+                    f" Invalid type for icbound. It should be list, or np.ndarray. "
+                    f"{str(type(icbound))} was given."
                 )
             if isinstance( icbound, int ): 
                 icbound = [ icbound ]
@@ -107,10 +107,10 @@ class ModpathRWImp( Package ):
             for uc in uicbound: 
                 if uc not in [0,1]:
                     raise ValueError( 
-                        self.__class__.__name__ + ':'
-                        + ' Invalid values for icbound specification. '
-                        + 'It should only contain values 0 or 1. '
-                        + 'The value ' + str(uc) + ' was found.'
+                        f"{self.__class__.__name__}:"
+                        f" Invalid values for icbound specification. "
+                        f"It should only contain values 0 or 1. "
+                        f"The value {str(uc)} was found."
                     )
 
             try:
@@ -124,9 +124,9 @@ class ModpathRWImp( Package ):
                 )
             except:
                 raise Exception(
-                    self.__class__.__name__ + ':'
-                    + ' Error while initializing distributed variable icbound. '
-                    + 'Is the input shape consistent with flow model dimensions ? '
+                    f"{self.__class__.__name__}:"
+                    f" Error while initializing distributed variable icbound. "
+                    f"Is the input shape consistent with flow model dimensions ?"
                 )
 
         # Add package 
