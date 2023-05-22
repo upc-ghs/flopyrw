@@ -295,6 +295,20 @@ class ModpathRWObs( Package ):
         else:
             self.stringid = ftype+str(self.id) 
 
+        # Some validation for basefilename
+        if ( not isinstance( basefilename, str ) ): 
+            raise TypeError(
+                self.__class__.__name__ + ':'
+                + ' Invalid type for basefilename. It should be str, but ' 
+                + str(type(basefilename)) + ' was given.'
+            )
+        # Some validation for extension
+        if ( not isinstance( extension, str ) ): 
+            raise TypeError(
+                self.__class__.__name__ + ':'
+                + ' Invalid type for extension. It should be str, but ' 
+                + str(type(extension)) + ' was given.'
+            )
         # Filename for this observation
         self.filename = basefilename+str(self.id)+'.'+extension
 
