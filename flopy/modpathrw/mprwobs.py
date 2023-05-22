@@ -10,7 +10,7 @@ from flopy.pakbase import Package
 from flopy.utils import Util3d
 
 # local 
-from .utils import count_instances # Increment COUNTER
+from .utils import multipackage
 
 
 class ModpathRWObs( Package ):
@@ -24,51 +24,57 @@ class ModpathRWObs( Package ):
         this package will be added.
     kind  : int
         The kind of observation. Allowed values are:
-            0: observation of resident concentrations, any cell
-            1: observation of flux concentrations. For consistency, it should be applied 
-               to cells with sink flow and with weaksinkoption is stop_at
+        * 0: observation of resident concentrations, any cell.
+        * 1: observation of flux concentrations. For consistency, 
+             it should be applied to cells with sink flow and 
+             configure the simulation with weaksinkoption=stop_at.
     cellinputoption : int
         The format in which observation cells will be given. Allowed values are:
-            0: cells are given as a list of individual cells
-            1: cells read with free-format input
+        * 0: cells are given as a list of individual cells.
+        * 1: cells read with free-format input.
     cells : list, np.array
         The list of cells to be considered for the observation.
-        If cellinputoption == 0, then this parameter contain the list of cell ids
-        If cellinputoption == 1, this should an array with the dimensions of the flow model. 
-        In this last case, array entries containing ones are included as part of the observation.
+        * If cellinputoption == 0, then this parameter contain the list of cell ids
+        * If cellinputoption == 1, this should an array with the dimensions
+          of the flow model. In this last case, array entries containing ones
+          are included as part of the observation.
     structured : bool 
-        Indicates the format of cell ids in the cells param. If True, then cells are in format (lay, row, col), 
-        and if False these are the linear cell numbers.
+        Indicates the format of cell ids in the cells param. If True, then 
+        cells are in format (lay, row, col), and if False these are the 
+        linear cell numbers.
     outputoption : int
         Defines the information stored in the output file. Allowed values are:
-            0: output file contains the source particle records
-            1: postprocessed observation in output file (timeseries) and a second file with source records
-            2: only one file with the postprocessed observation (timeseries)
+        * 0: output file contains the source particle records
+        * 1: postprocessed observation in output file (timeseries) 
+             and a second file with source records
+        * 2: only one file with the postprocessed observation (timeseries)
     postprocessoption : int
-        The kind of postprocess to be applied to the source observation records. Allowed values are:
-            0: timeseries with histogram reconstruction
-            1: timeseries with both histogram and smoothed reconstruction
+        The kind of postprocess to be applied to the source observation records. 
+        Allowed values are:
+        * 0: timeseries with histogram reconstruction
+        * 1: timeseries with both histogram and smoothed reconstruction
     basefilename : str
         The output file where the observation is written. 
-        If outputoption == 0, this file contains the observation records
-        If outputoption == 1, this file contains the postprocessed observation and a second file
-        whose name is rec+basefilename contains the observations records. 
-        If outputoption == 2, this file contains the postprocessed observation timeseries
-    id : int 
-        A positive integer identifier. If None given is automatically assigned with 
-        the instance counter. 
+        * If outputoption == 0, this file contains the observation records
+        * If outputoption == 1, this file contains the postprocessed 
+          observation and a second file whose name is rec+basefilename
+          contains the observations records. 
+        * If outputoption == 2, this file contains the postprocessed 
+          observation timeseries
     stringid : str
-        An identifier for the observation. By default the name 'OBS'+str(id) is assigned
+        An identifier for the observation. By default assign the concatenation
+        of package ftype and an integer id. 
     extension : str
         The extension for the observation file. By default 'obs' 
     """
 
-    # Class properties
-    COUNTER    = 0
-    UNITNUMBER = 0
-    INSTANCES  = []
- 
-    @count_instances
+
+    @staticmethod
+    def _ftype():
+        return 'OBS'
+
+
+    @multipackage
     def __init__(
         self,
         model,
@@ -79,33 +85,30 @@ class ModpathRWObs( Package ):
         outputoption      = 2,
         postprocessoption = 1,
         basefilename      = 'mprwobs_',
-        id                = None,
         stringid          = None,
         extension         = 'obs',
     ):
 
-        if self.__class__.COUNTER == 1:
-            # Define UNITNUMBER if the first instance is created
-            unitnumber = model.next_unit()
-            super().__init__(model, extension, "OBS", unitnumber)
-            self.__class__.UNITNUMBER = self.unit_number[0]
-        elif ( len(self.INSTANCES)==0 ):
-            # If counter was not one and no instances, treat it like the first
-            self.__class__.COUNTER = 1
-            unitnumber = model.next_unit()
-            super().__init__(model, extension, "OBS", unitnumber)
-            self.__class__.UNITNUMBER = self.unit_number[0]
+        # Call parent constructor
+        ftype = self._ftype()
+        if ( model.multipackage[ftype]['count'] == 0 ): 
+            super().__init__(
+                model,
+                extension,
+                ftype,
+                model.multipackage[ftype]['unitnumber']
+            )
         else:
-            # pass the parent 
-            self._parent = self.INSTANCES[0]._parent
+            # Pass the parent
+            self._parent = model.multipackage[ftype]['instances'][0]._parent
 
 
         # Observation kind
         if ( kind not in [0,1] ): 
             raise ValueError(
-                self.__class__.__name__ + ':' + 
-                ' Invalid kind option ' +str(kind)+
-                '. Allowed values are 0 (Resident) or 1 (Flux).'
+                self.__class__.__name__ + ':'
+                + ' Invalid kind option ' + str(kind)
+                + '. Allowed values are 0 (Resident) or 1 (Flux).'
             )
         self.kind = kind
         if self.kind == 0: 
@@ -116,52 +119,41 @@ class ModpathRWObs( Package ):
         # output option
         if ( outputoption not in [0,1,2] ):
             raise ValueError(
-                self.__class__.__name__ + ':' + 
-                ' Invalid output option ' +str(kind)+
-                '. Allowed values are 0 (only obs records), 1 (records and postprocess) or 2 (only postprocess).'
+                self.__class__.__name__ + ':' 
+                + ' Invalid output option ' + str(kind)
+                + '. Allowed values are 0 (only obs records),'
+                + ' 1 (records and postprocess) or 2 (only postprocess).'
             )
         self.outputoption = outputoption
 
         # postprocess option
         if ( postprocessoption not in [0,1] ):
             raise ValueError(
-                self.__class__.__name__ + ':' + 
-                ' Invalid postprocess option ' +str(kind)+
-                '. Allowed values are 0 (only histogram) or 1 (histogram and smoothed reconstruction).'
+                self.__class__.__name__ + ':'
+                + ' Invalid postprocess option ' + str(kind)
+                + '. Allowed values are 0 (only histogram) or '
+                + '1 (histogram and smoothed reconstruction).'
             )
         self.postprocessoption = postprocessoption
 
         # cellinputoption 
         if ( cellinputoption not in [0,1] ):
             raise ValueError(
-                self.__class__.__name__ + ':' + 
-                ' Invalid cellinputoption option ' +str(cellinputoption)+
-                '. Allowed values are 0 (list of cellids) or 1 (modelgrid array).'
+                self.__class__.__name__ + ':'
+                + ' Invalid cellinputoption option '
+                + str(cellinputoption)
+                + '. Allowed values are 0 (list of cellids) or 1 (modelgrid array).'
             )
         self.cellinputoption = cellinputoption
 
         if self.cellinputoption == 0:
-            # Write as a list of cellids
-            if cells is None:
-                self.cells = []
-            else:
-                if not isinstance( cells, (list,np.ndarray,tuple) ):
-                    raise TypeError(
-                        self.__class__.__name__ + ':' + 
-                        ' Invalid cells type. It should be list, tuple of np.array. ' + 
-                        str(type( cells )) + ' was given.'
-                    )
-                if ( isinstance( cells, tuple ) and len(cells)==1 ):
-                    cells = cells[0]
-                # Maybe some sanity check about data structure or the same 
-                # used for partlocs
-                self.cells = cells
 
-            # If no cells, stop. 
-            if len(self.cells) == 0:
-                raise ValueError( 
-                    self.__class__.__name__ + ':' + 
-                    ' No cells were given for the observation.'
+            if ( not isinstance( structured, bool ) ): 
+                raise TypeError(
+                    self.__class__.__name__ + ':'
+                    + ' Invalid type for structured parameter. '
+                    + 'It should be boolean, but ' 
+                    + str(type(structured)) + ' was given.'
                 )
 
             # Cell format
@@ -170,6 +162,78 @@ class ModpathRWObs( Package ):
             else:
                 self.cellformat = 1
             self.structured = structured
+
+            # Write as a list of cellids
+            if cells is None:
+                self.cells = []
+            else:
+                if not isinstance( cells, (list,np.ndarray,tuple) ):
+                    raise TypeError(
+                        self.__class__.__name__ + ':'
+                        + ' Invalid cells type. '
+                        + 'It should be list, tuple of np.ndarray. '
+                        + str(type(cells)) + ' was given.'
+                    )
+                # Transform to numpy array
+                cells = np.array( cells )
+
+                if self.structured: 
+                    # The case of a single list/tuple with cell id
+                    if ( (len(cells.shape)==1) ): 
+                        if ( len(cells)==3 ):
+                            cells = cells.transpose()
+                        else:
+                            raise ValueError(
+                                self.__class__.__name__ + ':' 
+                                + ' Invalid cells specification. While using the '
+                                + 'structured flag for cellinputoption = 0, the cells ' 
+                                + 'should be specified as a list of cell ids following '
+                                + 'the format (lay,row,col).'
+                            )
+                    elif ( len(cells.shape)==2 ):
+                        if ( not ( cells.shape[1] == 3 ) ): 
+                            raise ValueError(
+                                self.__class__.__name__ + ':' 
+                                + ' Invalid cells specification. While using the '
+                                + 'structured flag for cellinputoption = 0, the cells ' 
+                                + 'should be specified as a list of cell ids following '
+                                + 'the format (lay,row,col).'
+                            )
+                    else:
+                        raise ValueError(
+                            self.__class__.__name__ + ':' 
+                            + ' Invalid cells specification. While using the '
+                            + 'structured flag for cellinputoption = 0, the cells ' 
+                            + 'should be specified as a list of cell ids following '
+                            + 'the format (lay,row,col).'
+                        )
+                else:
+                    # For unstructured, ask for a one-dimensional array
+                    if ( (len(cells.shape)!=1) ): 
+                        raise ValueError(
+                            self.__class__.__name__ + ':' 
+                            + ' Invalid cells specification. While using '
+                            + 'the unstructured format for cellinputoption=0, ' 
+                            + 'cell ids should be given as linear indexes format.'
+                        )
+                # Validate dtype
+                if ( cells.dtype not in [np.int32,np.int64,int] ):
+                    raise TypeError(
+                        self.__class__.__name__ + ':' 
+                        + ' Invalid type for cells specification. ' 
+                        + 'Cell ids should be of integer type, but '
+                        + str(cells.dtype) + ' was given.'
+                    )
+
+                # To the class
+                self.cells = cells
+
+            # If no cells, stop. 
+            if len(self.cells) == 0:
+                raise ValueError( 
+                    self.__class__.__name__ + ':'
+                    + ' No cells were given for the observation.'
+                )
 
         elif self.cellinputoption == 1: 
             # Write obs cells as 3D array
@@ -187,15 +251,15 @@ class ModpathRWObs( Package ):
 
             if cells is None:
                 raise ValueError( 
-                    self.__class__.__name__ + ':' + 
-                    ' No cells were given for the observation.'
+                    self.__class__.__name__ + ':'
+                    + ' No cells were given for the observation.'
                 )
             else:
                 if not isinstance( cells, (list,np.ndarray) ):
                     raise TypeError(
-                        self.__class__.__name__ + ':' + 
-                        ' Invalid cells type. It should be list, or np.array. ' + 
-                        str(type( cells )) + ' was given.'
+                        self.__class__.__name__ + ':'
+                        + ' Invalid cells type. It should be list, or np.array. '
+                        + str(type( cells )) + ' was given.'
                     )
                 self.cells = Util3d(
                     model,
@@ -203,27 +267,17 @@ class ModpathRWObs( Package ):
                     np.int32,
                     cells,
                     name="OBSCELLS",
-                    locat=self.__class__.UNITNUMBER,
+                    locat=self._parent.multipackage[ftype]['unitnumber'], 
                 )
 
-        # Define obs id
-        if (id is not None): 
-            self.id = id
-        else:
-            self.id = self.__class__.COUNTER
-
+        # String id
         if (stringid is not None): 
             self.stringid = stringid
         else:
-            self.stringid = 'OBS'+str(self.__class__.COUNTER)
+            self.stringid = ftype+str(self.id) 
 
         # Filename for this observation
         self.filename = basefilename+str(self.id)+'.'+extension
-
-        # Add package and save instance        
-        if self.__class__.COUNTER == 1:
-            self.parent.add_package(self)
-        self.__class__.INSTANCES.append( self )
 
 
         # Done
@@ -242,55 +296,58 @@ class ModpathRWObs( Package ):
         None
         """
 
+        # Shortcut to multipackage dict
+        mpkg = self.parent.multipackage[self._ftype()]
+        
+        # Write
+        with open( mpkg['instances'][0].fn_path, 'w' ) as f:
 
-        # Open file for writing
-        f = open(self.INSTANCES[0].fn_path, "w")
+            # Write how many instances...
+            f.write(f"{mpkg['count']}\n")
 
-        # Write how many INSTANCES 
-        # and loop over them
-        f.write(f"{self.COUNTER}\n")
+            # ...and loop over them
+            for ins in mpkg['instances']:
 
-        for ins in self.INSTANCES:
+                # Write obs stringid
+                f.write(f"{ins.stringid}\n")
 
-            # Write obs stringid
-            f.write(f"{ins.stringid}\n")
+                # Write obs stringkind
+                f.write(f"{ins.stringkind}\n")
 
-            # Write obs stringkind
-            f.write(f"{ins.stringkind}\n")
+                # Write obs filename
+                f.write(f"{ins.filename}\n")
+                
+                # Write the output and postprocess options
+                f.write(f"{ins.outputoption}  {ins.postprocessoption}\n")
 
-            # Write obs filename
-            f.write(f"{ins.filename}\n")
-            
-            # Write the output and postprocess options
-            f.write(f"{ins.outputoption}  {ins.postprocessoption}\n")
+                # Write the celloption params
+                if ins.cellinputoption == 0:
+                    # The flag and specs
+                    f.write(f"{ins.cellinputoption}  {len(ins.cells)}  {ins.cellformat} \n")
 
-            # Write the celloption params
-            if ins.cellinputoption == 0:
-                # The flag and specs
-                f.write(f"{ins.cellinputoption}  {len(ins.cells)}  {ins.cellformat} \n")
-
-                # And the list
-                fmts = []
-                if ins.structured:
-                    fmts.append("{:9d}") # lay
-                    fmts.append("{:9d}") # row
-                    fmts.append("{:9d}") # col
-                else:
-                    fmts.append("{:9d}") # cellid
-                fmt = " " + " ".join(fmts) + "\n"
-                for oc in ins.cells:
-                    woc = np.array(oc).astype(np.int32)+1 # Correct the zero-based indexes
+                    # And the list
+                    fmts = []
                     if ins.structured:
-                        f.write(fmt.format(*woc))
+                        fmts.append("{:9d}") # lay
+                        fmts.append("{:9d}") # row
+                        fmts.append("{:9d}") # col
                     else:
-                        f.write(fmt.format(woc))
-            elif ins.cellinputoption == 1:
+                        fmts.append("{:9d}") # cellid
+                    fmt = " " + " ".join(fmts) + "\n"
+                    for oc in ins.cells:
+                        woc = np.array(oc).astype(np.int32)+1 # Correct the zero-based indexes
+                        if ins.structured:
+                            f.write(fmt.format(*woc))
+                        else:
+                            f.write(fmt.format(woc))
 
-                # The flag
-                f.write(f"{ins.cellinputoption}\n")
+                elif ins.cellinputoption == 1:
 
-                # And the array
-                f.write(ins.cells.get_file_entry())
+                    # The flag
+                    f.write(f"{ins.cellinputoption}\n")
+
+                    # And the array
+                    f.write(ins.cells.get_file_entry())
 
 
         # Done

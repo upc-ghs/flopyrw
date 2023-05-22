@@ -11,7 +11,7 @@ from flopy import modpathrw
 
 def test_mprw_ic_input_mf6(function_tmpdir):
     '''
-    Verifies the input for species class
+    Verifies the input for the initial conditions class
     '''
 
     # get the mf6 case
