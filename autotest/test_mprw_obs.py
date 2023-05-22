@@ -1,5 +1,5 @@
 '''
-Tests for the ModpathRWSpc class
+Tests for the ModpathRWObs class
 '''
 
 import numpy as np

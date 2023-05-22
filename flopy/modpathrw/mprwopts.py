@@ -141,11 +141,11 @@ class ModpathRWOpts( Package ):
             )
         self.randomgenerator = randomgenerator
 
-        
+        # Add package 
         self.parent.add_package(self)
 
 
-        # Done !
+        # Done 
         return
 
 
