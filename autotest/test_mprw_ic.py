@@ -108,8 +108,14 @@ def test_mprw_ic_input_mf6(function_tmpdir):
     )
 
     # ic
-    modpathrw.ModpathRWIc(mp2, concentration=concentration )
+    ic = modpathrw.ModpathRWIc(mp2, concentration=concentration )
 
-    # write
+    # verify assignment to the main model
+    pkgs = mp2.get_package_list() 
+    assert ic._ftype() in pkgs, (
+            f"IC package was not found in ModpathRW object"
+        )
+
+    # write (without checks, check=False)
     mp2.write_input()
 

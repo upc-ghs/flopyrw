@@ -77,8 +77,14 @@ def test_mprw_obs_input_mf6(function_tmpdir):
         # define with inconsistent values for cells array 
         modpathrw.ModpathRWObs(mp, cellinputoption=1, cells=badcells)
 
-    # define with inconsistent shape for cells array 
-    modpathrw.ModpathRWObs(mp, cellinputoption=1, cells=cells)
+    # define consistent for cells array 
+    obs = modpathrw.ModpathRWObs(mp, cellinputoption=1, cells=cells)
+
+    # verify assignment to the main model
+    pkgs = mp.get_package_list() 
+    assert obs._ftype() in pkgs, (
+            f"OBS package was not found in ModpathRW object"
+        )
 
     # and write (without checking model consistency)
     mp.write_input()

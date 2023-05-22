@@ -127,3 +127,15 @@ def test_mprw_src_aux_input_mf6(function_tmpdir):
             inputformat='aux',
             sources=sources,
         )
+
+    # Define a valid src
+    # src = 
+    ## verify assignment to the main model
+    #pkgs = mp2.get_package_list() 
+    #assert src._ftype() in pkgs, (
+    #        f"SRC package was not found in ModpathRW object"
+    #    )
+
+    ## Write
+    #mp2.write_input()
+

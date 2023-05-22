@@ -117,6 +117,12 @@ def test_mprw_spc_input_mf6(function_tmpdir):
     # spc
     spc = modpathrw.ModpathRWSpc(mp2,dsp)
 
+    # verify assignment to the main model
+    pkgs = mp2.get_package_list() 
+    assert spc._ftype() in pkgs, (
+            f"SPC package was not found in ModpathRW object"
+        )
+
     # Write
     mp2.write_input()
 
