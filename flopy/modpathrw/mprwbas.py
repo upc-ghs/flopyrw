@@ -15,9 +15,11 @@ class ModpathRWBas( Modpath7Bas ):
     Extends flopy.modpath.Modpath7Bas
     '''
 
+
     @staticmethod
     def _ftype():
         return 'MPRWBAS'
+
 
     def __init__(self, *args, **kwargs):
         

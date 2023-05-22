@@ -48,6 +48,12 @@ class ModpathRWOpts( Package ):
         File extension (default is 'rwopts').
     """
 
+
+    @staticmethod
+    def _ftype():
+        return 'RWOPTS'
+
+
     def __init__(
         self,
         model,
@@ -61,85 +67,138 @@ class ModpathRWOpts( Package ):
         extension        = 'rwopts',
     ):
 
+        ftype = self._ftype()
         unitnumber = model.next_unit()
-
-        super().__init__(model, extension, "RWOPTS", unitnumber)
+        super().__init__(model, extension, ftype, unitnumber)
 
         # timestep
+        if ( not isinstance( timestep, str ) ): 
+            raise TypeError(
+                f"{self.__class__.__name__}:"
+                f" Invalid type for timestep selection. It should be str, but"
+                f" {str(type(timestep))} was given."
+            )
         if ( timestep not in ['adv', 'disp', 'min', 'fixed'] ):
             raise ValueError(
-                self.__class__.__name__ + ':' + 
-                ' Time step selection ' +str(timestep)+ ' is not valid.'+
-                '. Allowed values are: adv, disp, min, fixed.'
+                f"{self.__class__.__name__}:"
+                f" Time step selection {str(timestep)} is not valid."
+                f". Allowed values are: adv, disp, min, fixed."
             )
         self.timestep = timestep
 
         # timestep selection params
+        # courant
+        if ( not isinstance(courant, (int,float) ) ):
+            raise TypeError(
+                f"{self.__class__.__name__}:"
+                f" Invalid type for courant parameter. It should be float/int, but"
+                f" {str(type(courant))} was given."
+            )
         if (courant>0): 
             self.courant  = courant
         else:
             raise ValueError(
-                self.__class__.__name__ + ':' + 
-                ' Courant number for advection criteria should be greater than zero.'
+                f"{self.__class__.__name__}:"
+                f" Courant number for advection criteria should be greater than zero."
+            )
+        # ctdisp
+        if ( not isinstance(ctdisp, (int,float) ) ):
+            raise TypeError(
+                f"{self.__class__.__name__}:"
+                f" Invalid type for ctdisp parameter. It should be float/int, but"
+                f" {str(type(ctdisp))} was given."
             )
         if (ctdisp>0): 
             self.ctdisp  = ctdisp
         else:
             raise ValueError(
-                self.__class__.__name__ + ':' + 
-                ' CT constant for dispersion criteria should be greater than zero.'
+                f"{self.__class__.__name__}:"
+                f" CT constant for dispersion criteria should be greater than zero."
+            )
+        # deltat
+        if ( not isinstance(deltat, (int,float) ) ):
+            raise TypeError(
+                f"{self.__class__.__name__}:"
+                f" Invalid type for deltat parameter. It should be float/int, but"
+                f" {str(type(deltat))} was given."
             )
         if (deltat>0): 
             self.deltat  = deltat
         else:
             raise ValueError(
-                self.__class__.__name__ + ':' + 
-                ' Time step for particles displacement should be greater than zero.'
+                f"{self.__class__.__name__}:"
+                f" Time step for particles displacement should be greater than zero."
             )
 
         # advection 
+        if ( not isinstance( advection, str ) ): 
+            raise TypeError(
+                f"{self.__class__.__name__}:"
+                f" Invalid type for advection selection. It should be str, but"
+                f" {str(type(advection))} was given."
+            )
         if ( advection not in ['eulerian','exponential'] ):
             raise ValueError(
-                self.__class__.__name__ + ':' + 
-                ' Advection model ' +str(timestep)+ ' is not valid.'+
-                '. Allowed values are: eulerian, exponential.'
+                f"{self.__class__.__name__}:"
+                f" Advection model {str(advection)} is not valid."
+                f". Allowed values are: eulerian, exponential."
             )
         self.advection  = advection
 
         # dimensionsmask
-        if not isinstance( dimensionsmask, (list, np.array) ):
+        if not isinstance( dimensionsmask, (list,tuple,np.ndarray) ):
             raise TypeError(
-                self.__class__.__name__ + ':' + 
-                ' dimensionsmask should be of type list or np.array.' +
-                '. Given ' + str(type(dimensionsmask))
+                f"{self.__class__.__name__}:"
+                f" dimensionsmask should be of type list/tuple/np.ndarray."
+                f" Given  {str(type(dimensionsmask))}"
             )
-        if isinstance( dimensionsmask, list ):
+        if isinstance( dimensionsmask, (list,tuple) ):
+            for dm in dimensionsmask: 
+                if ( not isinstance( dm, int ) ):
+                    raise TypeError(
+                        f"{self.__class__.__name__}:"
+                        f" Invalid type in dimensionsmask. Allowed values "
+                        f"are the integers 0 or 1, but "
+                        f"{str(type(dm))} was given."
+                    )
             dimensionsmask = np.array(dimensionsmask).astype(np.int32)
+        if ( dimensionsmask.dtype not in [np.int32,np.int64]):
+            raise TypeError(
+                f"{self.__class__.__name__}:"
+                f" Invalid type in dimensionsmask. It should be "
+                f"integer, but {str(dimensionsmask.dtype)} was given."
+            )
         if len(dimensionsmask) != 3:
-            if len(dimensionsmask) != 3:
+            raise ValueError(
+                f"{self.__class__.__name__}:"
+                f" dimensionsmask should be of length 3."
+                f". Given {str(len(dimensionsmask))}"
+            )
+        for idm, dm in enumerate(dimensionsmask):
+            if ( dm not in [0,1] ):
                 raise ValueError(
-                    self.__class__.__name__ + ':' + 
-                    ' dimensionsmask should be of length 3.' +
-                    '. Given ' + str(len(dimensionsmask))
-                )
-        for nd in range(3):
-            if (dimensionsmask[nd] not in [0,1] ):
-                raise ValueError(
-                    self.__class__.__name__ + ':' + 
-                    ' values in dimensionsmask should be 0 (inactive) or 1 (active).' +
-                    ' At position ', str(nd), ' given ', str(dimensionsmask[nd])
+                    f"{self.__class__.__name__}:"
+                    f" Values in dimensionsmask should be 0 (inactive) or 1 (active)."
+                    f" At position {str(idm)} given {str(dm)}."
                 )
         self.dimensionsmask = dimensionsmask
 
         # randomgenerator
+        if ( not isinstance(randomgenerator, int ) ):
+            raise TypeError(
+                f"{self.__class__.__name__}:"
+                f" Invalid type for randomgenerator parameter. It should be int, but"
+                f" {str(type(randomgenerator))} was given."
+            )
         if ( randomgenerator not in [0,1,2] ): 
             raise ValueError(
-                self.__class__.__name__ + ':' + 
-                ' Invalid value for randomgenerator. Allowed values are 0 (determined by compiler)'+
-                ' 1 (based on random_number) or 2 (Ziggurat method). ' +
-                str(randomgenerator) + ' was given. ' 
+                f"{self.__class__.__name__}:"
+                f" Invalid value for randomgenerator. Allowed values are 0 (determined by compiler)"
+                f" 1 (based on random_number) or 2 (Ziggurat method). "
+                f"{str(randomgenerator)} was given."
             )
         self.randomgenerator = randomgenerator
+
 
         # Add package 
         self.parent.add_package(self)
@@ -162,41 +221,37 @@ class ModpathRWOpts( Package ):
         None
         """
 
+        with open(self.fn_path, 'w') as f:
 
-        # Open file for writing
-        f = open(self.fn_path, "w")
+            # Write time step selection method
+            if self.timestep is not None:
+                if self.timestep == 'adv': 
+                    f.write(f"ADV\n")  
+                    f.write(f"{self.courant:.10f}\n")  
+                if self.timestep == 'disp': 
+                    f.write(f"DISP\n")
+                    f.write(f"{self.ctdisp:.10f}\n")  
+                if self.timestep == 'min':
+                    f.write(f"MIN_ADV_DISP\n")  
+                    f.write(f"{self.courant:.10f}\n")  
+                    f.write(f"{self.ctdisp:.10f}\n")  
+                if self.timestep == 'fixed':
+                    f.write(f"FIXED\n")  
+                    f.write(f"{self.deltat:.10f}\n")  
 
-        # Write time step selection method
-        if self.timestep is not None:
-            if self.timestep == 'adv': 
-                f.write(f"ADV\n")  
-                f.write(f"{self.courant:.10f}\n")  
-            if self.timestep == 'disp': 
-                f.write(f"DISP\n")
-                f.write(f"{self.ctdisp:.10f}\n")  
-            if self.timestep == 'min':
-                f.write(f"MIN_ADV_DISP\n")  
-                f.write(f"{self.courant:.10f}\n")  
-                f.write(f"{self.ctdisp:.10f}\n")  
-            if self.timestep == 'fixed':
-                f.write(f"FIXED\n")  
-                f.write(f"{self.deltat:.10f}\n")  
+            # Write advection model
+            f.write(f"{self.advection.upper():20s}\n")  
 
-        # Write advection model
-        f.write(f"{self.advection.upper():20s}\n")  
+            # dimensionsmask
+            for idb, b in enumerate(self.dimensionsmask):
+                if idb == len(self.dimensionsmask)-1: 
+                    f.write(f"{b:10d}\n")
+                else:
+                    f.write(f"{b:10d}\t")
 
-        # dimensionsmask
-        for idb, b in enumerate(self.dimensionsmask):
-            if idb == len(self.dimensionsmask)-1: 
-                f.write(f"{b:10d}\n")
-            else:
-                f.write(f"{b:10d}\t")
+            # randomgenerator
+            if ( self.randomgenerator != 0 ): 
+                f.write(f"{self.randomgenerator}\n")
 
-        # randomgenerator
-        if ( self.randomgenerator != 0 ): 
-            f.write(f"{self.randomgenerator}\n")
-
-        # And close
-        f.close()
-
+        # Done
         return
