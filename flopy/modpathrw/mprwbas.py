@@ -25,7 +25,7 @@ class ModpathRWBas( Modpath7Bas ):
         if 'porosity' in kwargs.keys():
             if ( not isinstance( kwargs['porosity'], (float,list,np.ndarray)) ):
                 raise TypeError(
-                    f"{self.__class__.__name__} :"
+                    f"{self.__class__.__name__}:"
                     f" Invalid type for porosity. It should be real values, but "
                     f"{str(type(kwargs['porosity']))} was given."
                 )
@@ -35,21 +35,21 @@ class ModpathRWBas( Modpath7Bas ):
                 kwargs['porosity'] = np.array(kwargs['porosity'])
             if ( kwargs['porosity'].dtype not in [np.float32, np.float64, np.int32, np.int64 ] ):
                 raise TypeError(
-                    f"{self.__class__.__name__} :"
+                    f"{self.__class__.__name__}:"
                     f" Invalid type for porosity. It should be real values, but "
                     f"{str(kwargs['porosity'].dtype)} was given."
                 )
             # Verify that all values are within a valid range
-            if ( np.any( kwargs['porosity'] <= 0.0 ) or np.any( kwargs['porosity'] >= 1.0 ) ): 
+            if ( np.any( kwargs['porosity'] < 0.0 ) or np.any( kwargs['porosity'] > 1.0 ) ): 
                 raise ValueError(
-                    f"{self.__class__.__name__} :"
+                    f"{self.__class__.__name__}:"
                     f" Invalid values for porosity. It should contain real values " 
                     f"only in the range [0.0,1.0]."
                 )
             # Complain if only zeros
             if ( np.all( kwargs['porosity'] == 0.0 ) ): 
                 raise ValueError(
-                    f"{self.__class__.__name__} :"
+                    f"{self.__class__.__name__}:"
                     f" Invalid values for porosity. It should contain real values " 
                     f"only in the range [0.0,1.0], but only zeros were found."
                 )
