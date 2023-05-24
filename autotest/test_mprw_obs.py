@@ -2,12 +2,10 @@
 Tests for the ModpathRWObs class
 '''
 
-import numpy as np
 import pytest
-
+import numpy as np
+from flopyrw import modpathrw
 from autotest.test_mprw_p09mt3d_cases import MT3DP09Cases
-from flopy import modpathrw
-
 
 def test_mprw_obs_input_mf6(function_tmpdir):
     '''

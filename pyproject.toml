@@ -18,7 +18,7 @@ readme = {file = ["README.md", "LICENSE.md"], content-type = "text/markdown"}
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["flopy"]
+include = ["flopyrw"]
 namespaces = false
 
 [project.optional-dependencies]

@@ -3,10 +3,8 @@ Tests for the ModpathRWSpc class
 '''
 
 import pytest
-
+from flopyrw import modpathrw
 from autotest.test_mprw_p09mt3d_cases import MT3DP09Cases
-from flopy import modpathrw
-
 
 def test_mprw_spc_input_mf6(function_tmpdir):
     '''

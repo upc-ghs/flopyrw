@@ -1,27 +1,12 @@
 '''
+Configures flow models with mf6 and mf2005 for P09 in MT3DMS
 '''
+
+import os
 import numpy as np
-
 from flopy import mf6
-
-#from flopy.modflow import (
-#    Modflow,
-#    ModflowBas,
-#    ModflowDis,
-#    ModflowLpf,
-#    ModflowOc,
-#    ModflowPcg,
-#    ModflowRch,
-#    ModflowRiv,
-#    ModflowWel,
-#)
-#from flopy.modpath import (
-#    Modpath7,
-#    Modpath7Bas,
-#    Modpath7Sim,
-#    ParticleData,
-#    ParticleGroup,
-#)
+from flopy import modflow
+from modflow_devtools.markers import requires_exe
 
 
 class MT3DP09Cases:
@@ -64,28 +49,19 @@ class MT3DP09Cases:
     injwell  = [0, 3, 6]
     extwell  = [0, 10, 6]
 
-
-    ## TRANSPORT
-    #porosity        = 0.3  # Porosity
-    #sconc           = 0.0
-    #al              = 20.0  # Longitudinal dispersivity ($m$)
-    #trpt            = 0.2  # Ratio of horiz. transverse to longitudinal dispersivity ($m$)
-    #ath1            = al * trpt
-    #dmcoef          = 0.0  # m^2/s
-    #sconc           = 0.0
-
-
     # Simple steady state stress periods
     stress_periods = [
             {
                 'length'       : 1 * 365 * 86400, # 1 years, seconds
                 'n_time_steps' : 1,
                 'ts_multiplier': 1,
+                'steady'       : True,
             },
             {
                 'length'       : 1 * 365 * 86400, # 1 years, seconds
                 'n_time_steps' : 1,
                 'ts_multiplier': 1,
+                'steady'       : True,
             },
         ]
 
@@ -95,13 +71,13 @@ class MT3DP09Cases:
 
 
     @staticmethod
-    def mf6(function_tmpdir):
+    def mf6(function_tmpdir, write=False, run=False):
         """
         Configures the flow model with MODFLOW 6
         """
 
         # model name
-        ws = function_tmpdir / "mf6"
+        ws = os.path.join( function_tmpdir , "mf6")
         nm = "p09mf6"
         gwfname = 'gwf-'+nm
 
@@ -188,10 +164,10 @@ class MT3DP09Cases:
         # chd package
         xc = gwf.modelgrid.xcellcenters
         chdspd = []
-        for j in np.arange(MT3DP09Cases.ncol):
+        for j in range(MT3DP09Cases.ncol):
             # Loop through the top & bottom sides.
-            #               l,  r, c,   head, conc
-            chdspd.append([(0,  0, j), 250.0, 0.0])  # Top boundary
+            #               l,  r, c,               head, conc
+            chdspd.append([(0,  0, j), MT3DP09Cases.chdh, 0.0])  # Top boundary
             hd = 20.0 + (xc[-1, j] - xc[-1, 0]) * 2.5 / 100
             chdspd.append([(0, 17, j),    hd, 0.0])  # Bottom boundary
         chdspd = {0: chdspd}
@@ -206,7 +182,7 @@ class MT3DP09Cases:
         )
 
         # wel package
-        # First stress period
+        # first stress period
         welsp1 = []
         welsp1.append( # Injection well
             # (k, i, j), flow, conc
@@ -223,7 +199,7 @@ class MT3DP09Cases:
                 MT3DP09Cases.czero
             ]
         ) 
-        # Second stress period
+        # second stress period
         welsp2 = []
         welsp2.append( # Injection well
             [
@@ -262,150 +238,172 @@ class MT3DP09Cases:
             printrecord=[("HEAD", "ALL"), ("BUDGET", "ALL")],
         )
 
-
-        ## Write the datasets
-        #sim.write_simulation()
-        ## Run the simulation
-        #success, buff = sim.run_simulation()
-        #assert success, "mf6 model did not run"
+        if write:
+            sim.write_simulation(silent=True)
+        if run:
+            success, buff = sim.run_simulation(silent=True)
+            assert success, "MT3DP09Cases: mf6 model did not run."
 
         return gwf 
 
 
+    @staticmethod
+    def mf2005(function_tmpdir, write=False, run=False):
+        """
+        Configures the flow model with MODFLOW-2005
+        """
+        from copy import copy
+
+        # model name
+        ws        = os.path.join( function_tmpdir , "mf2005" )
+        nm        = "p09mf"
+        modelname = 'mf-'+nm
+
+        # modflow
+        mf = modflow.Modflow(
+            modelname=modelname, model_ws=ws, exe_name="mf2005"
+        )
+
+        # Time variables
+        nper   = len(MT3DP09Cases.stress_periods)
+        perlen = []
+        nstp   = []
+        tsmult = []
+        steady = []
+        for sp in MT3DP09Cases.stress_periods:
+            perlen.append( sp['length'] )
+            nstp.append( sp['n_time_steps'] )
+            tsmult.append( sp['ts_multiplier'] )
+            steady.append( sp['steady'] )
+
+        # dis package
+        disconfig = { 
+            'nlay'        : MT3DP09Cases.nlay,
+            'nrow'        : MT3DP09Cases.nrow,
+            'ncol'        : MT3DP09Cases.ncol,
+            'delr'        : MT3DP09Cases.delr,
+            'delc'        : MT3DP09Cases.delc,
+            'top'         : MT3DP09Cases.top,
+            'botm'        : MT3DP09Cases.botm,
+            'itmuni'      : 1, # seconds
+            'lenuni'      : 2, # meters
+            'nper'        : nper,
+            'perlen'      : perlen,
+            'steady'      : steady,
+            'nstp'        : nstp,
+        }
+        modflow.ModflowDis(
+                mf,
+                **disconfig 
+            )
+
+        # chd 
+        xc = mf.modelgrid.xcellcenters
+        chdspd = []
+        for j in range(MT3DP09Cases.ncol):
+            # Loop through the top & bottom sides.
+            topcell = [0,0,j] # top boundary
+            topcell.extend( 2*[MT3DP09Cases.chdh] )
+            chdspd.append( topcell ) 
+            hd = 20.0 + (xc[-1, j] - xc[-1, 0]) * 2.5 / 100
+            botcell = [0,17,j]
+            botcell.extend( 2*[hd] )
+            chdspd.append(botcell) # Bottom boundary
+        chdspd = {0: chdspd}
+        modflow.ModflowChd(
+            mf,
+            stress_period_data=chdspd
+        )
+
+        # bas 
+        ibound = np.ones(
+                (
+                    MT3DP09Cases.nlay,
+                    MT3DP09Cases.nrow,
+                    MT3DP09Cases.ncol
+                ),
+                dtype=np.int32
+            )
+        ibound[0, 0, :]  = -1
+        ibound[0, -1, :] = -1
+        strt = np.ones(
+                (
+                    MT3DP09Cases.nlay,
+                    MT3DP09Cases.nrow,
+                    MT3DP09Cases.ncol
+                ),
+                dtype=np.float32
+            )*MT3DP09Cases.chdh
+        for j in range(MT3DP09Cases.ncol):
+            strt[0, -1, j] = 20.0 + (xc[-1, j] - xc[-1, 0]) * 2.5 / 100
+        modflow.ModflowBas(
+            mf,
+            ibound=ibound,
+            strt=strt,
+        )
+
+        # lpf
+        modflow.ModflowLpf(
+            mf,
+            hk=MT3DP09Cases.hk,
+            laytyp=MT3DP09Cases.laytyp,
+            ss=0, sy=0,
+        )
+
+        # wel
+        injwell = copy( MT3DP09Cases.injwell )
+        injwell.extend( [MT3DP09Cases.qinjwell] )
+        extwell = copy( MT3DP09Cases.extwell )
+        extwell.extend( [MT3DP09Cases.qextwell] )
+        welspd = {
+            0: [ injwell, extwell ]
+        }
+        modflow.ModflowWel(
+            mf,
+            stress_period_data=welspd
+        )
+
+        # pcg
+        modflow.ModflowPcg(mf)
+
+        # oc
+        modflow.ModflowOc(
+            mf,
+            stress_period_data={
+                (0,0):['save head', 'save budget'],
+                (1,0):['save head', 'save budget']
+            }
+        )
+        
+        if write:
+            mf.write_input()
+        if run:
+            success, buff = mf.run_model(silent=True)
+            assert success, "MT3DP09Cases: mf2005 model did not run."
+
+        return mf
 
 
-        ## create modpath files
-        #mp = Modpath7(
-        #    modelname=f"{nm}_mp", flowmodel=gwf, exe_name="mp7", model_ws=ws
-        #)
-        #defaultiface6 = {"RCH": 6, "EVT": 6}
-        #mpbas = Modpath7Bas(mp, porosity=0.1, defaultiface=defaultiface6)
-        #mpsim = Modpath7Sim(
-        #    mp,
-        #    simulationtype="combined",
-        #    trackingdirection="forward",
-        #    weaksinkoption="pass_through",
-        #    weaksourceoption="pass_through",
-        #    budgetoutputoption="summary",
-        #    budgetcellnumbers=[1049, 1259],
-        #    traceparticledata=[1, 1000],
-        #    referencetime=[0, 0, 0.0],
-        #    stoptimeoption="extend",
-        #    timepointdata=[500, 1000.0],
-        #    zonedataoption="on",
-        #    zones=Mp7Cases.zones,
-        #    particlegroups=Mp7Cases.particlegroups,
-        #)
+    def case_mf6(self, function_tmpdir, write=False, run=False):
+        return MT3DP09Cases.mf6(function_tmpdir, write=write, run=run)
 
-        ## write modpath datasets
-        #mp.write_input()
-
-        ## run modpath
-        #success, buff = mp.run_model()
-        #assert success, f"mp7 model ({mp.name}) did not run"
-
-        #return mp
-
-    #@staticmethod
-    #def mf2005(function_tmpdir):
-    #    """
-    #    MODPATH 7 example 1 for MODFLOW-2005
-    #    """
-
-    #    ws = function_tmpdir / "mf2005"
-    #    nm = "ex01_mf2005"
-    #    iu_cbc = 130
-    #    m = Modflow(nm, model_ws=ws, exe_name="mf2005")
-    #    ModflowDis(
-    #        m,
-    #        nlay=Mp7Cases.nlay,
-    #        nrow=Mp7Cases.nrow,
-    #        ncol=Mp7Cases.ncol,
-    #        nper=Mp7Cases.nper,
-    #        itmuni=4,
-    #        lenuni=1,
-    #        perlen=Mp7Cases.perlen,
-    #        nstp=Mp7Cases.nstp,
-    #        tsmult=Mp7Cases.tsmult,
-    #        steady=True,
-    #        delr=Mp7Cases.delr,
-    #        delc=Mp7Cases.delc,
-    #        top=Mp7Cases.top,
-    #        botm=Mp7Cases.botm,
-    #    )
-    #    ModflowLpf(
-    #        m,
-    #        ipakcb=iu_cbc,
-    #        laytyp=Mp7Cases.laytyp,
-    #        hk=Mp7Cases.kh,
-    #        vka=Mp7Cases.kv,
-    #    )
-    #    ModflowBas(m, ibound=1, strt=Mp7Cases.top)
-    #    # recharge
-    #    ModflowRch(m, ipakcb=iu_cbc, rech=Mp7Cases.rch, nrchop=1)
-    #    # wel
-    #    wd = [i for i in Mp7Cases.wel_loc] + [Mp7Cases.wel_q]
-    #    ModflowWel(m, ipakcb=iu_cbc, stress_period_data={0: wd})
-    #    # river
-    #    rd = []
-    #    for i in range(Mp7Cases.nrow):
-    #        rd.append(
-    #            [
-    #                0,
-    #                i,
-    #                Mp7Cases.ncol - 1,
-    #                Mp7Cases.riv_h,
-    #                Mp7Cases.riv_c,
-    #                Mp7Cases.riv_z,
-    #            ]
-    #        )
-    #    ModflowRiv(m, ipakcb=iu_cbc, stress_period_data={0: rd})
-    #    # output control
-    #    ModflowOc(
-    #        m,
-    #        stress_period_data={
-    #            (0, 0): ["save head", "save budget", "print head"]
-    #        },
-    #    )
-    #    ModflowPcg(m, hclose=1e-6, rclose=1e-3, iter1=100, mxiter=50)
-
-    #    m.write_input()
-
-    #    success, buff = m.run_model()
-    #    assert success, "mf2005 model did not run"
-
-    #    # create modpath files
-    #    mp = Modpath7(
-    #        modelname=f"{nm}_mp", flowmodel=m, exe_name="mp7", model_ws=ws
-    #    )
-    #    defaultiface = {"RECHARGE": 6, "ET": 6}
-    #    mpbas = Modpath7Bas(mp, porosity=0.1, defaultiface=defaultiface)
-    #    mpsim = Modpath7Sim(
-    #        mp,
-    #        simulationtype="combined",
-    #        trackingdirection="forward",
-    #        weaksinkoption="pass_through",
-    #        weaksourceoption="pass_through",
-    #        budgetoutputoption="summary",
-    #        budgetcellnumbers=[1049, 1259],
-    #        traceparticledata=[1, 1000],
-    #        referencetime=[0, 0, 0.0],
-    #        stoptimeoption="extend",
-    #        timepointdata=[500, 1000.0],
-    #        zonedataoption="on",
-    #        zones=Mp7Cases.zones,
-    #        particlegroups=Mp7Cases.particlegroups,
-    #    )
-
-    #    # write modpath datasets
-    #    mp.write_input()
-
-    #    return mp
+    def case_mf2005(self, function_tmpdir, write=False, run=False):
+        return MT3DP09Cases.mf2005(function_tmpdir, write=write, run=run)
 
 
-    def case_mf6(self, function_tmpdir):
-        return MT3DP09Cases.mf6(function_tmpdir)
+@requires_exe("mf6")
+def test_mprw_mt3dp09_mf6(function_tmpdir):
+    '''
+    Write and run the mf6 model
+    '''
+
+    MT3DP09Cases.mf6(function_tmpdir,write=True,run=True)
 
 
-    #def case_mf2005(self, function_tmpdir):
-    #    return Mp7Cases.mf2005(function_tmpdir)
+@requires_exe("mf2005")
+def test_mprw_mt3dp09_mf2005(function_tmpdir):
+    '''
+    Write and run the mf2005 model
+    '''
+
+    MT3DP09Cases.mf2005(function_tmpdir,write=True,run=True)

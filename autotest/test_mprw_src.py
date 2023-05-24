@@ -3,11 +3,8 @@ Tests for the ModpathRWSrc class
 '''
 
 import pytest
-from modflow_devtools.markers import requires_exe
-
+from flopyrw import modpathrw
 from autotest.test_mprw_p09mt3d_cases import MT3DP09Cases
-from flopy import modpathrw
-
 
 def test_mprw_src_aux_input_mf6(function_tmpdir):
     '''

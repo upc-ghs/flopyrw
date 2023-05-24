@@ -4,10 +4,8 @@ Tests for the ModpathRWOpts class
 
 import pytest
 import numpy as np
-
+from flopyrw import modpathrw
 from autotest.test_mprw_p09mt3d_cases import MT3DP09Cases
-from flopy import modpathrw
-
 
 def test_mprw_rwopts_input_mf6(function_tmpdir):
     '''
