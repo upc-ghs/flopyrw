@@ -5,7 +5,7 @@ Tests for the ModpathRWGpkde class
 import pytest
 import numpy as np
 from flopyrw import modpathrw
-from autotest.test_mprw_p09mt3d_cases import MT3DP09Cases
+from autotest.test_mprw_mt3dp09_cases import MT3DP09Cases
 
 def test_mprw_gpkde_input_mf6(function_tmpdir):
     '''
@@ -14,17 +14,31 @@ def test_mprw_gpkde_input_mf6(function_tmpdir):
 
     # get the mf6 case
     # brings WEL-1 and CHD-1 with aux CONCENTRATION
-    flowmf6 = MT3DP09Cases.mf6(function_tmpdir) 
+    gwf = MT3DP09Cases.mf6(function_tmpdir) 
 
     # modpath-rw
     mp = modpathrw.ModpathRW(
             modelname='mprwsim',
-            flowmodel=flowmf6,
+            flowmodel=gwf,
             model_ws =function_tmpdir,
         )
   
-    #import pdb
-    #pdb.set_trace()
+
+    # get the mf2005 case
+    # brings WEL with aux CONCENTRATION
+    mf = MT3DP09Cases.mf2005(function_tmpdir)
+
+    # modpath-rw
+    mp = modpathrw.ModpathRW(
+            modelname='mprwsimmf',
+            flowmodel=mf,
+            model_ws =function_tmpdir,
+        )
+
+
+
+    import pdb
+    pdb.set_trace()
 
 
 

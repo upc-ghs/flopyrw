@@ -350,7 +350,13 @@ class ModpathRWSrc( Package ):
                         fmts.append("{:3d}")
                     istart = 0
                     iend   = 5
-                    # Append solute id is particlesmassoption == 2
+                    if ( not hasattr(self.parent,'particlesmassoption') ):
+                        raise Exception( 
+                            f"{self.__class__.__name__}:"
+                            f" The particlesmassoption was not found in parent package."
+                            f" Did you define a ModpathRWSim package ?"
+                        )
+                    # Append solute id if particlesmassoption == 2
                     if ( 
                         ( self._parent.particlesmassoption == 2 ) 
                     ): 
@@ -476,7 +482,13 @@ class ModpathRWSrc( Package ):
                         # Write the mass
                         f.write(mfmt.format(*src['particlesmass']))
 
-                        # Give the species id if requested. 
+                        # Give the species id if requested.
+                        if ( not hasattr(self.parent,'particlesmassoption') ):
+                            raise Exception( 
+                                f"{self.__class__.__name__}:"
+                                f" The particlesmassoption was not found in parent package."
+                                f" Did you define a ModpathRWSim package ?"
+                            )
                         if ( 
                             ( self._parent.particlesmassoption == 2 ) 
                         ): 

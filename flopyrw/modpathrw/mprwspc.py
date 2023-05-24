@@ -154,9 +154,9 @@ class ModpathRWSpc( Package ):
                 # __getattr__
                 if ( not hasattr(self.parent,'particlesmassoption') ):
                     raise Exception( 
-                        self.__class__.__name__ + ':' + 
-                        ' The particlesmassoption was not found in parent package. ' + 
-                        'Did you define a ModpathRWSim package ? '
+                        f"{self.__class__.__name__}:"
+                        f" The particlesmassoption was not found in parent package."
+                        f" Did you define a ModpathRWSim package ?"
                     )
                 if ( self.parent.particlesmassoption != 2 ):
                     if ( 

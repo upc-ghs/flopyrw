@@ -4,7 +4,7 @@ Tests for the ModpathRWSrc class
 
 import pytest
 from flopyrw import modpathrw
-from autotest.test_mprw_p09mt3d_cases import MT3DP09Cases
+from autotest.test_mprw_mt3dp09_cases import MT3DP09Cases
 
 def test_mprw_src_aux_input_mf6(function_tmpdir):
     '''
@@ -126,13 +126,156 @@ def test_mprw_src_aux_input_mf6(function_tmpdir):
         )
 
     # Define a valid src
-    # src = 
-    ## verify assignment to the main model
-    #pkgs = mp2.get_package_list() 
-    #assert src._ftype() in pkgs, (
-    #        f"SRC package was not found in ModpathRW object"
-    #    )
+    sources = [
+        (
+            "WEL-1", "CONCENTRATION", 100.0 , (4,4,1)
+        ),
+    ]
+    src = modpathrw.ModpathRWSrc(
+        mp,
+        inputformat='aux', 
+        sources=sources,
+    )
+    pkgs = mp.get_package_list() 
+    assert src._ftype() in pkgs, (
+            f"SRC package was not found in ModpathRW object"
+        )
 
-    ## Write
-    #mp2.write_input()
+    with pytest.raises(Exception):
+        # Try to write without a sim package
+        mp.write_input()
 
+    # sim with particlesmassoption = 0
+    simconfig = {
+        'simulationtype'         : 'rwtimeseries', 
+        'trackingdirection'      : 'forward',
+        'weaksinkoption'         : 'stop_at',
+        'weaksourceoption'       : 'pass_through',
+        'referencetime'          : 0.0,
+        'stoptimeoption'         : 'specified',
+        'stoptime'               : 2*365*86400,
+        'particlesmassoption'    : 0, 
+        'speciesdispersionoption': 0,
+        'timeseriesoutputoption' : 2, 
+        'timepointdata'          : [2, (1.0*365*86400)],
+    }
+    mpsim = modpathrw.ModpathRWSim(
+        mp,
+        **simconfig
+    )
+
+    # Try to write ( not checking consistency of dsp and rwopts, check=False )
+    mp.write_input()
+
+    
+def test_mprw_src_aux_input_mf2005(function_tmpdir):
+    '''
+    Verifies the inputformat aux with different
+    source combinations, while using a mf6 model.
+    '''
+
+    # get the mf2005 case
+    # brings WEL with aux CONCENTRATION
+    mf = MT3DP09Cases.mf2005(function_tmpdir)
+
+    # modpath-rw
+    mp = modpathrw.ModpathRW(
+            modelname='mprwsim',
+            flowmodel=mf,
+            model_ws =function_tmpdir,
+        )
+
+    # src  
+    with pytest.raises(Exception):
+        # pass repeated sources
+        sources = [
+            (
+                "WEL",
+                [
+                    ["CONCENTRATION", 100.0, (4,4,1)],
+                    ["CONCENTRATION", 100.0, (4,4,1)]
+                ],
+            ),
+        ]
+        modpathrw.ModpathRWSrc(
+            mp,
+            inputformat='aux', 
+            sources=sources,
+        )
+
+    with pytest.raises(ValueError):
+        # pass invalid aux variable name
+        sources = [
+            (
+                "WEL",
+                [
+                    ["THECONCENTRATION", 100.0, (4,4,1)],
+                ],
+            ),
+        ]
+        modpathrw.ModpathRWSrc(
+            mp,
+            inputformat='aux', 
+            sources=sources,
+        )
+    with pytest.raises(ValueError):
+        # pass invalid package name
+        sources = [
+            (
+                "THEWEL",
+                [
+                    ["CONCENTRATION", 100.0, (4,4,1)],
+                ],
+            ),
+        ]
+        modpathrw.ModpathRWSrc(
+            mp,
+            inputformat='aux', 
+            sources=sources,
+        )
+
+
+    # Define a valid source and write
+    sources = [
+        (
+            "WEL",
+            [
+                ["CONCENTRATION", 100.0, (4,4,1)],
+            ],
+        ),
+    ]
+    src = modpathrw.ModpathRWSrc(
+        mp,
+        inputformat='aux', 
+        sources=sources,
+    )
+    pkgs = mp.get_package_list() 
+    assert src._ftype() in pkgs, (
+            f"SRC package was not found in ModpathRW object"
+        )
+
+    with pytest.raises(Exception):
+        # Try to write without a sim package
+        mp.write_input()
+
+    # sim with particlesmassoption = 0
+    simconfig = {
+        'simulationtype'         : 'rwtimeseries', 
+        'trackingdirection'      : 'forward',
+        'weaksinkoption'         : 'stop_at',
+        'weaksourceoption'       : 'pass_through',
+        'referencetime'          : 0.0,
+        'stoptimeoption'         : 'specified',
+        'stoptime'               : 2*365*86400,
+        'particlesmassoption'    : 0, 
+        'speciesdispersionoption': 0,
+        'timeseriesoutputoption' : 2, 
+        'timepointdata'          : [2, (1.0*365*86400)],
+    }
+    mpsim = modpathrw.ModpathRWSim(
+        mp,
+        **simconfig
+    )
+
+    # Try to write ( not checking consistency of dsp and rwopts, check=False )
+    mp.write_input()

@@ -312,7 +312,8 @@ class MT3DP09Cases:
         chdspd = {0: chdspd}
         modflow.ModflowChd(
             mf,
-            stress_period_data=chdspd
+            stress_period_data=chdspd,
+            ipakcb=53
         )
 
         # bas 
@@ -343,25 +344,57 @@ class MT3DP09Cases:
         )
 
         # lpf
+        # note: mp7 looks for budgetfilename
+        # from lpf package
         modflow.ModflowLpf(
             mf,
             hk=MT3DP09Cases.hk,
             laytyp=MT3DP09Cases.laytyp,
             ss=0, sy=0,
+            ipakcb=53,
         )
 
-        # wel
+        options=[ 'AUX', 'CONCENTRATION' ]
+        dtype = np.dtype(
+                [
+                    ("k", int),
+                    ("i", int),
+                    ("j", int),
+                    ("flux", np.float32),
+                    ("concentration", np.float32),
+                ]
+            )  
+       
+        # first stress period
         injwell = copy( MT3DP09Cases.injwell )
-        injwell.extend( [MT3DP09Cases.qinjwell] )
+        injwell.extend( [MT3DP09Cases.qinjwell] ) # flux
+        injwell.extend( [MT3DP09Cases.cinjwell] ) # concentration
+
         extwell = copy( MT3DP09Cases.extwell )
-        extwell.extend( [MT3DP09Cases.qextwell] )
-        welspd = {
-            0: [ injwell, extwell ]
-        }
-        modflow.ModflowWel(
-            mf,
-            stress_period_data=welspd
-        )
+        extwell.extend( [MT3DP09Cases.qextwell] ) # flux 
+        extwell.extend( [MT3DP09Cases.czero   ] ) # concentration
+        welsp1 = [ injwell, extwell ]
+
+        # second stress period
+        injwell = copy( MT3DP09Cases.injwell )
+        injwell.extend( [MT3DP09Cases.qinjwell] ) # flux
+        injwell.extend( [MT3DP09Cases.czero   ] ) # concentration
+
+        extwell = copy( MT3DP09Cases.extwell )
+        extwell.extend( [MT3DP09Cases.qextwell] ) # flux 
+        extwell.extend( [MT3DP09Cases.czero   ] ) # concentration
+        welsp2 = [ injwell, extwell ]
+
+        welspd = {0:welsp1, 1:welsp2}
+
+        # wel
+        wel = modflow.ModflowWel(
+                mf,
+                stress_period_data=welspd,
+                dtype=dtype,
+                options=options,
+                ipakcb=53,
+            )
 
         # pcg
         modflow.ModflowPcg(mf)
