@@ -7,7 +7,7 @@ import numpy as np
 
 # flopy
 from flopy.pakbase import Package
-
+from flopy.discretization import StructuredGrid
 
 class ModpathRWGpkde( Package ):
     """
@@ -136,8 +136,8 @@ class ModpathRWGpkde( Package ):
         outputcolformat        = 0, 
         outputfileformat       = 0, 
         domainorigin           = None, 
-        domainsize             = [1,1,1],
-        binsize                = [1,1,1],
+        domainsize             = None, 
+        binsize                = None,
         gridallocformat        = 0, 
         gridborderfraction     = 0.05,
         noptloops              = 5,
@@ -155,8 +155,8 @@ class ModpathRWGpkde( Package ):
         effectiveweightformat  = 0,
         extension              = 'gpkde',
     ):
-
-
+        
+        # initialize
         ftype = self._ftype()
         unitnumber = model.next_unit()
         super().__init__(model, extension, ftype, unitnumber)
@@ -168,8 +168,8 @@ class ModpathRWGpkde( Package ):
             ):
                 raise TypeError(
                     f"{self.__class__.__name__}:" 
-                    f" The type of the output file name should be str. "
-                    f"{str(type(outputfilename))} was given."
+                    f" The type of the output file name should be str."
+                    f" {str(type(outputfilename))} was given."
                 )
             self.outputfilename = outputfilename
         else:
@@ -179,10 +179,10 @@ class ModpathRWGpkde( Package ):
         if outputcolformat not in [0,1,2]: 
             raise ValueError(
                 f"{self.__class__.__name__}:"
-                f" Invalid value for outputcolformat. Allowed values are "
-                f"0 (bin ids and density), 1 (bin ids, coordinates and density) "
-                f"and 2 (coordinates and density). "
-                f"{str(outputcolformat)} was given."
+                f" Invalid value for outputcolformat. Allowed values are"
+                f" 0 (bin ids and density), 1 (bin ids, coordinates and density)"
+                f" and 2 (coordinates and density)."
+                f" {str(outputcolformat)} was given."
             )
         self.outputcolformat = outputcolformat
 
@@ -196,34 +196,32 @@ class ModpathRWGpkde( Package ):
             )
         self.outputfileformat = outputfileformat
 
-        # domainorigin
-        if domainorigin is None :
-            # Fills domain origin with some values 
-            # determined from the modelgrid definition
-            domainorigin = [
-                    self._parent.flowmodel.modelgrid.xoffset,
-                    self._parent.flowmodel.modelgrid.yoffset,
-                    np.min(self._parent.flowmodel.modelgrid.botm)
-                ]
-        self.domainorigin = np.array(domainorigin).astype(np.float32)
-        if ( len(self.domainorigin.shape) != 1 ):
-            raise ValueError(
-                f"{self.__class__.__name__}:"
-                f" Invalid specification of domain origin."
-                f" It should be a one dimensional list with 3 elements."
-            )
-        if ( self.domainorigin.shape[0] != 3 ): 
-            raise ValueError(
-                f"{self.__class__.__name__}:"
-                f" Invalid specification of domain origin."
-                f" It should be a one dimensional list with 3 elements."
-            )
 
-        # Note: Depending on the kind of modelgrid maybe some
-        # decisions can be made for binsizes and/or domain sizes.
-        # StructuredGrid has the is_regular function.
+        # Get the modelgrid for convenience
+        modelgrid = self.parent.flowmodel.modelgrid 
+
 
         # domainsize
+        if (
+            ( domainsize is None ) and 
+            isinstance( modelgrid, StructuredGrid )
+        ):
+
+            domainsize = np.zeros(shape=(3,)).astype(np.float32)
+            xmin,xmax,ymin,ymax = modelgrid.extent
+
+            # Assign domainsizes for dimensions with more than 
+            # one element. If only one, for reconstruction 
+            # this dimension is compressed
+            if modelgrid.ncol > 1:
+                domainsize[0] = abs( xmax - xmin )
+            if modelgrid.nrow > 1:
+                domainsize[1] = abs( ymax - ymin )
+            if modelgrid.nlay > 1:
+                zmin = np.min( modelgrid.botm )
+                zmax = np.max( modelgrid.top  ) 
+                domainsize[2] = abs( zmax - zmin )
+
         if ( not isinstance( domainsize, (list,np.ndarray) ) ):
             raise TypeError(
                 f"{self.__class__.__name__}:" 
@@ -231,64 +229,133 @@ class ModpathRWGpkde( Package ):
                 f" should be list or np.ndarray."
                 f" {str(type(domainsize))} was given."
             )
-        self.domainsize = np.array(domainsize).astype(np.float32)
-        if ( len(self.domainsize.shape) != 1 ):
+        domainsize = np.array(domainsize).astype(np.float32)
+        if ( len(domainsize.shape) != 1 ):
             raise ValueError(
                 f"{self.__class__.__name__}:" 
                 f" Invalid specification of domain size."
                 f" It should be a one dimensional list with 3 elements."
             )
-        if ( self.domainsize.shape[0] != 3 ):
+        if ( domainsize.shape[0] != 3 ):
             raise ValueError(
                 f"{self.__class__.__name__}:"
                 f" Invalid specification of domain size."
                 f" It should be a one dimensional list with 3 elements."
             )
-        if ( np.any( self.domainsize < 0 ) ): 
+        if ( np.any( domainsize < 0 ) ): 
             raise ValueError(
                 f"{self.__class__.__name__}:"
                 f" Bin sizes should be greater than zero."
                 f" {str(self.domainsize)} was given."
             )
-        if ( np.all( self.domainsize == 0 ) ): 
+        if ( np.all( domainsize == 0 ) ): 
             raise ValueError(
                 f"{self.__class__.__name__}:"
                 f" All domain sizes are zero."
                 f" At least one positive value should be given."
             )
+        self.domainsize = domainsize
+
+
+        # domainorigin
+        if domainorigin is None :
+
+            domainorigin = np.zeros(shape=(3,)).astype(np.float32)
+
+            # Fills domain origin with values 
+            # determined from the modelgrid definition
+            if modelgrid.ncol > 1:
+                domainorigin[0] = modelgrid.xoffset
+            if modelgrid.nrow > 1:
+                domainorigin[1] = modelgrid.yoffset
+            if modelgrid.nlay > 1:
+                domainorigin[2] = np.min(self._parent.flowmodel.modelgrid.botm)
+
+        if ( not isinstance( domainorigin, (list,np.ndarray) ) ):
+            raise TypeError(
+                f"{self.__class__.__name__}:" 
+                f" The type of the domainorigin parameter"
+                f" should be list or np.ndarray."
+                f" {str(type(domainorigin))} was given."
+            )
+        domainorigin = np.array(domainorigin).astype(np.float32)
+        if ( len(domainorigin.shape) != 1 ):
+            raise ValueError(
+                f"{self.__class__.__name__}:"
+                f" Invalid specification of domain origin."
+                f" It should be a one dimensional list with 3 elements."
+            )
+        if ( domainorigin.shape[0] != 3 ): 
+            raise ValueError(
+                f"{self.__class__.__name__}:"
+                f" Invalid specification of domain origin."
+                f" It should be a one dimensional list with 3 elements."
+            )
+        self.domainorigin = domainorigin
+
 
         # binsize
+        if (
+            ( binsize is None ) and 
+            isinstance( modelgrid, StructuredGrid )
+        ): 
+            # For a structured grid, infer bin sizes
+            # from delr,delc,delz
+            binsize = np.zeros(shape=(3,)).astype(np.float32)
+
+            # Assign binsizes for dimensions with more than 
+            # one element. If only one, for reconstruction 
+            # this dimension is compressed
+            if modelgrid.ncol > 1:
+                if modelgrid.is_regular_x:
+                    # If the grid is regular, then get the value
+                    binsize[0] = modelgrid.delr.flat[0]
+                else:
+                    # If not, it could be an average
+                    binsize[0] = np.mean(modelgrid.delr.flat)
+            if modelgrid.nrow > 1:
+                if modelgrid.is_regular_y:
+                    binsize[1] = modelgrid.delc.flat[0]
+                else:
+                    binsize[1] = np.mean(modelgrid.delc.flat)
+            if modelgrid.nlay > 1:
+                if modelgrid.is_regular_z:
+                    binsize[2] = modelgrid.delz.flat[0]
+                else:
+                    binsize[2] = np.mean(modelgrid.delz.flat)
+
         if ( not isinstance( binsize, (list,np.ndarray) ) ):
             raise TypeError(
                 f"{self.__class__.__name__}:"
                 f" The type of the binsize parameter should be list or np.ndarray." 
                 f" {str(type(binsize))}  was given."
             )
-        self.binsize = np.array(binsize).astype(np.float32)
-        if ( len(self.binsize.shape) != 1 ):
+        binsize = np.array(binsize).astype(np.float32)
+        if ( len(binsize.shape) != 1 ):
             raise ValueError(
                 f"{self.__class__.__name__}:"
                 f" Invalid specification of bin size."
                 f" It should be a one dimensional list with 3 elements."
             )
-        if ( self.binsize.shape[0] != 3 ): 
+        if ( binsize.shape[0] != 3 ): 
             raise ValueError(
                 f"{self.__class__.__name__}:"
                 f" Invalid specification of bin size."
                 f" It should be a one dimensional list with 3 elements."
             )
-        if ( np.any( self.binsize < 0 ) ): 
+        if ( np.any( binsize < 0 ) ): 
             raise ValueError(
                 f"{self.__class__.__name__}:"
                 f" Bin sizes should be greater than zero."
                 f" {str(self.binsize)} was given."
             )
-        if ( np.all( self.binsize == 0 ) ): 
+        if ( np.all( binsize == 0 ) ): 
             raise ValueError(
                 f"{self.__class__.__name__}:"
                 f" All bin sizes are zero."
                 f" At least one positive value should be given."
             )
+        self.binsize = binsize
 
         # gridallocformat
         if (gridallocformat not in [0,1]):
