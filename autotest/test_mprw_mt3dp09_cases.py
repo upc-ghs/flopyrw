@@ -6,7 +6,7 @@ import os
 import numpy as np
 from flopy import mf6
 from flopy import modflow
-from modflow_devtools.markers import requires_exe
+from modflow_devtools.markers import requires_exe, requires_pkg
 
 
 class MT3DP09Cases:
@@ -248,6 +248,8 @@ class MT3DP09Cases:
 
 
     @staticmethod
+    @requires_exe("gridgen")
+    @requires_pkg("shapely")
     def mf6disv(function_tmpdir, write=False, run=False):
         """
         Configures the flow model with MODFLOW 6 and 
@@ -255,6 +257,9 @@ class MT3DP09Cases:
 
         Incomplete!
         """
+        from flopy.utils import gridgen
+        from shapely.geometry import Polygon
+        from copy import deepcopy
 
         # model name
         ws = os.path.join( function_tmpdir , "mf6disv")
@@ -306,9 +311,11 @@ class MT3DP09Cases:
             )
         sim.register_ims_package(imsgwf, [gwf.name]) 
 
-        # dis package
+        # build aux dis grid
+        auxgwf = deepcopy(gwf)
+        delr = MT3DP09Cases.delr
+        delc = MT3DP09Cases.delc
         disconfig = { 
-            'length_units': MT3DP09Cases.length_units, 
             'nlay'        : MT3DP09Cases.nlay,
             'nrow'        : MT3DP09Cases.nrow,
             'ncol'        : MT3DP09Cases.ncol,
@@ -316,30 +323,22 @@ class MT3DP09Cases:
             'delc'        : MT3DP09Cases.delc,
             'top'         : MT3DP09Cases.top,
             'botm'        : MT3DP09Cases.botm,
-            'idomain'     : MT3DP09Cases.idomain,
-            'filename'    : "{}.dis".format(gwfname),
         }
         mf6.ModflowGwfdis(
+                auxgwf,
+                **disconfig
+            )
+        grid = gridgen.Gridgen(auxgwf.modelgrid, model_ws=ws)
+        grid.build(verbose=False)
+        gridprops = grid.get_gridprops_disv()
+
+        # disv package
+        mf6.ModflowGwfdisv(
             gwf,
-            **disconfig
+            **gridprops,
+            filename = "{}.disv".format(gwfname),
         )
-
-        # Build
-        #grid = gridgen.Gridgen(auxdis, model_ws=ws)
-        #grid.build(verbose=False)
-        #gridprops = grid.get_gridprops_disv()
-        #mf6.ModflowGwfdisv(
-        #    gwf,
-        #    nlay        = gridprops['nlay'],
-        #    ncpl        = gridprops['ncpl'],
-        #    top         = gridprops['top'],
-        #    botm        = gridprops['botm'],
-        #    nvert       = gridprops['nvert'],
-        #    vertices    = gridprops['vertices'],
-        #    cell2d      = gridprops['cell2d'],
-        #)
-
-
+        ncells = gwf.modelgrid.ncpl
 
         # ic package
         mf6.ModflowGwfic(
@@ -349,24 +348,52 @@ class MT3DP09Cases:
         )
 
         # npf package
+        hk = MT3DP09Cases.k1 * np.ones(shape=(ncells,), dtype=float)
+        pol= Polygon([ # low permeability zone
+                ( 1*delr , 10*delc+1 ),
+                ( 8*delr , 10*delc+1 ),
+                ( 8*delr , 13*delc-1 ),
+                ( 1*delr , 13*delc-1 ),
+            ])
+        gcells  = grid.intersect( [ pol ], 'polygon', 0 )
+        nodes   = gcells['nodenumber']
+        hk[ nodes ] = MT3DP09Cases.k2
         mf6.ModflowGwfnpf(  
             gwf,
-            k=MT3DP09Cases.hk,
-            k33=MT3DP09Cases.hk,
+            k=hk,
+            k33=hk,
             save_flows=True,
             save_specific_discharge=True,
             filename="{}.npf".format(gwfname),
         )
 
         # chd package
-        xc = gwf.modelgrid.xcellcenters
+        pol= Polygon([ # upper boundary
+                ( 0*delr-1 , 17*delc+1 ),
+                ( 14*delr+1, 17*delc+1 ),
+                ( 14*delr+1, 18*delc-1 ),
+                ( 0*delr-1 , 18*delc-1 ),
+            ])
+        gcells = grid.intersect( [ pol ], 'polygon', 0 )
+        nodes  = gcells['nodenumber']
+        xc     = gwf.modelgrid.xcellcenters
+
         chdspd = []
-        for j in range(MT3DP09Cases.ncol):
-            # Loop through the top & bottom sides.
-            #               l,  r, c,               head, conc
-            chdspd.append([(0,  0, j), MT3DP09Cases.chdh, 0.0])  # Top boundary
-            hd = 20.0 + (xc[-1, j] - xc[-1, 0]) * 2.5 / 100
-            chdspd.append([(0, 17, j),    hd, 0.0])  # Bottom boundary
+        for inode, node in enumerate(nodes):
+            # [ ( lay, node ), head, caux ]
+            chdspd.append([(0, node), MT3DP09Cases.chdh, 0.0])  # top boundary
+
+        pol= Polygon([ # lower boundary
+                ( 0*delr-1 , 0*delc+1 ),
+                ( 14*delr+1, 0*delc+1 ),
+                ( 14*delr+1, 0.5*delc-1 ),
+                ( 0*delr-1 , 0.5*delc-1 ),
+            ])
+        gcells = grid.intersect( [ pol ], 'polygon', 0 )
+        nodes  = gcells['nodenumber']
+        for inod, nod  in enumerate( nodes ):
+            hd = 20.0 + ( xc[nod] - xc[nodes[0]] ) * 2.5 / 100
+            chdspd.append([(0, nod), hd, 0.0])  # bottom boundary
         chdspd = {0: chdspd}
         mf6.ModflowGwfchd(
             gwf,
@@ -379,39 +406,62 @@ class MT3DP09Cases:
         )
 
         # wel package
+        polinj = Polygon([ # injection well 
+                ( 600+1 , 1400+1 ),
+                ( 700-1 , 1400+1 ),
+                ( 700-1 , 1500-1 ),
+                ( 600+1 , 1500-1 ),
+            ])
+        injcells  = grid.intersect( [ polinj ], 'polygon', 0 )
+        injnodes  = injcells['nodenumber']
+        nnodesinj = len(injnodes)
+
+        polext = Polygon([ # extraction well
+                ( 600+1 , 700+1 ),
+                ( 700-1 , 700+1 ),
+                ( 700-1 , 800-1 ),
+                ( 600+1 , 800-1 ),
+            ])
+        extcells  = grid.intersect( [ polext ], 'polygon', 0 )
+        extnodes  = extcells['nodenumber']
+        nnodesext = len(extnodes)
+
         # first stress period
         welsp1 = []
-        welsp1.append( # Injection well
-            # (k, i, j), flow, conc
-            [
-                tuple(MT3DP09Cases.injwell), 
-                MT3DP09Cases.qinjwell, 
-                MT3DP09Cases.cinjwell
-            ]
-        ) 
-        welsp1.append( # Extraction well
-            [
-                tuple(MT3DP09Cases.extwell), 
-                MT3DP09Cases.qextwell, 
-                MT3DP09Cases.czero
-            ]
-        ) 
+        for ino, no in enumerate( injnodes ):
+            welsp1.append( # injection well
+                [
+                    (0,no.item()),
+                    MT3DP09Cases.qinjwell/nnodesinj, 
+                    MT3DP09Cases.cinjwell
+                ]
+            ) 
+        for ino, no in enumerate( extnodes ):
+            welsp1.append( # extraction well
+                [
+                    (0,no.item()),
+                    MT3DP09Cases.qextwell/nnodesext, 
+                    MT3DP09Cases.czero
+                ]
+            ) 
         # second stress period
         welsp2 = []
-        welsp2.append( # Injection well
-            [
-                tuple(MT3DP09Cases.injwell), 
-                MT3DP09Cases.qinjwell, 
-                MT3DP09Cases.czero
-            ]
-        ) 
-        welsp2.append( # Extraction well
-            [
-                tuple(MT3DP09Cases.extwell), 
-                MT3DP09Cases.qextwell, 
-                MT3DP09Cases.czero
-            ]
-        ) 
+        for ino, no in enumerate( injnodes ):
+            welsp2.append( # injection well
+                [
+                    (0,no.item()),
+                    MT3DP09Cases.qinjwell/nnodesinj, 
+                    MT3DP09Cases.czero
+                ]
+            ) 
+        for ino, no in enumerate( extnodes ):
+            welsp2.append( # extraction well
+                [
+                    (0,no.item()),
+                    MT3DP09Cases.qextwell/nnodesext, 
+                    MT3DP09Cases.czero
+                ]
+            ) 
         welspd = {0: welsp1, 1: welsp2}
         mf6.ModflowGwfwel(
             gwf,
@@ -439,11 +489,9 @@ class MT3DP09Cases:
             sim.write_simulation(silent=True)
         if run:
             success, buff = sim.run_simulation(silent=True)
-            assert success, "MT3DP09Cases: mf6 model did not run."
+            assert success, "MT3DP09Cases: mf6disv model did not run."
 
         return gwf 
-
-
 
 
     @staticmethod
@@ -616,12 +664,6 @@ class MT3DP09Cases:
         return mf
 
 
-    def case_mf6(self, function_tmpdir, write=False, run=False):
-        return MT3DP09Cases.mf6(function_tmpdir, write=write, run=run)
-
-    def case_mf2005(self, function_tmpdir, write=False, run=False):
-        return MT3DP09Cases.mf2005(function_tmpdir, write=write, run=run)
-
 
 @requires_exe("mf6")
 def test_mprw_mt3dp09_mf6(function_tmpdir):
@@ -631,6 +673,13 @@ def test_mprw_mt3dp09_mf6(function_tmpdir):
 
     MT3DP09Cases.mf6(function_tmpdir,write=True,run=True)
 
+@requires_exe("mf6")
+def test_mprw_mt3dp09_mf6disv(function_tmpdir):
+    '''
+    Write and run the mf6 model with disv grid
+    '''
+
+    MT3DP09Cases.mf6disv(function_tmpdir,write=True,run=True)
 
 @requires_exe("mf2005")
 def test_mprw_mt3dp09_mf2005(function_tmpdir):
