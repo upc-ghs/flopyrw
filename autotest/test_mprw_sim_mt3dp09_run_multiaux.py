@@ -42,9 +42,9 @@ def test_mprw_sim_run_tsobs_multiaux_mf6(function_tmpdir):
         (
             "WEL-1",
             [# auxvarname, pmass, template, speciesid
-                ["CONC0", 400.0, (3,3,1), 0],
-                ["CONC1", 400.0, (3,3,1), 1],
-                ["CONC2", 400.0, (3,3,1), 2],
+                ["CONC0", 500.0, (3,3,1), 0],
+                ["CONC1", 500.0, (3,3,1), 1],
+                ["CONC2", 500.0, (3,3,1), 2],
             ],
         ),
     ]
