@@ -27,16 +27,26 @@ class ModpathRW( Modpath7 ):
 
     '''
 
-    def __init__(
-            self, *args,
-            version='modpathrw',
-            **kwargs
-        ):
+    def __init__(self, *args, **kwargs):
+
+        # Assign defaults values 
+        # but preserving user provided information 
+        try:
+            kwargs['exe_name']
+        except KeyError:
+            kwargs['exe_name'] = 'mpathrw'
+        try:
+            kwargs['simfile_ext']
+        except KeyError:
+            kwargs['simfile_ext'] = 'mprw' # should be consistent with ModpathRWSim
+
 
         # Call parent constructor
         super().__init__(*args,**kwargs)
+        # update version
         self.version_types = {"modpathrw": "MODPATH-RW"}
-        self.set_version(version)
+        self.set_version('modpathrw')
+
 
         # Following filenames are generated
         # after parent constructor, appended to the class

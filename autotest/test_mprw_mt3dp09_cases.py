@@ -83,7 +83,7 @@ class MT3DP09Cases:
         """
 
         # model name
-        ws = os.path.join( function_tmpdir , "mf6")
+        ws = function_tmpdir
         nm = "p09mf6"
         gwfname = 'gwf-'+nm
 
@@ -268,7 +268,7 @@ class MT3DP09Cases:
         from copy import deepcopy
 
         # model name
-        ws = os.path.join( function_tmpdir , "mf6disv")
+        ws = function_tmpdir
         nm = "p09mf6"
         gwfname = 'gwf-'+nm
 
@@ -508,7 +508,7 @@ class MT3DP09Cases:
         from copy import copy
 
         # model name
-        ws        = os.path.join( function_tmpdir , "mf2005" )
+        ws        = function_tmpdir
         nm        = "p09mf"
         modelname = 'mf-'+nm
 

@@ -99,8 +99,17 @@ class ModpathRWSim( mp7.Modpath7Sim ):
             **kwargs
         ):
 
+        # try to process an extension if given
+        try:
+            extension = kwargs['extension']
+        except KeyError:
+        # if not, extract from parent model
+            extension = args[0].namefile_ext
+        finally:
+            extension = "mprw"
+
         # Call parent constructor
-        super().__init__(*args,**kwargs, extension='mprw')
+        super().__init__(*args,**kwargs, extension=extension)
         
         # Not the most elegant solution but consistent
         ftype = self._ftype()
