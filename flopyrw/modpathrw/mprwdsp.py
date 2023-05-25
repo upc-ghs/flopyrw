@@ -38,11 +38,13 @@ class ModpathRWDsp( Package ):
         and isotropic transverse dispersivity. Allowed values 'linear'.
     inputformat : str
         The format for writing dispersion model paramters. Allowed values are: 
-            uni/uniform: Parameters are spatially uniform
-            dist/distributed/u3d: Parameters are spatially distributed
-        Note: this distinction determines the reader to be used in MODPATH-RW. In the case of 
-        spatially uniform parameters, arrays are allocated with only one value instead of the 
-        default (one value per cell) while using u3d readers.
+          * uni/uniform: Parameters are spatially uniform
+          * dist/distributed/u3d: Parameters are spatially distributed
+        Notes:
+         * The inputformat distinction determines the reader to be used in MODPATH-RW.
+           In the case of spatially uniform parameters, arrays are allocated with only 
+           one value instead of the default (one value per cell) while using u3d readers.
+         * If None is given, it will infer an inputformat from the shape of dispersion parameters.
     alphal : float, np.ndarray
         Longitudinal dispersivity. Should satisfy alphal >=0.
     alphat : float, np.ndarray
@@ -90,12 +92,18 @@ class ModpathRWDsp( Package ):
 
 
         # modelkind
+        if ( not isinstance( modelkind, str ) ):
+            raise TypeError(
+                f"{self.__class__.__name__}:"
+                f" Invalid type for modelkind. It should be a str , but"
+                f" {str(type(modelkind))} was given."
+            )
         if modelkind is not None: 
-            if modelkind not in ('linear'):
+            if modelkind not in ['linear']:
                 raise ValueError(
-                    self.__class__.__name__ + ':'
-                    + ' Invalid kind option ' + str(modelkind)
-                    + '. The only allowed value is linear. '
+                    f"{self.__class__.__name__}:"
+                    f" Invalid kind option {str(modelkind)}."
+                    f" The only allowed value is linear."
                 )
             if modelkind == 'linear':
                 self.modelkind   = modelkind
@@ -109,21 +117,21 @@ class ModpathRWDsp( Package ):
         if self.modelkindid == 1:
             if ( not isinstance(alphal,(int,float,np.ndarray,list)) ):
                 raise TypeError(
-                    self.__class__.__name__ + ':'
-                    + ' Invalid type for alphal. It should be a real value int/float/list/np.ndarray. '
-                    + str(type(alphal)) + ' was given. '
+                    f"{self.__class__.__name__}:"
+                    f" Invalid type for alphal. It should be a real value int/float/list/np.ndarray."
+                    f" {str(type(alphal))} was given."
                 )
             if ( not isinstance(alphat,(int,float,np.ndarray,list)) ):
                 raise TypeError(
-                    self.__class__.__name__ + ':'
-                    + ' Invalid type for alphat. It should be a real value int/float/list/np.ndarray. '
-                    + str(type(alphat)) + ' was given. '
+                    f"{self.__class__.__name__}:"
+                    f" Invalid type for alphat. It should be a real value int/float/list/np.ndarray."
+                    f" {str(type(alphat))} was given."
                 )
-            if ( not isinstance(alphat,(int,float,np.ndarray,list)) ):
+            if ( not isinstance(dmeff,(int,float,np.ndarray,list)) ):
                 raise TypeError(
-                    self.__class__.__name__ + ':'
-                    + ' Invalid type for dmeff. It should be a real value int/float/list/np.ndarray. '
-                    + str(type(dmeff)) + ' was given. '
+                    f"{self.__class__.__name__}:"
+                    f" Invalid type for dmeff. It should be a real value int/float/list/np.ndarray."
+                    f" {str(type(dmeff))} was given."
                 )
 
 
@@ -139,6 +147,12 @@ class ModpathRWDsp( Package ):
                 inputformat = 'uni'
             else:
             # non uniform params
+                if ( isinstance( alphal, (int,float) ) ):
+                    alphal = [alphal]
+                if ( isinstance( alphat, (int,float) ) ):
+                    alphat = [alphat]
+                if ( isinstance( dmeff, (int,float) ) ):
+                    dmeff  = [dmeff]
                 if ( isinstance(alphal,list) ): 
                     alphal = np.array(alphal)
                 if ( isinstance(alphat,list) ): 
@@ -147,32 +161,38 @@ class ModpathRWDsp( Package ):
                     dmeff = np.array(dmeff)
                 if ( alphal.dtype not in [np.int32, np.int64, np.float32, np.float64] ):
                     raise TypeError(
-                        self.__class__.__name__ + ':' 
-                        + ' Invalid type for alphal. It should be a real value, but '
-                        + str(alphal.dtype) + ' was given. '
+                        f"{self.__class__.__name__}:"
+                        f" Invalid type for alphal. It should be a real value, but"
+                        f" {str(alphal.dtype)} was given."
                     )
                 if ( alphat.dtype not in [np.int32, np.int64, np.float32, np.float64] ):
                     raise TypeError(
-                        self.__class__.__name__ + ':'
-                        + ' Invalid type for alphat. It should be a real value, but '
-                        + str(alphat.dtype) + ' was given. '
+                        f"{self.__class__.__name__}:"
+                        f" Invalid type for alphat. It should be a real value, but"
+                        f" {str(alphat.dtype)} was given."
                     )
                 if ( dmeff.dtype not in [np.int32, np.int64, np.float32, np.float64] ):
                     raise TypeError(
-                        self.__class__.__name__ + ':'
-                        + ' Invalid type for dmeff. It should be a real value, but '
-                        + str(dmeff.dtype) + ' was given. '
+                        f"{self.__class__.__name__}:"
+                        f" Invalid type for dmeff. It should be a real value, but"
+                        f" {str(dmeff.dtype)} was given."
                     )
                 inputformat = 'dist'
 
         # inputformat
+        if ( not isinstance( inputformat, str ) ):
+            raise TypeError(
+                f"{self.__class__.__name__}:"
+                f" Invalid type for inputformat option {str(type(inputformat))}."
+                f" It was expecting a string." 
+            )
         try:
             self.inputformat = inputFormat[inputformat.lower()].value
         except:
             raise ValueError(
-                self.__class__.__name__ + ':'
-                + ' Invalid input format option ' +str(inputformat)
-                + '. The allowed values are uni/uniform or dis/distributed/u3d.' 
+                f"{self.__class__.__name__}:"
+                f" Invalid input format option {str(inputformat)}."
+                f" The allowed values are uni/uniform or dis/distributed/u3d." 
             )
 
         # Assign params
@@ -185,27 +205,27 @@ class ModpathRWDsp( Package ):
                         alphal = alphal[0]
                     else:
                         raise TypeError(
-                            self.__class__.__name__ + ':'
-                            + ' Invalid type for alphal. Uniform format was requested but type '
-                            + str(type(alphal)) + ' was given. '
+                            f"{self.__class__.__name__}:"
+                            f" Invalid type for alphal. Uniform format was requested, but type"
+                            f" {str(type(alphal))} was given."
                         )
                 if ( not isinstance(alphat,(int,float)) ):
                     if ( isinstance(alphat,(list,np.ndarray)) and (len(alphat)==1)):
                         alphat = alphat[0]
                     else:
                         raise TypeError(
-                            self.__class__.__name__ + ':'
-                            + ' Invalid type for alphat. Uniform format was requested but type '
-                            + str(type(alphat)) + ' was given. '
+                            f"{self.__class__.__name__}:"
+                            f" Invalid type for alphat. Uniform format was requested, but type"
+                            f" {str(type(alphat))} was given."
                         )
                 if ( not isinstance(dmeff,(int,float)) ):
                     if ( isinstance(dmeff,(list,np.ndarray)) and (len(dmeff)==1)):
                         dmeff = dmeff[0]
                     else:
                         raise TypeError(
-                            self.__class__.__name__ + ':'
-                            + ' Invalid type for dmeff. Uniform format was requested but type '
-                            + str(type(dmeff)) + ' was given. '
+                            f"{self.__class__.__name__}:"
+                            f" Invalid type for dmeff. Uniform format was requested, but type"
+                            f" {str(type(dmeff))} was given."
                         )
                 # Validate values
                 if ( alphal < 0 ):
@@ -216,24 +236,24 @@ class ModpathRWDsp( Package ):
                     )
                 if ( alphat < 0 ):
                     raise ValueError(
-                        self.__class__.__name__ + ':'
-                        + ' Inconsistent value of alphat ' +str(alphat)
-                        + '. It should be greater or equal than zero.'
+                        f"{self.__class__.__name__}:"
+                        f" Inconsistent value of alphat {str(alphat)}."
+                        f" It should be greater or equal than zero."
                     )
                 if ( dmeff < 0 ):
                     raise ValueError(
-                        self.__class__.__name__ + ':'
-                        + ' Inconsistent value of dmeff ' +str(dmeff)
-                        + '. It should be greater or equal than zero.'
+                        f"{self.__class__.__name__}:"
+                        f" Inconsistent value of dmeff {str(dmeff)}."
+                        f" It should be greater or equal than zero."
                     )
                 self.alphal = alphal 
                 self.alphat = alphat
                 self.dmeff  = dmeff
             else:
                 raise NotImplementedError(
-                        self.__class__.__name__ + ':'
-                        + ' Dispersion model kind ' +str(self.modelkind)
-                        + ' is not implemented.'
+                        f"{self.__class__.__name__}:"
+                        f" Dispersion model kind {str(self.modelkind)}"
+                        f" is not implemented."
                     )
         elif self.inputformat == 1:
             # Distributed dispersion parameters 
@@ -260,9 +280,9 @@ class ModpathRWDsp( Package ):
                     )
                 except:
                     raise Exception(
-                        self.__class__.__name__ + ':'
-                        + ' Error while initializing distributed variable alphal. '
-                        + 'Is the input shape consistent with flow model dimensions ? '
+                        f"{self.__class__.__name__}:"
+                        f" Error while initializing distributed variable alphal."
+                        f" Is the input shape consistent with flow model dimensions ?"
                     )
                 try:
                     self.alphat = Util3d(
@@ -275,9 +295,9 @@ class ModpathRWDsp( Package ):
                     )
                 except:
                     raise Exception(
-                        self.__class__.__name__ + ':'
-                        + ' Error while initializing distributed variable alphat. '
-                        + 'Is the input shape consistent with flow model dimensions ? '
+                        f"{self.__class__.__name__}:"
+                        f" Error while initializing distributed variable alphat."
+                        f" Is the input shape consistent with flow model dimensions ?"
                     )
                 try:
                     self.dmeff = Util3d(
@@ -290,35 +310,35 @@ class ModpathRWDsp( Package ):
                     )
                 except:
                     raise Exception(
-                        self.__class__.__name__ + ':'
-                        + ' Error while initializing distributed variable dmeff. '
-                        + 'Is the input shape consistent with flow model dimensions ? '
+                        f"{self.__class__.__name__}:"
+                        f" Error while initializing distributed variable dmeff."
+                        f" Is the input shape consistent with flow model dimensions ?"
                     )
 
                 # Validate values
                 if np.any( self.alphal.array < 0 ) : 
                     raise ValueError(
-                        self.__class__.__name__ + ':'
-                        + ' Inconsistent values for alphal. Negatives were found and '
-                        + 'it should be greater or equal than zero.'
+                        f"{self.__class__.__name__}:"
+                        f" Inconsistent values for alphal. Negatives were found and"
+                        f" it should be greater or equal than zero."
                     )
                 if np.any( self.alphat.array < 0 ) : 
                     raise ValueError(
-                        self.__class__.__name__ + ':'
-                        + ' Inconsistent values for alphat. Negatives were found and '
-                        + 'it should be greater or equal than zero.'
+                        f"{self.__class__.__name__}:"
+                        f" Inconsistent values for alphat. Negatives were found and"
+                        f" it should be greater or equal than zero."
                     )
                 if np.any( self.dmeff.array < 0 ) : 
                     raise ValueError(
-                        self.__class__.__name__ + ':'
-                        + ' Inconsistent values for dmeff. Negatives were found and '
-                        + 'it should be greater or equal than zero.'
+                        f"{self.__class__.__name__}:"
+                        f" Inconsistent values for dmeff. Negatives were found and"
+                        f" it should be greater or equal than zero."
                     )
             else:
                 raise NotImplementedError(
-                        self.__class__.__name__ + ':'
-                        + ' Dispersion model kind ' +str(self.modelkind)
-                        + ' is not implemented.'
+                        f"{self.__class__.__name__}:"
+                        f" Dispersion model kind {str(self.modelkind)}"
+                        f" is not implemented."
                     )
 
         # String id 

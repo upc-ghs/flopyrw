@@ -6,6 +6,7 @@ import pytest
 from flopyrw import modpathrw
 from autotest.test_mprw_mt3dp09_cases import MT3DP09Cases
 
+
 def test_mprw_src_aux_input_mf6(function_tmpdir):
     '''
     Verifies the inputformat aux with different

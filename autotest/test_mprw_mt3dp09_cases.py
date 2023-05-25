@@ -69,6 +69,12 @@ class MT3DP09Cases:
     nouter, ninner = 100, 300
     hclose, rclose, relax = 1e-6, 1e-6, 1.0
 
+    # transport
+    alphal = 20 
+    alphat = 4
+    dmeff  = 0.0
+    porosity = 0.3
+
 
     @staticmethod
     def mf6(function_tmpdir, write=False, run=False):
