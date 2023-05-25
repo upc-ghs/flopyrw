@@ -29,8 +29,9 @@ def test_mprw_gpkde_input_mf6(function_tmpdir):
     # verify domainsize #
     #-------------------#
     xmin, xmax, ymin, ymax = gwf.modelgrid.extent
+    zmax = np.max( gwf.modelgrid.top  )
+    zmin = np.min( gwf.modelgrid.botm )
 
-    # for a dis grid, without bin size, 
     # it should default to grid discretization params
     assert gpkde.domainsize[0] == abs(xmax-xmin), (
             f"gpkde: domainsize in x direction is not "
@@ -40,16 +41,13 @@ def test_mprw_gpkde_input_mf6(function_tmpdir):
             f"gpkde: domainsize in y direction is not "
             f"consistent with expected grid dimensions"
         )
-    # Because is single layer, z direction is compressed
-    # for reconstruction purposes
-    assert gpkde.domainsize[2] == 0, (
+    assert gpkde.domainsize[2] == abs(zmax-zmin), (
             f"gpkde: domainsize in z direction is not "
             f"consistent with grid discretization"
         )
 
     # verify binsize #
     #----------------#
-    # for a dis grid, without bin size, 
     # it should default to grid discretization params
     assert MT3DP09Cases.delr == gpkde.binsize[0], (
             f"gpkde: binsize in x direction is not "
@@ -59,9 +57,7 @@ def test_mprw_gpkde_input_mf6(function_tmpdir):
             f"gpkde: binsize in y direction is not "
             f"consistent with grid discretization"
         )
-    # Because is single layer, z direction is compressed
-    # for reconstruction purposes
-    assert gpkde.binsize[2] == 0, (
+    assert MT3DP09Cases.delz == gpkde.binsize[2], (
             f"gpkde: binsize in z direction is not "
             f"consistent with grid discretization"
         )
@@ -76,9 +72,7 @@ def test_mprw_gpkde_input_mf6(function_tmpdir):
             f"gpkde: binsize in y direction is not "
             f"consistent with grid discretization"
         )
-    # Because is single layer, z direction is compressed
-    # for reconstruction purposes
-    assert gpkde.domainorigin[2] == 0, (
+    assert gpkde.domainorigin[2] == np.min(gwf.modelgrid.botm), (
             f"gpkde: binsize in z direction is not "
             f"consistent with grid discretization"
         )
@@ -120,6 +114,8 @@ def test_mprw_gpkde_input_mf6disv(function_tmpdir):
     # verify domainsize #
     #-------------------#
     xmin, xmax, ymin, ymax = gwf.modelgrid.extent
+    zmax = np.max( gwf.modelgrid.top  )
+    zmin = np.min( gwf.modelgrid.botm )
 
     # for a dis grid, without bin size, 
     # it should default to grid discretization params
@@ -131,16 +127,13 @@ def test_mprw_gpkde_input_mf6disv(function_tmpdir):
             f"gpkde: domainsize in y direction is not "
             f"consistent with expected grid dimensions"
         )
-    # Because is single layer, z direction is compressed
-    # for reconstruction purposes
-    assert gpkde.domainsize[2] == 0, (
+    assert gpkde.domainsize[2] == abs(zmax-zmin), (
             f"gpkde: domainsize in z direction is not "
             f"consistent with grid discretization"
         )
 
     # verify binsize #
     #----------------#
-    # for a dis grid, without bin size, 
     # it should default to grid discretization params
     assert MT3DP09Cases.delr == gpkde.binsize[0], (
             f"gpkde: binsize in x direction is not "
@@ -150,9 +143,7 @@ def test_mprw_gpkde_input_mf6disv(function_tmpdir):
             f"gpkde: binsize in y direction is not "
             f"consistent with grid discretization"
         )
-    # Because is single layer, z direction is compressed
-    # for reconstruction purposes
-    assert gpkde.binsize[2] == 0, (
+    assert MT3DP09Cases.delz == gpkde.binsize[2], (
             f"gpkde: binsize in z direction is not "
             f"consistent with grid discretization"
         )
@@ -167,13 +158,10 @@ def test_mprw_gpkde_input_mf6disv(function_tmpdir):
             f"gpkde: binsize in y direction is not "
             f"consistent with grid discretization"
         )
-    # Because is single layer, z direction is compressed
-    # for reconstruction purposes
-    assert gpkde.domainorigin[2] == 0, (
+    assert gpkde.domainorigin[2] == np.min(gwf.modelgrid.botm), (
             f"gpkde: binsize in z direction is not "
             f"consistent with grid discretization"
         )
-
 
     # define consistent package 
     gpkde = modpathrw.ModpathRWGpkde(mp)
@@ -210,8 +198,9 @@ def test_mprw_gpkde_input_mf2005(function_tmpdir):
     # verify domainsize #
     #-------------------#
     xmin, xmax, ymin, ymax = mf.modelgrid.extent
+    zmax = np.max( mf.modelgrid.top  )
+    zmin = np.min( mf.modelgrid.botm )
 
-    # for a dis grid, without bin size, 
     # it should default to grid discretization params
     assert gpkde.domainsize[0] == abs(xmax-xmin), (
             f"gpkde: domainsize in x direction is not "
@@ -221,16 +210,13 @@ def test_mprw_gpkde_input_mf2005(function_tmpdir):
             f"gpkde: domainsize in y direction is not "
             f"consistent with expected grid dimensions"
         )
-    # Because is single layer, z direction is compressed
-    # for reconstruction purposes
-    assert gpkde.domainsize[2] == 0, (
+    assert gpkde.domainsize[2] == abs(zmax-zmin), (
             f"gpkde: domainsize in z direction is not "
             f"consistent with grid discretization"
         )
 
     # verify binsize #
     #----------------#
-    # for a dis grid, without bin size, 
     # it should default to grid discretization params
     assert MT3DP09Cases.delr == gpkde.binsize[0], (
             f"gpkde: binsize in x direction is not "
@@ -240,9 +226,7 @@ def test_mprw_gpkde_input_mf2005(function_tmpdir):
             f"gpkde: binsize in y direction is not "
             f"consistent with grid discretization"
         )
-    # Because is single layer, z direction is compressed
-    # for reconstruction purposes
-    assert gpkde.binsize[2] == 0, (
+    assert MT3DP09Cases.delz == gpkde.binsize[2], (
             f"gpkde: binsize in z direction is not "
             f"consistent with grid discretization"
         )
@@ -257,9 +241,7 @@ def test_mprw_gpkde_input_mf2005(function_tmpdir):
             f"gpkde: binsize in y direction is not "
             f"consistent with grid discretization"
         )
-    # Because is single layer, z direction is compressed
-    # for reconstruction purposes
-    assert gpkde.domainorigin[2] == 0, (
+    assert gpkde.domainorigin[2] == np.min(mf.modelgrid.botm), (
             f"gpkde: binsize in z direction is not "
             f"consistent with grid discretization"
         )

@@ -140,7 +140,7 @@ class ModpathRWGpkde( Package ):
         binsize                = None,
         gridallocformat        = 0, 
         gridborderfraction     = 0.05,
-        noptloops              = 5,
+        noptloops              = 10,
         skiperror              = False, 
         convergence            = 0.02,
         kerneldatabase         = False, 
@@ -210,34 +210,21 @@ class ModpathRWGpkde( Package ):
             xmin,xmax,ymin,ymax = modelgrid.extent
 
             if ( isinstance( modelgrid, StructuredGrid ) ):
-                # Assign domainsizes for dimensions with more than 
-                # one element. If only one, for reconstruction 
-                # this dimension is compressed
-                if modelgrid.ncol > 1:
-                    domainsize[0] = abs( xmax - xmin )
-                if modelgrid.nrow > 1:
-                    domainsize[1] = abs( ymax - ymin )
-                if modelgrid.nlay > 1:
-                    zmin = np.min( modelgrid.botm )
-                    zmax = np.max( modelgrid.top  ) 
-                    domainsize[2] = abs( zmax - zmin )
+                # Assign domainsizes
+                domainsize[0] = abs( xmax - xmin )
+                domainsize[1] = abs( ymax - ymin )
+                zmin = np.min( modelgrid.botm )
+                zmax = np.max( modelgrid.top  ) 
+                domainsize[2] = abs( zmax - zmin )
             elif ( isinstance( modelgrid, VertexGrid ) ):
-                # A vertex grid does not have any idea of ncol,nrow
-                # It is possible to take a guess based on xcellcenters
-                # and ycellcenters
-                if ( modelgrid.ncpl > 1 ):
-                    # Proxy to ncol, nrow by counting unique elements
-                    # in cell centers.
-                    if ( len(np.unique(modelgrid.xcellcenters))>1 ):
-                        domainsize[0] = abs( xmax - xmin )
-                    if ( len(np.unique(modelgrid.ycellcenters))>1 ):
-                        domainsize[1] = abs( ymax - ymin )
-                if ( modelgrid.nlay > 1 ):
-                    zmin = np.min( modelgrid.botm )
-                    zmax = np.max( modelgrid.top  ) 
-                    domainsize[2] = abs( zmax - zmin )
+                # Is the same than for structured 
+                domainsize[0] = abs( xmax - xmin )
+                domainsize[1] = abs( ymax - ymin )
+                zmin = np.min( modelgrid.botm )
+                zmax = np.max( modelgrid.top  ) 
+                domainsize[2] = abs( zmax - zmin )
         elif (
-            ( binsize is None ) and 
+            ( domainsize is None ) and 
             isinstance( modelgrid, (UnstructuredGrid) )
         ):
             # In the meantime, force explicit specification
@@ -302,25 +289,14 @@ class ModpathRWGpkde( Package ):
             if ( isinstance( modelgrid, StructuredGrid ) ):
                 # Fills domain origin with values 
                 # determined from the modelgrid definition
-                if modelgrid.ncol > 1:
-                    domainorigin[0] = modelgrid.xoffset
-                if modelgrid.nrow > 1:
-                    domainorigin[1] = modelgrid.yoffset
-                if modelgrid.nlay > 1:
-                    domainorigin[2] = np.min(modelgrid.botm)
+                domainorigin[0] = modelgrid.xoffset
+                domainorigin[1] = modelgrid.yoffset
+                domainorigin[2] = np.min(modelgrid.botm)
             elif ( isinstance( modelgrid, VertexGrid ) ):
-                # A vertex grid does not have any idea of ncol,nrow
-                # It is possible to take a guess based on xcellcenters
-                # and ycellcenters
-                if ( modelgrid.ncpl > 1 ):
-                    # Proxy to ncol, nrow by counting unique elements
-                    # in cell centers.
-                    if ( len(np.unique(modelgrid.xcellcenters))>1 ):
-                        domainorigin[0] = modelgrid.xoffset
-                    if ( len(np.unique(modelgrid.ycellcenters))>1 ):
-                        domainorigin[1] = modelgrid.yoffset
-                if ( modelgrid.nlay > 1 ):
-                    domainorigin[2] = np.min(modelgrid.botm)
+                # The same as structured 
+                domainorigin[0] = modelgrid.xoffset
+                domainorigin[1] = modelgrid.yoffset
+                domainorigin[2] = np.min(modelgrid.botm)
         elif (
             ( domainorigin is None ) and 
             isinstance( modelgrid, (UnstructuredGrid) )
@@ -374,50 +350,62 @@ class ModpathRWGpkde( Package ):
             binsize = np.zeros(shape=(3,)).astype(np.float32)
 
             if ( isinstance( modelgrid, StructuredGrid ) ):
-                # Assign binsizes for dimensions with more than 
-                # one element. If only one, for reconstruction 
-                # this dimension is compressed
-                if modelgrid.ncol > 1:
-                    if modelgrid.is_regular_x:
-                        # If the grid is regular, then get the value
-                        binsize[0] = modelgrid.delr.flat[0]
-                    else:
-                        # If not, it could be an average
-                        binsize[0] = np.mean(modelgrid.delr.flat)
-                if modelgrid.nrow > 1:
-                    if modelgrid.is_regular_y:
-                        binsize[1] = modelgrid.delc.flat[0]
-                    else:
-                        binsize[1] = np.mean(modelgrid.delc.flat)
-                if modelgrid.nlay > 1:
-                    if modelgrid.is_regular_z:
-                        binsize[2] = modelgrid.delz.flat[0]
-                    else:
-                        binsize[2] = np.mean(modelgrid.delz.flat)
+                # x
+                if modelgrid.is_regular_x:
+                    # If the grid is regular, then get the value
+                    binsize[0] = modelgrid.delr.flat[0]
+                else:
+                    # If not, it could be an average
+                    binsize[0] = np.mean(modelgrid.delr.flat)
+                # y
+                if modelgrid.is_regular_y:
+                    binsize[1] = modelgrid.delc.flat[0]
+                else:
+                    binsize[1] = np.mean(modelgrid.delc.flat)
+                # z
+                if modelgrid.is_regular_z:
+                    binsize[2] = modelgrid.delz.flat[0]
+                else:
+                    binsize[2] = np.mean(modelgrid.delz.flat)
             elif ( isinstance( modelgrid, VertexGrid ) ):
                 # Infer a bin size based on xcellcenters 
                 # and ycellcenters
-                if ( modelgrid.ncpl > 1 ):
-                    # Check if unique difference
-                    xdiff = np.diff(np.unique(modelgrid.xcellcenters))
+                # x
+                # Check if unique difference
+                xunique = np.unique(modelgrid.xcellcenters)
+                if len(xunique) > 1:
+                    xdiff = np.diff(xunique)
                     if ( len(np.unique(xdiff))==1 ):
                         # Take as bin size if unique
                         binsize[0] = np.unique(xdiff).item()
                     else:
                         # otherwise an average
                         binsize[0] = np.mean(np.unique(xdiff))
-                    ydiff = np.diff(np.unique(modelgrid.ycellcenters))
+                else:
+                    # if one element, assign domainsize
+                    binsize[0] = domainsize[0]
+                # y
+                yunique = np.unique(modelgrid.ycellcenters)
+                if len(yunique) > 1:
+                    ydiff = np.diff(yunique)
                     if ( len(np.unique(ydiff))==1 ):
                         binsize[1] = np.unique(ydiff).item()
                     else:
                         binsize[1] = np.mean(np.unique(ydiff))
-                if modelgrid.nlay > 1:
-                    # The same principle as before for multilayer problems
-                    zdiff = np.diff(np.unique(modelgrid.zcellcenters))
+                else:
+                    # if one, assign domainsize
+                    binsize[1] = domainsize[1]
+                # z
+                zunique = np.unique(modelgrid.zcellcenters)
+                if len(zunique) > 1:
+                    zdiff = np.diff(zunique)
                     if ( len(np.unique(zdiff))==1 ):
                         binsize[2] = np.unique(zdiff).item()
                     else:
                         binsize[2] = np.mean(np.unique(zdiff))
+                else:
+                    # if one, assign domainsize
+                    binsize[2] = domainsize[2]
         elif (
             ( binsize is None ) and 
             isinstance( modelgrid, (UnstructuredGrid) )
