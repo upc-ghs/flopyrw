@@ -7,7 +7,7 @@ import numpy as np
 
 # flopy
 from flopy.pakbase import Package
-from flopy.discretization import StructuredGrid
+from flopy.discretization import StructuredGrid, VertexGrid, UnstructuredGrid
 
 class ModpathRWGpkde( Package ):
     """
@@ -200,27 +200,61 @@ class ModpathRWGpkde( Package ):
         # Get the modelgrid for convenience
         modelgrid = self.parent.flowmodel.modelgrid 
 
-
         # domainsize
         if (
             ( domainsize is None ) and 
-            isinstance( modelgrid, StructuredGrid )
+            isinstance( modelgrid, (StructuredGrid,VertexGrid) )
         ):
 
             domainsize = np.zeros(shape=(3,)).astype(np.float32)
             xmin,xmax,ymin,ymax = modelgrid.extent
 
-            # Assign domainsizes for dimensions with more than 
-            # one element. If only one, for reconstruction 
-            # this dimension is compressed
-            if modelgrid.ncol > 1:
-                domainsize[0] = abs( xmax - xmin )
-            if modelgrid.nrow > 1:
-                domainsize[1] = abs( ymax - ymin )
-            if modelgrid.nlay > 1:
-                zmin = np.min( modelgrid.botm )
-                zmax = np.max( modelgrid.top  ) 
-                domainsize[2] = abs( zmax - zmin )
+            if ( isinstance( modelgrid, StructuredGrid ) ):
+                # Assign domainsizes for dimensions with more than 
+                # one element. If only one, for reconstruction 
+                # this dimension is compressed
+                if modelgrid.ncol > 1:
+                    domainsize[0] = abs( xmax - xmin )
+                if modelgrid.nrow > 1:
+                    domainsize[1] = abs( ymax - ymin )
+                if modelgrid.nlay > 1:
+                    zmin = np.min( modelgrid.botm )
+                    zmax = np.max( modelgrid.top  ) 
+                    domainsize[2] = abs( zmax - zmin )
+            elif ( isinstance( modelgrid, VertexGrid ) ):
+                # A vertex grid does not have any idea of ncol,nrow
+                # It is possible to take a guess based on xcellcenters
+                # and ycellcenters
+                if ( modelgrid.ncpl > 1 ):
+                    # Proxy to ncol, nrow by counting unique elements
+                    # in cell centers.
+                    if ( len(np.unique(modelgrid.xcellcenters))>1 ):
+                        domainsize[0] = abs( xmax - xmin )
+                    if ( len(np.unique(modelgrid.ycellcenters))>1 ):
+                        domainsize[1] = abs( ymax - ymin )
+                if ( modelgrid.nlay > 1 ):
+                    zmin = np.min( modelgrid.botm )
+                    zmax = np.max( modelgrid.top  ) 
+                    domainsize[2] = abs( zmax - zmin )
+        elif (
+            ( binsize is None ) and 
+            isinstance( modelgrid, (UnstructuredGrid) )
+        ):
+            # In the meantime, force explicit specification
+            if ( self.parent.flowmodel.modelversion == 'mf6' ):
+                raise ValueError(
+                    f"{self.__class__.__name__}:"
+                    f" For unstructured grids an explicit specification"
+                    f" of domainsize is needed, but None was given."
+                    f" Note: Modpath7 and ModpathRW do not currently support"
+                    f" unstructured grids for mf6 flow models."
+                )
+            else: 
+                raise ValueError(
+                    f"{self.__class__.__name__}:"
+                    f" For unstructured grids an explicit specification"
+                    f" of domainsize is needed, but None was given."
+                )
 
         if ( not isinstance( domainsize, (list,np.ndarray) ) ):
             raise TypeError(
@@ -258,18 +292,54 @@ class ModpathRWGpkde( Package ):
 
 
         # domainorigin
-        if domainorigin is None :
+        if (
+            ( domainorigin is None ) and 
+            isinstance( modelgrid, (StructuredGrid,VertexGrid) )
+        ):
 
             domainorigin = np.zeros(shape=(3,)).astype(np.float32)
 
-            # Fills domain origin with values 
-            # determined from the modelgrid definition
-            if modelgrid.ncol > 1:
-                domainorigin[0] = modelgrid.xoffset
-            if modelgrid.nrow > 1:
-                domainorigin[1] = modelgrid.yoffset
-            if modelgrid.nlay > 1:
-                domainorigin[2] = np.min(self._parent.flowmodel.modelgrid.botm)
+            if ( isinstance( modelgrid, StructuredGrid ) ):
+                # Fills domain origin with values 
+                # determined from the modelgrid definition
+                if modelgrid.ncol > 1:
+                    domainorigin[0] = modelgrid.xoffset
+                if modelgrid.nrow > 1:
+                    domainorigin[1] = modelgrid.yoffset
+                if modelgrid.nlay > 1:
+                    domainorigin[2] = np.min(modelgrid.botm)
+            elif ( isinstance( modelgrid, VertexGrid ) ):
+                # A vertex grid does not have any idea of ncol,nrow
+                # It is possible to take a guess based on xcellcenters
+                # and ycellcenters
+                if ( modelgrid.ncpl > 1 ):
+                    # Proxy to ncol, nrow by counting unique elements
+                    # in cell centers.
+                    if ( len(np.unique(modelgrid.xcellcenters))>1 ):
+                        domainorigin[0] = modelgrid.xoffset
+                    if ( len(np.unique(modelgrid.ycellcenters))>1 ):
+                        domainorigin[1] = modelgrid.yoffset
+                if ( modelgrid.nlay > 1 ):
+                    domainorigin[2] = np.min(modelgrid.botm)
+        elif (
+            ( domainorigin is None ) and 
+            isinstance( modelgrid, (UnstructuredGrid) )
+        ):
+            # In the meantime, force explicit specification
+            if ( self.parent.flowmodel.modelversion == 'mf6' ):
+                raise ValueError(
+                    f"{self.__class__.__name__}:"
+                    f" For unstructured grids an explicit specification"
+                    f" of domainorigin is needed, but None was given."
+                    f" Note: Modpath7 and ModpathRW do not currently support"
+                    f" unstructured grids for mf6 flow models."
+                )
+            else: 
+                raise ValueError(
+                    f"{self.__class__.__name__}:"
+                    f" For unstructured grids an explicit specification"
+                    f" of domainorigin is needed, but None was given."
+                )
 
         if ( not isinstance( domainorigin, (list,np.ndarray) ) ):
             raise TypeError(
@@ -297,32 +367,76 @@ class ModpathRWGpkde( Package ):
         # binsize
         if (
             ( binsize is None ) and 
-            isinstance( modelgrid, StructuredGrid )
+            isinstance( modelgrid, (StructuredGrid,VertexGrid) )
         ): 
             # For a structured grid, infer bin sizes
             # from delr,delc,delz
             binsize = np.zeros(shape=(3,)).astype(np.float32)
 
-            # Assign binsizes for dimensions with more than 
-            # one element. If only one, for reconstruction 
-            # this dimension is compressed
-            if modelgrid.ncol > 1:
-                if modelgrid.is_regular_x:
-                    # If the grid is regular, then get the value
-                    binsize[0] = modelgrid.delr.flat[0]
-                else:
-                    # If not, it could be an average
-                    binsize[0] = np.mean(modelgrid.delr.flat)
-            if modelgrid.nrow > 1:
-                if modelgrid.is_regular_y:
-                    binsize[1] = modelgrid.delc.flat[0]
-                else:
-                    binsize[1] = np.mean(modelgrid.delc.flat)
-            if modelgrid.nlay > 1:
-                if modelgrid.is_regular_z:
-                    binsize[2] = modelgrid.delz.flat[0]
-                else:
-                    binsize[2] = np.mean(modelgrid.delz.flat)
+            if ( isinstance( modelgrid, StructuredGrid ) ):
+                # Assign binsizes for dimensions with more than 
+                # one element. If only one, for reconstruction 
+                # this dimension is compressed
+                if modelgrid.ncol > 1:
+                    if modelgrid.is_regular_x:
+                        # If the grid is regular, then get the value
+                        binsize[0] = modelgrid.delr.flat[0]
+                    else:
+                        # If not, it could be an average
+                        binsize[0] = np.mean(modelgrid.delr.flat)
+                if modelgrid.nrow > 1:
+                    if modelgrid.is_regular_y:
+                        binsize[1] = modelgrid.delc.flat[0]
+                    else:
+                        binsize[1] = np.mean(modelgrid.delc.flat)
+                if modelgrid.nlay > 1:
+                    if modelgrid.is_regular_z:
+                        binsize[2] = modelgrid.delz.flat[0]
+                    else:
+                        binsize[2] = np.mean(modelgrid.delz.flat)
+            elif ( isinstance( modelgrid, VertexGrid ) ):
+                # Infer a bin size based on xcellcenters 
+                # and ycellcenters
+                if ( modelgrid.ncpl > 1 ):
+                    # Check if unique difference
+                    xdiff = np.diff(np.unique(modelgrid.xcellcenters))
+                    if ( len(np.unique(xdiff))==1 ):
+                        # Take as bin size if unique
+                        binsize[0] = np.unique(xdiff).item()
+                    else:
+                        # otherwise an average
+                        binsize[0] = np.mean(np.unique(xdiff))
+                    ydiff = np.diff(np.unique(modelgrid.ycellcenters))
+                    if ( len(np.unique(ydiff))==1 ):
+                        binsize[1] = np.unique(ydiff).item()
+                    else:
+                        binsize[1] = np.mean(np.unique(ydiff))
+                if modelgrid.nlay > 1:
+                    # The same principle as before for multilayer problems
+                    zdiff = np.diff(np.unique(modelgrid.zcellcenters))
+                    if ( len(np.unique(zdiff))==1 ):
+                        binsize[2] = np.unique(zdiff).item()
+                    else:
+                        binsize[2] = np.mean(np.unique(zdiff))
+        elif (
+            ( binsize is None ) and 
+            isinstance( modelgrid, (UnstructuredGrid) )
+        ):
+            # In the meantime, force explicit specification
+            if ( self.parent.flowmodel.modelversion == 'mf6' ):
+                raise ValueError(
+                    f"{self.__class__.__name__}:"
+                    f" For unstructured grids an explicit specification"
+                    f" of binsize is needed, but None was given."
+                    f" Note: Modpath7 and ModpathRW do not currently support"
+                    f" unstructured grids for mf6 flow models."
+                )
+            else: 
+                raise ValueError(
+                    f"{self.__class__.__name__}:"
+                    f" For unstructured grids an explicit specification"
+                    f" of binsize is needed, but None was given."
+                )
 
         if ( not isinstance( binsize, (list,np.ndarray) ) ):
             raise TypeError(
