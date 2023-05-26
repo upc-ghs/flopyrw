@@ -52,7 +52,16 @@ def test_mprw_obs_input_mf6(function_tmpdir):
     with pytest.raises(TypeError):
         # define with unstructured and invalid type list of cells
         modpathrw.ModpathRWObs(mp, cells=['asd',1,2], structured=False)
-  
+    with pytest.raises(TypeError):
+        # define with invalid type for kind parameter
+        modpathrw.ModpathRWObs(mp, kind=None)
+    with pytest.raises(ValueError):
+        # define with invalid value for kind parameter
+        modpathrw.ModpathRWObs(mp, kind=10)
+    with pytest.raises(ValueError):
+        # define with invalid value for kind parameter
+        modpathrw.ModpathRWObs(mp, kind='theobs')
+
     # obs: define a consistent observation
     modpathrw.ModpathRWObs(mp, cells=cells)
     
