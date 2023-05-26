@@ -292,7 +292,7 @@ def test_mprw_sim_run_combined_mf6(function_tmpdir):
         (
             "WEL-1",
             [
-                ["CONCENTRATION", 300.0, (4,4,1)],
+                ["CONCENTRATION", 500.0, (3,3,1)],
             ],
         ),
     ]
