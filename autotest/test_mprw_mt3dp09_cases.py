@@ -729,6 +729,12 @@ class MT3DP09Cases:
         extcells  = grid.intersect( [ polext ], 'polygon', 0 )
         extnodes  = extcells['nodenumber']
         nnodesext = len(extnodes)
+        
+        # pass injnodes and extnodes to the class 
+        # for later use
+        MT3DP09Cases.usginjnodes = injnodes
+        MT3DP09Cases.usgextnodes = extnodes
+
 
         # first stress period
         welsp1 = []
