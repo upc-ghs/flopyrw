@@ -66,22 +66,22 @@ class ModpathRWSim( mp7.Modpath7Sim ):
 
     New Parameters
     --------------
-    timeseriesoutputoption : int/str
+    timeseriesoutputoption : int or str
         Specify behavior of timeseries writer. Allowed values are: 
-         * 0,'active': Write timeseries records only for active particles
-         * 1,'all': Write timesereis records for all particles
-         * 2,'skip': Skip the timeseries writer
+         * 0 or 'active': Write timeseries records only for active particles
+         * 1 or 'all': Write timesereis records for all particles
+         * 2 or 'skip': Skip the timeseries writer
     particlesmassoption: int/str
         Indicates whether a mass shall be read for classical particle groups
         specifications. Allowed values are: 
-         * 0,'off': do not read a particle mass 
-         * 1,'mass': read the particle mass for particle groups
-         * 2,'massspc': read a mass and a solute identifier for all specified particle groups
+         * 0 or 'off': do not read a particle mass 
+         * 1 or 'mass': read the particle mass for particle groups
+         * 2 or 'massspc': read a mass and a solute identifier for all specified particle groups
     speciesdispersionoption: int/str
         Configures if particles are displaced with the same dispersion parameters or
         with species specific properties depending on solute id. Allowed values are:
-         * 0,'unique': all particles displaced with the same dispersion properties
-         * 1,'specific': particles displaced with specific dispersion properties
+         * 0 or 'unique': all particles displaced with the same dispersion properties
+         * 1 or 'specific': particles displaced with specific dispersion properties
     '''
 
     

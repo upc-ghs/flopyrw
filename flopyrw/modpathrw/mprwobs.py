@@ -4,6 +4,7 @@ Configuration of MODPATH-RW observations
 
 # python
 import numpy as np
+from enum import Enum
 
 # flopy
 from flopy.pakbase import Package
@@ -11,6 +12,16 @@ from flopy.utils import Util3d
 
 # local 
 from .utils import multipackage
+
+
+class observationKindOption(Enum): 
+    '''
+    Enumerate formats for timeseries output option
+    '''
+    res      = 0
+    resident = 0
+    flux     = 1
+    sink     = 1
 
 
 class ModpathRWObs( Package ):
@@ -22,10 +33,10 @@ class ModpathRWObs( Package ):
     model : model object
         The model object (of type :class: ModpathRW) to which
         this package will be added.
-    kind  : int
+    kind  : int or str
         The kind of observation. Allowed values are:
-        * 0: observation of resident concentrations, any cell.
-        * 1: observation of flux concentrations. For consistency, 
+        * 0 or ('res','resident'): observation of resident concentrations, any cell.
+        * 1 or ('flux','sink')   : observation of flux concentrations. For consistency, 
              it should be applied to cells with sink flow and 
              configure the simulation with weaksinkoption=stop_at.
     cellinputoption : int
@@ -104,17 +115,38 @@ class ModpathRWObs( Package ):
 
 
         # Observation kind
-        if ( kind not in [0,1] ): 
-            raise ValueError(
-                self.__class__.__name__ + ':'
-                + ' Invalid kind option ' + str(kind)
-                + '. Allowed values are 0 (Resident) or 1 (Flux).'
+        if ( not isinstance( kind, (int,str) ) ):
+            raise TypeError(
+                f"{self.__class__.__name__}:"
+                f" Invalid type for observation kind."
+                f" It can be specified as int or str, but {str(type(kind))}"
+                f" was given." 
             )
-        self.kind = kind
-        if self.kind == 0: 
-            self.stringkind = 'RESIDENT'
-        elif self.kind == 1:
-            self.stringkind = 'FLUX'
+        if ( isinstance( kind, int ) ):
+            if ( kind not in [0,1] ): 
+                raise ValueError(
+                    self.__class__.__name__ + ':'
+                    + ' Invalid kind option ' + str(kind)
+                    + '. Allowed values are 0 (resident) or 1 (flux).'
+                )
+            self.kind = kind
+            if self.kind == 0: 
+                self.stringkind = 'RESIDENT'
+            elif self.kind == 1:
+                self.stringkind = 'FLUX'
+        elif ( isinstance( kind, str ) ):
+            try:
+                self.kind = observationKindOption[kind.lower()].value
+                if self.kind == 0: 
+                    self.stringkind = 'RESIDENT'
+                elif self.kind == 1:
+                    self.stringkind = 'FLUX'
+            except:
+                raise ValueError(
+                    f"{self.__class__.__name__}:"
+                    f" Invalid observation kind {str(kind)}."
+                    f" The allowed values are resident or flux."
+                )
 
         # output option
         if ( outputoption not in [0,1,2] ):
