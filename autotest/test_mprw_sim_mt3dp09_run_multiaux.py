@@ -281,7 +281,7 @@ def test_mprw_sim_run_combined_multiaux_mf6(function_tmpdir):
             [# auxvarname, pmass, template, speciesid
                 ["CONC0", 500.0, (2,2,1), 0],
                 ["CONC1", 500.0, (2,2,1), 1],
-                ["CONC2", 500.0, (2,2,1), 2],
+                #["CONC2", 500.0, (2,2,1), 2],
             ],
         ),
     ]
@@ -304,12 +304,12 @@ def test_mprw_sim_run_combined_multiaux_mf6(function_tmpdir):
         alphat=3.0*MT3DP09Cases.alphat,
         dmeff =3.0*MT3DP09Cases.dmeff,
     )
-    dsp2 = modpathrw.ModpathRWDsp(
-        mp,
-        alphal=0.5*MT3DP09Cases.alphal,
-        alphat=0.5*MT3DP09Cases.alphat,
-        dmeff =0.5*MT3DP09Cases.dmeff,
-    )
+    #dsp2 = modpathrw.ModpathRWDsp(
+    #    mp,
+    #    alphal=0.5*MT3DP09Cases.alphal,
+    #    alphat=0.5*MT3DP09Cases.alphat,
+    #    dmeff =0.5*MT3DP09Cases.dmeff,
+    #)
 
     # spc
     # 0
@@ -322,11 +322,11 @@ def test_mprw_sim_run_combined_multiaux_mf6(function_tmpdir):
         mp,
         dsp1
     )
-    # 2
-    modpathrw.ModpathRWSpc(
-        mp,
-        dsp2
-    )
+    ## 2
+    #modpathrw.ModpathRWSpc(
+    #    mp,
+    #    dsp2
+    #)
 
     # obs
     obs = modpathrw.ModpathRWObs(

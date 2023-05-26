@@ -24,6 +24,7 @@ namespaces = false
 
 [project.optional-dependencies]
 test = [
+    "shapely >=1.8",
     "modflow-devtools",
     "pytest",
     "pytest-dotenv",
