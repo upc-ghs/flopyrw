@@ -425,3 +425,102 @@ def test_mprw_sim_run_tsobs_mf6disvusg(function_tmpdir):
 
     success, buff = mp.run_model(silent=True,report=True)
     assert success, f"mpathrw did not run correctly"
+
+
+@requires_exe("mf6","mpathrw")
+def test_mprw_sim_run_tsobs_mf6disvmultilayer(function_tmpdir):
+    '''
+    Verifies running of the simulation
+    '''
+
+    # get the mf6 case
+    # brings WEL-1 and CHD-1 with aux CONCENTRATION
+    # appends linearextnodes and linearinjnodes to MT3DP09Cases
+    flowmf6 = MT3DP09Cases.mf6disvmultilayer(function_tmpdir,write=True,run=True)
+
+    # modpath-rw
+    mp = modpathrw.ModpathRW(
+            modelname='mprwsim',
+            flowmodel=flowmf6,
+            model_ws =function_tmpdir,
+        )
+ 
+    # bas
+    modpathrw.ModpathRWBas(mp,porosity=MT3DP09Cases.porosity)
+
+    # rwopts
+    modpathrw.ModpathRWOpts(
+        mp,
+        dimensionsmask=[1,1,1], # 3d
+        timestep='min',
+        ctdisp=0.1,
+        courant=0.1
+    )
+
+    # src
+    sources = [
+        (
+            "WEL-1",
+            [
+                ["CONCENTRATION", 400.0, (2,2,1)],
+            ],
+        ),
+    ]
+    src = modpathrw.ModpathRWSrc(
+        mp,
+        inputformat='aux', 
+        sources=sources,
+    )
+
+    # dsp 
+    modpathrw.ModpathRWDsp(
+        mp,
+        # reduce dispersivities to avoid undefined particles
+        # while displacing in 3d, notice that dz
+        # is about 3[m] and alphat 4[m], with approx
+        # 2d velocities. This may lead to very 
+        # large random displacements on the vertical
+        # direction, and particles with undefined status.
+        # At this point is not so relevant in the context 
+        # of the test, it is worth considering a better
+        # handling in source code, or moving towards 
+        # the dispersion model in Lichtner et al. 2002.
+        alphal=0.05*MT3DP09Cases.alphal,
+        alphat=0.05*MT3DP09Cases.alphat,
+        dmeff=MT3DP09Cases.dmeff,
+    )
+
+    # obs
+    obs = modpathrw.ModpathRWObs(
+        mp,
+        kind='flux',
+        cells=[ no for no in MT3DP09Cases.linearextnodes ],
+        structured=False,
+    )
+
+    # sim
+    simconfig = {
+        'simulationtype'         : 'rwtimeseries', 
+        'trackingdirection'      : 'forward',
+        'weaksinkoption'         : 'stop_at',
+        'weaksourceoption'       : 'pass_through',
+        'referencetime'          : 0.0,
+        'stoptimeoption'         : 'specified',
+        'stoptime'               : 2*365*86400,
+        'timepointdata'          : [73, (1.0*10*86400)],
+        'timeseriesoutputoption' : 2,
+        'particlesmassoption'    : 0,
+        'speciesdispersionoption': 0,
+    }
+    mprwsim = modpathrw.ModpathRWSim(
+        mp, 
+        **simconfig
+    )
+
+
+    # Try to write ( checking consistency ).
+    # consistency should verify if any pgroup ?
+    mp.write_input(check=True)
+
+    success, buff = mp.run_model(silent=True,report=True)
+    assert success, f"mpathrw did not run correctly"

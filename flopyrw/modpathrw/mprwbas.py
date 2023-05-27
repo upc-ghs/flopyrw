@@ -22,34 +22,38 @@ class ModpathRWBas( Modpath7Bas ):
 
 
     def __init__(self, *args, **kwargs):
-        
+        from copy import copy
+
         # Add a layer of validation for porosity values
         if 'porosity' in kwargs.keys():
-            if ( not isinstance( kwargs['porosity'], (float,list,np.ndarray)) ):
+            if ( not isinstance( kwargs['porosity'], (int,float,list,np.ndarray)) ):
                 raise TypeError(
                     f"{self.__class__.__name__}:"
                     f" Invalid type for porosity. It should be real values, but "
                     f"{str(type(kwargs['porosity']))} was given."
                 )
-            if ( isinstance( kwargs['porosity'], float ) ): 
-                kwargs['porosity'] = [kwargs['porosity']]
-            if ( isinstance( kwargs['porosity'], list ) ): 
-                kwargs['porosity'] = np.array(kwargs['porosity'])
-            if ( kwargs['porosity'].dtype not in [np.float32, np.float64, np.int32, np.int64 ] ):
+            # take porosity just for this validation
+            # and pass the kwarg to the super constructor
+            porosity = copy(kwargs['porosity'])
+            if ( isinstance( porosity, (int,float) ) ):
+                porosity = [porosity]
+            if ( isinstance( porosity, list ) ): 
+                porosity = np.array(porosity)
+            if ( porosity.dtype not in [np.float32, np.float64, np.int32, np.int64 ] ):
                 raise TypeError(
                     f"{self.__class__.__name__}:"
                     f" Invalid type for porosity. It should be real values, but "
-                    f"{str(kwargs['porosity'].dtype)} was given."
+                    f"{str(porosity.dtype)} was given."
                 )
             # Verify that all values are within a valid range
-            if ( np.any( kwargs['porosity'] < 0.0 ) or np.any( kwargs['porosity'] > 1.0 ) ): 
+            if ( np.any( porosity < 0.0 ) or np.any( porosity > 1.0 ) ): 
                 raise ValueError(
                     f"{self.__class__.__name__}:"
                     f" Invalid values for porosity. It should contain real values " 
                     f"only in the range [0.0,1.0]."
                 )
             # Complain if only zeros
-            if ( np.all( kwargs['porosity'] == 0.0 ) ): 
+            if ( np.all( porosity == 0.0 ) ): 
                 raise ValueError(
                     f"{self.__class__.__name__}:"
                     f" Invalid values for porosity. It should contain real values " 

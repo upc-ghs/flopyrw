@@ -70,9 +70,9 @@ class MT3DP09Cases:
     hclose, rclose, relax = 1e-6, 1e-6, 1.0
 
     # transport
-    alphal = 20 
-    alphat = 4
-    dmeff  = 0.0
+    alphal   = 20 
+    alphat   = 4
+    dmeff    = 0.0
     porosity = 0.3
 
 
@@ -495,7 +495,282 @@ class MT3DP09Cases:
             success, buff = sim.run_simulation(silent=True)
             assert success, "MT3DP09Cases: mf6disv model did not run."
 
+
         return gwf 
+
+
+    @staticmethod
+    @requires_exe("gridgen")
+    @requires_pkg("shapely", "shapefile")
+    def mf6disvmultilayer(function_tmpdir, write=False, run=False):
+        """
+        Configures the flow model with MODFLOW 6 and 
+        a disv grid discretization
+        """
+        from flopy.utils import gridgen
+        from shapely.geometry import Polygon
+        from copy import deepcopy
+
+        # model name
+        ws = function_tmpdir
+        nm = "p09mf6"
+        gwfname = 'gwf-'+nm
+
+        # flopy mf6 sim 
+        sim = mf6.MFSimulation(
+            sim_name=nm, exe_name="mf6", version="mf6", sim_ws=ws
+        )
+
+        # tdis package
+        perioddata = []
+        for sp in MT3DP09Cases.stress_periods:
+            perioddata.append( [sp['length'], sp['n_time_steps'], sp['ts_multiplier']] )
+        mf6.ModflowTdis(
+            sim,
+            nper=len(MT3DP09Cases.stress_periods),
+            perioddata=perioddata,
+            time_units=MT3DP09Cases.time_units, 
+        )
+
+        # gwf package
+        gwf = mf6.ModflowGwf(
+            sim,
+            modelname=gwfname,
+            save_flows=True,
+            model_nam_file="{}.nam".format(gwfname), 
+        )
+
+        # ims package
+        imsconfig = {
+            'print_option'       : "SUMMARY",
+            'outer_dvclose'      : MT3DP09Cases.hclose,
+            'outer_maximum'      : MT3DP09Cases.nouter,
+            'under_relaxation'   : "NONE",
+            'inner_maximum'      : MT3DP09Cases.ninner,
+            'inner_dvclose'      : MT3DP09Cases.hclose,
+            'rcloserecord'       : MT3DP09Cases.rclose,
+            'linear_acceleration': "CG",
+            'scaling_method'     : "NONE",
+            'reordering_method'  : "NONE",
+            'relaxation_factor'  : MT3DP09Cases.relax,
+            'filename'           : "{}.ims".format(gwfname),
+        }
+        imsgwf = mf6.ModflowIms(
+                sim,
+                **imsconfig
+            )
+        sim.register_ims_package(imsgwf, [gwf.name]) 
+
+        # build aux dis grid
+        auxgwf = deepcopy(gwf)
+        delr = MT3DP09Cases.delr
+        delc = MT3DP09Cases.delc
+        nlay = 3*MT3DP09Cases.nlay
+        delz = abs(MT3DP09Cases.top - MT3DP09Cases.botm[0])/nlay
+        top  = MT3DP09Cases.top
+        botm = np.arange(MT3DP09Cases.top-delz, MT3DP09Cases.botm[0]-delz, -delz).tolist()
+        disconfig = { 
+            'nlay'        : nlay,
+            'nrow'        : MT3DP09Cases.nrow,
+            'ncol'        : MT3DP09Cases.ncol,
+            'delr'        : MT3DP09Cases.delr,
+            'delc'        : MT3DP09Cases.delc,
+            'top'         : top,
+            'botm'        : botm,
+        }
+        mf6.ModflowGwfdis(
+                auxgwf,
+                **disconfig
+            )
+        grid = gridgen.Gridgen(auxgwf.modelgrid, model_ws=ws)
+        grid.build(verbose=False)
+        gridprops = grid.get_gridprops_disv()
+
+        # disv package
+        mf6.ModflowGwfdisv(
+            gwf,
+            **gridprops,
+            filename = "{}.disv".format(gwfname),
+        )
+        ncells = gwf.modelgrid.ncpl
+
+        # ic package
+        mf6.ModflowGwfic(
+            gwf,
+            strt=MT3DP09Cases.chdh, 
+            filename="{}.ic".format(gwfname)
+        )
+
+        # npf package
+        hk = MT3DP09Cases.k1 * np.ones(shape=(nlay,ncells), dtype=float)
+        pol= Polygon([ # low permeability zone
+                ( 1*delr , 10*delc+1 ),
+                ( 8*delr , 10*delc+1 ),
+                ( 8*delr , 13*delc-1 ),
+                ( 1*delr , 13*delc-1 ),
+            ])
+        gcells  = grid.intersect( [ pol ], 'polygon', 0 )
+        nodes   = gcells['nodenumber']
+        hk[ :, nodes ] = MT3DP09Cases.k2
+        mf6.ModflowGwfnpf(  
+            gwf,
+            k=hk,
+            k33=hk,
+            save_flows=True,
+            save_specific_discharge=True,
+            filename="{}.npf".format(gwfname),
+        )
+
+        # chd package
+        pol= Polygon([ # upper boundary
+                ( 0*delr-1 , 17*delc+1 ),
+                ( 14*delr+1, 17*delc+1 ),
+                ( 14*delr+1, 18*delc-1 ),
+                ( 0*delr-1 , 18*delc-1 ),
+            ])
+        gcells = grid.intersect( [ pol ], 'polygon', 0 )
+        nodes  = gcells['nodenumber']
+        xc     = gwf.modelgrid.xcellcenters
+
+        chdspd = []
+        for inode, node in enumerate(nodes):
+            for ilay in range(nlay):
+                # [ ( lay, node ), head, caux ]
+                chdspd.append([(ilay, node), MT3DP09Cases.chdh, 0.0])  # top boundary
+
+        pol= Polygon([ # lower boundary
+                ( 0*delr-1 , 0*delc+1 ),
+                ( 14*delr+1, 0*delc+1 ),
+                ( 14*delr+1, 0.5*delc-1 ),
+                ( 0*delr-1 , 0.5*delc-1 ),
+            ])
+        gcells = grid.intersect( [ pol ], 'polygon', 0 )
+        nodes  = gcells['nodenumber']
+        for inod, nod  in enumerate( nodes ):
+            hd = 20.0 + ( xc[nod] - xc[nodes[0]] ) * 2.5 / 100
+            for ilay in range(nlay):
+                chdspd.append([(ilay, nod), hd, 0.0])  # bottom boundary
+        chdspd = {0: chdspd}
+        mf6.ModflowGwfchd(
+            gwf,
+            stress_period_data=chdspd,
+            save_flows=True,
+            maxbound=len(chdspd),
+            auxiliary="CONCENTRATION",
+            pname="CHD-1",
+            filename="{}.chd".format(nm),
+        )
+
+        # wel package
+        polinj = Polygon([ # injection well 
+                ( 600+1 , 1400+1 ),
+                ( 700-1 , 1400+1 ),
+                ( 700-1 , 1500-1 ),
+                ( 600+1 , 1500-1 ),
+            ])
+        injcells  = grid.intersect( [ polinj ], 'polygon', 0 )
+        injnodes  = injcells['nodenumber']
+        nnodesinj = len(injnodes)
+
+        polext = Polygon([ # extraction well
+                ( 600+1 , 700+1 ),
+                ( 700-1 , 700+1 ),
+                ( 700-1 , 800-1 ),
+                ( 600+1 , 800-1 ),
+            ])
+        extcells  = grid.intersect( [ polext ], 'polygon', 0 )
+        extnodes  = extcells['nodenumber']
+        nnodesext = len(extnodes)
+
+        # arrays storing all well cells
+        allinjnodes = np.zeros( shape=(nlay*nnodesinj,2), dtype=np.int32 )
+        allextnodes = np.zeros( shape=(nlay*nnodesext,2), dtype=np.int32 )
+
+        # first stress period
+        welsp1 = []
+        for ino, no in enumerate( injnodes ):
+            for ilay in range(nlay):
+                allinjnodes[ino*nlay+ilay,0] = ilay 
+                allinjnodes[ino*nlay+ilay,1] = no
+                welsp1.append( # injection well
+                    [
+                        (ilay,no.item()),
+                        MT3DP09Cases.qinjwell/(nnodesinj*nlay), 
+                        MT3DP09Cases.cinjwell
+                    ]
+                ) 
+        for ino, no in enumerate( extnodes ):
+            for ilay in range(nlay):
+                allextnodes[ino*nlay+ilay,0] = ilay 
+                allextnodes[ino*nlay+ilay,1] = no
+                welsp1.append( # extraction well
+                    [
+                        (ilay,no.item()),
+                        MT3DP09Cases.qextwell/(nnodesext*nlay),
+                        MT3DP09Cases.czero
+                    ]
+                ) 
+        # second stress period
+        welsp2 = []
+        for ino, no in enumerate( injnodes ):
+            for ilay in range(nlay):
+                welsp2.append( # injection well
+                    [
+                        (ilay,no.item()),
+                        MT3DP09Cases.qinjwell/(nnodesinj*nlay), 
+                        MT3DP09Cases.czero
+                    ]
+                ) 
+        for ino, no in enumerate( extnodes ):
+            for ilay in range(nlay):
+                welsp2.append( # extraction well
+                    [
+                        (ilay,no.item()),
+                        MT3DP09Cases.qextwell/(nnodesext*nlay), 
+                        MT3DP09Cases.czero
+                    ]
+                ) 
+        welspd = {0: welsp1, 1: welsp2}
+        
+        # wel
+        mf6.ModflowGwfwel(
+            gwf,
+            stress_period_data=welspd,
+            print_input = True,
+            print_flows = True,
+            save_flows  = True,
+            auxiliary   = ["CONCENTRATION"],
+            pname       = "WEL-1",
+        )
+
+        # pass allinjnodes and allextnodes to the class as nodenumbers 
+        # for later use
+        multiindex = tuple(allinjnodes.T)
+        MT3DP09Cases.linearinjnodes = np.ravel_multi_index( multiindex , gwf.modelgrid.shape ) 
+        multiindex = tuple(allextnodes.T)
+        MT3DP09Cases.linearextnodes = np.ravel_multi_index( multiindex , gwf.modelgrid.shape )
+
+        # oc package
+        mf6.ModflowGwfoc(
+            gwf,
+            head_filerecord="{}.hds".format(gwfname),
+            budget_filerecord="{}.bud".format(gwfname),
+            headprintrecord=[
+                ("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")
+            ],
+            saverecord =[("HEAD", "ALL"), ("BUDGET", "ALL")],
+            printrecord=[("HEAD", "ALL"), ("BUDGET", "ALL")],
+        )
+
+        if write:
+            sim.write_simulation(silent=True)
+        if run:
+            success, buff = sim.run_simulation(silent=True)
+            assert success, "MT3DP09Cases: mf6disvmultilayer model did not run."
+
+
+        return gwf 
+
 
 
     @staticmethod
@@ -734,7 +1009,6 @@ class MT3DP09Cases:
         # for later use
         MT3DP09Cases.usginjnodes = injnodes
         MT3DP09Cases.usgextnodes = extnodes
-
 
         # first stress period
         welsp1 = []
@@ -1182,6 +1456,14 @@ def test_mprw_mt3dp09_mf6disv(function_tmpdir):
     '''
 
     MT3DP09Cases.mf6disv(function_tmpdir,write=True,run=True)
+
+@requires_exe("mf6", "gridgen")
+def test_mprw_mt3dp09_mf6disvmultilayer(function_tmpdir):
+    '''
+    Write and run the mf6 model with disv grid
+    '''
+
+    MT3DP09Cases.mf6disvmultilayer(function_tmpdir,write=True,run=True)
 
 @requires_exe("mf6", "gridgen")
 def test_mprw_mt3dp09_mf6disvusg(function_tmpdir):
