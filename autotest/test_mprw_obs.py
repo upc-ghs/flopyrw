@@ -32,7 +32,8 @@ def test_mprw_obs_input_mf6(function_tmpdir):
     # simple checks #
     #---------------#
     # by default cellinputoption = 0 (list of cells)
-    # by default structured = True (lay,row,col)
+    # by default the input structured = None
+    # and is infered from the modelgrid type.
     cells = [(0,3,6)]
     with pytest.raises(ValueError):
         # define without list of cells
@@ -73,6 +74,77 @@ def test_mprw_obs_input_mf6(function_tmpdir):
     badcells = np.zeros(shape=(mgrid.nlay,mgrid.nrow,mgrid.ncol), dtype=np.int32)
     badcells[0,3,6] = 1
     badcells[0,3,8] = 2
+
+    with pytest.raises(ValueError):
+        # define without the cells array 
+        modpathrw.ModpathRWObs(mp, cellinputoption=1)
+    with pytest.raises(Exception):
+        # define with inconsistent shape for cells array 
+        modpathrw.ModpathRWObs(mp, cellinputoption=1, cells=[[0,1],[1,0]])
+    with pytest.raises(ValueError):
+        # define with inconsistent values for cells array 
+        modpathrw.ModpathRWObs(mp, cellinputoption=1, cells=badcells)
+
+    # define consistent for cells array 
+    obs = modpathrw.ModpathRWObs(mp, cellinputoption=1, cells=cells)
+
+    # verify assignment to the main model
+    pkgs = mp.get_package_list() 
+    assert obs._ftype() in pkgs, (
+            f"OBS package was not found in ModpathRW object"
+        )
+
+    # and write (without checking model consistency)
+    mp.write_input()
+
+
+def test_mprw_obs_input_mf6disv(function_tmpdir):
+    '''
+    Verifies the input for the observations class
+    '''
+
+    # get the mf6 case
+    # brings WEL-1 and CHD-1 with aux CONCENTRATION
+    flowmf6 = MT3DP09Cases.mf6disv(function_tmpdir) 
+
+    # modpath-rw
+    mp = modpathrw.ModpathRW(
+            modelname='mprwsim',
+            flowmodel=flowmf6,
+            model_ws =function_tmpdir,
+        )
+   
+    # dsp 
+    modpathrw.ModpathRWDsp(mp)
+
+    # rwopts
+    modpathrw.ModpathRWOpts(mp)
+
+    # simple checks #
+    #---------------#
+    # by default cellinputoption = 0 (list of cells)
+    # by default the input structured = None
+    # and is infered from the modelgrid type.
+    structcells = [(0,3,6)]
+    cells       = [(147)]
+    with pytest.raises(ValueError):
+        # define without list of cells
+        modpathrw.ModpathRWObs(mp)
+    with pytest.raises(ValueError):
+        # define with a list of structured cells
+        modpathrw.ModpathRWObs(mp, cells=structcells)
+
+    # obs: define a consistent observation
+    modpathrw.ModpathRWObs(mp, cells=cells)
+    
+    # write distributed # 
+    #-------------------#
+    mgrid = flowmf6.modelgrid
+    cells = np.zeros(shape=(mgrid.nlay,mgrid.ncpl), dtype=np.int32)
+    cells[0,36] = 1
+    badcells = np.zeros(shape=(mgrid.nlay,mgrid.ncpl), dtype=np.int32)
+    badcells[0,36] = 1
+    badcells[0,38] = 2
 
     with pytest.raises(ValueError):
         # define without the cells array 

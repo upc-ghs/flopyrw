@@ -9,6 +9,7 @@ from enum import Enum
 # flopy
 from flopy.pakbase import Package
 from flopy.utils import Util3d
+from flopy.discretization import StructuredGrid
 
 # local 
 from .utils import multipackage
@@ -92,7 +93,7 @@ class ModpathRWObs( Package ):
         kind              = 0,
         cellinputoption   = 0,
         cells             = None,
-        structured        = True, 
+        structured        = None, 
         outputoption      = 2,
         postprocessoption = 1,
         basefilename      = 'mprwobs_',
@@ -125,9 +126,9 @@ class ModpathRWObs( Package ):
         if ( isinstance( kind, int ) ):
             if ( kind not in [0,1] ): 
                 raise ValueError(
-                    self.__class__.__name__ + ':'
-                    + ' Invalid kind option ' + str(kind)
-                    + '. Allowed values are 0 (resident) or 1 (flux).'
+                    f"{self.__class__.__name__}:"
+                    f" Invalid kind option {str(kind)}."
+                    f" Allowed values are 0 (resident) or 1 (flux)."
                 )
             self.kind = kind
             if self.kind == 0: 
@@ -151,41 +152,56 @@ class ModpathRWObs( Package ):
         # output option
         if ( outputoption not in [0,1,2] ):
             raise ValueError(
-                self.__class__.__name__ + ':' 
-                + ' Invalid output option ' + str(kind)
-                + '. Allowed values are 0 (only obs records),'
-                + ' 1 (records and postprocess) or 2 (only postprocess).'
+                f"{self.__class__.__name__}:"
+                f" Invalid output option {str(kind)}."
+                f" Allowed values are 0 (only obs records),"
+                f" 1 (records and postprocess) or 2 (only postprocess)."
             )
         self.outputoption = outputoption
 
         # postprocess option
         if ( postprocessoption not in [0,1] ):
             raise ValueError(
-                self.__class__.__name__ + ':'
-                + ' Invalid postprocess option ' + str(kind)
-                + '. Allowed values are 0 (only histogram) or '
-                + '1 (histogram and smoothed reconstruction).'
+                f"{self.__class__.__name__}:"
+                f" Invalid postprocess option {str(kind)}."
+                f" Allowed values are 0 (only histogram) or 1"
+                f" (histogram and smoothed reconstruction)."
             )
         self.postprocessoption = postprocessoption
 
         # cellinputoption 
         if ( cellinputoption not in [0,1] ):
             raise ValueError(
-                self.__class__.__name__ + ':'
-                + ' Invalid cellinputoption option '
-                + str(cellinputoption)
-                + '. Allowed values are 0 (list of cellids) or 1 (modelgrid array).'
+                f"{self.__class__.__name__}:"
+                f" Invalid cellinputoption option {str(cellinputoption)}"
+                f" Allowed values are 0 (list of cellids) or 1 (modelgrid array)."
             )
         self.cellinputoption = cellinputoption
 
         if self.cellinputoption == 0:
 
+            if ( cells is None ):
+                raise ValueError(
+                    f"{self.__class__.__name__}:"
+                    f" Invalid cells specification. It was expecting a list"
+                    f" of cell ids, but None was given."
+                )
+
+            # Infer structured parameter from 
+            # the modelgrid type if it remained with 
+            # default None
+            if ( structured is None ):
+                structured = False
+                if ( isinstance( self._parent.flowmodel.modelgrid, StructuredGrid ) ):
+                    # If grid is structured, infers True
+                    structured = True
+
             if ( not isinstance( structured, bool ) ): 
                 raise TypeError(
-                    self.__class__.__name__ + ':'
-                    + ' Invalid type for structured parameter. '
-                    + 'It should be boolean, but ' 
-                    + str(type(structured)) + ' was given.'
+                    f"{self.__class__.__name__}:"
+                    f" Invalid type for structured parameter."
+                    f" It should be boolean, but"
+                    f" {str(type(structured))} was given."
                 )
 
             # Cell format
@@ -194,6 +210,18 @@ class ModpathRWObs( Package ):
             else:
                 self.cellformat = 1
             self.structured = structured
+            
+            # Some validation with the modelgrid
+            if (
+                (self.structured) and
+                not isinstance( self._parent.flowmodel.modelgrid, StructuredGrid )
+            ):
+                raise Exception(
+                    f"{self.__class__.__name__}:"
+                    f" Invalid cellinputoption and structured parameters"
+                    f" for the modelgrid of type {str(type(self._parent.flowmodel.modelgrid))}."
+                    f" Needs to be StructuredGrid in order to specify cells as (lay,row,col)."
+                )
 
             # Write as a list of cellids
             if cells is None:
@@ -201,10 +229,10 @@ class ModpathRWObs( Package ):
             else:
                 if not isinstance( cells, (list,np.ndarray,tuple) ):
                     raise TypeError(
-                        self.__class__.__name__ + ':'
-                        + ' Invalid cells type. '
-                        + 'It should be list, tuple of np.ndarray. '
-                        + str(type(cells)) + ' was given.'
+                        f"{self.__class__.__name__}:"
+                        f" Invalid input cells type."
+                        f" It should be list, tuple of np.ndarray."
+                        f" {str(type(cells))} was given."
                     )
                 # Transform to numpy array
                 cells = np.array( cells )
@@ -216,45 +244,45 @@ class ModpathRWObs( Package ):
                             cells = cells.transpose()
                         else:
                             raise ValueError(
-                                self.__class__.__name__ + ':' 
-                                + ' Invalid cells specification. While using the '
-                                + 'structured flag for cellinputoption = 0, the cells ' 
-                                + 'should be specified as a list of cell ids following '
-                                + 'the format (lay,row,col).'
+                                f"{self.__class__.__name__}:"
+                                f" Invalid cells specification. While using the"
+                                f" structured flag for cellinputoption = 0, the cells"
+                                f" should be specified as a list of cell ids following"
+                                f" the format (lay,row,col)."
                             )
                     elif ( len(cells.shape)==2 ):
                         if ( not ( cells.shape[1] == 3 ) ): 
                             raise ValueError(
-                                self.__class__.__name__ + ':' 
-                                + ' Invalid cells specification. While using the '
-                                + 'structured flag for cellinputoption = 0, the cells ' 
-                                + 'should be specified as a list of cell ids following '
-                                + 'the format (lay,row,col).'
+                                f"{self.__class__.__name__}:"
+                                f" Invalid cells specification. While using the"
+                                f" structured flag for cellinputoption = 0, the cells"
+                                f" should be specified as a list of cell ids following"
+                                f" the format (lay,row,col)."
                             )
                     else:
                         raise ValueError(
-                            self.__class__.__name__ + ':' 
-                            + ' Invalid cells specification. While using the '
-                            + 'structured flag for cellinputoption = 0, the cells ' 
-                            + 'should be specified as a list of cell ids following '
-                            + 'the format (lay,row,col).'
+                            f"{self.__class__.__name__}:"
+                            f" Invalid cells specification. While using the"
+                            f" structured flag for cellinputoption = 0, the cells"
+                            f" should be specified as a list of cell ids following"
+                            f" the format (lay,row,col)."
                         )
                 else:
                     # For unstructured, ask for a one-dimensional array
                     if ( (len(cells.shape)!=1) ): 
                         raise ValueError(
-                            self.__class__.__name__ + ':' 
-                            + ' Invalid cells specification. While using '
-                            + 'the unstructured format for cellinputoption=0, ' 
-                            + 'cell ids should be given as linear indexes format.'
+                            f"{self.__class__.__name__}:"
+                            f" Invalid cells specification. While using"
+                            f" the unstructured format for cellinputoption=0,"
+                            f" cell ids should be given as linear indexes format."
                         )
                 # Validate dtype
                 if ( cells.dtype not in [np.int32,np.int64,int] ):
                     raise TypeError(
-                        self.__class__.__name__ + ':' 
-                        + ' Invalid type for cells specification. ' 
-                        + 'Cell ids should be of integer type, but '
-                        + str(cells.dtype) + ' was given.'
+                        f"{self.__class__.__name__}:"
+                        f" Invalid type for cells specification." 
+                        f" Cell ids should be of integer type, but"
+                        f" {str(cells.dtype)} was given."
                     )
 
                 # To the class
@@ -263,14 +291,12 @@ class ModpathRWObs( Package ):
             # If no cells, stop. 
             if len(self.cells) == 0:
                 raise ValueError( 
-                    self.__class__.__name__ + ':'
-                    + ' No cells were given for the observation.'
+                    f"{self.__class__.__name__}:"
+                    f" No cells were given for the observation."
                 )
 
         elif self.cellinputoption == 1: 
             # Write obs cells as 3D array
-
-            # This was already done right?
             shape = model.shape
             if len(shape) == 3:
                 shape3d = shape
@@ -281,28 +307,28 @@ class ModpathRWObs( Package ):
             self.model   = model
             self.shape3d = shape3d
 
-            if cells is None:
+            if ( cells is None ):
                 raise ValueError( 
-                    self.__class__.__name__ + ':'
-                    + ' No cells were given for the observation.'
+                    f"{self.__class__.__name__}:"
+                    f" No cells were given for the observation."
                 )
             else:
                 if not isinstance( cells, (int,list,np.ndarray) ):
                     raise TypeError(
-                        self.__class__.__name__ + ':'
-                        + ' Invalid type for cells . It should be list, or np.ndarray. '
-                        + str(type(cells)) + ' was given.'
+                        f"{self.__class__.__name__}:"
+                        f" Invalid type for input cells. It should be list or np.ndarray."
+                        f" {str(type(cells))} was given."
                     )
                 cells  = np.array(cells)
                 ucells = np.unique(cells)
                 for uc in ucells: 
                     if uc not in [0,1]:
                         raise ValueError( 
-                            self.__class__.__name__ + ':'
-                            + ' Invalid values for cells specification. '
-                            + 'While using cellinputoption=1, the cells specification'
-                            + 'should only contain values 0 or 1. '
-                            + 'The value ' + str(uc) + ' was found.'
+                            f"{self.__class__.__name__}:"
+                            f" Invalid values for cells specification."
+                            f" While using cellinputoption=1, the cells specification"
+                            f" should only contain values 0 or 1."
+                            f" The value {str(uc)} was found."
                         )
 
                 try:
@@ -316,9 +342,9 @@ class ModpathRWObs( Package ):
                     )
                 except:
                     raise Exception(
-                        self.__class__.__name__ + ':'
-                        + ' Error while initializing distributed variable cells. '
-                        + 'Is the input shape consistent with flow model dimensions ? '
+                        f"{self.__class__.__name__}:"
+                        f" Error while initializing distributed variable cells."
+                        f" Is the input shape consistent with flow model dimensions ?"
                     )
 
         # String id
@@ -330,16 +356,16 @@ class ModpathRWObs( Package ):
         # Some validation for basefilename
         if ( not isinstance( basefilename, str ) ): 
             raise TypeError(
-                self.__class__.__name__ + ':'
-                + ' Invalid type for basefilename. It should be str, but ' 
-                + str(type(basefilename)) + ' was given.'
+                f"{self.__class__.__name__}:"
+                f" Invalid type for basefilename. It should be str, but"
+                f" {str(type(basefilename))} was given."
             )
         # Some validation for extension
         if ( not isinstance( extension, str ) ): 
             raise TypeError(
-                self.__class__.__name__ + ':'
-                + ' Invalid type for extension. It should be str, but ' 
-                + str(type(extension)) + ' was given.'
+                f"{self.__class__.__name__}:"
+                f" Invalid type for extension. It should be str, but"
+                f" {str(type(extension))} was given."
             )
         # Filename for this observation
         self.filename = basefilename+str(self.id)+'.'+extension
