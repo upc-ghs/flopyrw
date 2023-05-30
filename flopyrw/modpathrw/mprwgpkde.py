@@ -640,6 +640,7 @@ class ModpathRWGpkde( Package ):
                     f" Invalid value for binsizefactor. It should be a positive value, but"
                     f" {str(binsizefactor)} was given."
                 )
+            self.binsizefactor = binsizefactor
 
         # asconcentration
         if ( not isinstance( asconcentration, bool ) ): 
