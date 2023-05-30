@@ -431,6 +431,11 @@ def test_mprw_sim_run_tsobs_mf6disvusg(function_tmpdir):
 def test_mprw_sim_run_tsobs_mf6disvmultilayer(function_tmpdir):
     '''
     Verifies running of the simulation
+
+    This test might be slow due to the large dispersivities
+    with respect to layer height, and eventually particles 
+    modify their time step several times to avoid large relative 
+    jumps.
     '''
 
     # get the mf6 case
@@ -462,7 +467,7 @@ def test_mprw_sim_run_tsobs_mf6disvmultilayer(function_tmpdir):
         (
             "WEL-1",
             [
-                ["CONCENTRATION", 400.0, (2,2,1)],
+                ["CONCENTRATION", 500.0, (2,2,1)],
             ],
         ),
     ]
@@ -475,18 +480,8 @@ def test_mprw_sim_run_tsobs_mf6disvmultilayer(function_tmpdir):
     # dsp 
     modpathrw.ModpathRWDsp(
         mp,
-        # reduce dispersivities to avoid undefined particles
-        # while displacing in 3d, notice that dz
-        # is about 3[m] and alphat 4[m], with approx
-        # 2d velocities. This may lead to very 
-        # large random displacements on the vertical
-        # direction, and particles with undefined status.
-        # At this point is not so relevant in the context 
-        # of the test, it is worth considering a better
-        # handling in source code, or moving towards 
-        # the dispersion model in Lichtner et al. 2002.
-        alphal=0.05*MT3DP09Cases.alphal,
-        alphat=0.05*MT3DP09Cases.alphat,
+        alphal=MT3DP09Cases.alphal,
+        alphat=MT3DP09Cases.alphat,
         dmeff=MT3DP09Cases.dmeff,
     )
 

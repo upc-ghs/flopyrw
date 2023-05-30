@@ -565,7 +565,7 @@ class MT3DP09Cases:
         auxgwf = deepcopy(gwf)
         delr = MT3DP09Cases.delr
         delc = MT3DP09Cases.delc
-        nlay = 3*MT3DP09Cases.nlay
+        nlay = 2*MT3DP09Cases.nlay
         delz = abs(MT3DP09Cases.top - MT3DP09Cases.botm[0])/nlay
         top  = MT3DP09Cases.top
         botm = np.arange(MT3DP09Cases.top-delz, MT3DP09Cases.botm[0]-delz, -delz).tolist()
