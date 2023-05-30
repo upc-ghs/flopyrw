@@ -65,11 +65,12 @@ class ModpathRWObs( Package ):
         Allowed values are:
         * 0: timeseries with histogram reconstruction
         * 1: timeseries with both histogram and smoothed reconstruction
-    basefilename : str
-        The output file where the observation is written. 
+    filename : str
+        The output file where the observation is written, the name 
+        without the extension. If None is given, will employ stringid. 
         * If outputoption == 0, this file contains the observation records
         * If outputoption == 1, this file contains the postprocessed 
-          observation and a second file whose name is rec+basefilename
+          observation and a second file whose name is rec+filename
           contains the observations records. 
         * If outputoption == 2, this file contains the postprocessed 
           observation timeseries
@@ -96,7 +97,7 @@ class ModpathRWObs( Package ):
         structured        = None, 
         outputoption      = 2,
         postprocessoption = 1,
-        basefilename      = 'mprwobs_',
+        filename          = None, 
         stringid          = None,
         extension         = 'obs',
     ):
@@ -348,18 +349,29 @@ class ModpathRWObs( Package ):
                     )
 
         # String id
-        if (stringid is not None): 
+        if (stringid is not None):
+            if ( not isinstance( stringid, str ) ): 
+                raise TypeError(
+                    f"{self.__class__.__name__}:"
+                    f" Invalid type for stringid. It should be str, but"
+                    f" {str(type(stringid))} was given."
+                )
             self.stringid = stringid
         else:
             self.stringid = ftype+str(self.id) 
 
-        # Some validation for basefilename
-        if ( not isinstance( basefilename, str ) ): 
-            raise TypeError(
-                f"{self.__class__.__name__}:"
-                f" Invalid type for basefilename. It should be str, but"
-                f" {str(type(basefilename))} was given."
-            )
+        # filename   
+        if ( filename is None ):
+            # Assign by default the string id, in lower case
+            filename = self.stringid.lower()
+        else:
+            # If a value was given, validate
+            if ( not isinstance( filename, str ) ): 
+                raise TypeError(
+                    f"{self.__class__.__name__}:"
+                    f" Invalid type for filename. It should be str, but"
+                    f" {str(type(filename))} was given."
+                )
         # Some validation for extension
         if ( not isinstance( extension, str ) ): 
             raise TypeError(
@@ -368,8 +380,7 @@ class ModpathRWObs( Package ):
                 f" {str(type(extension))} was given."
             )
         # Filename for this observation
-        self.filename = basefilename+str(self.id)+'.'+extension
-
+        self.filename = f"{filename}.{extension}"
 
         # Done
         return

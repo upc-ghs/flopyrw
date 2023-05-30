@@ -343,6 +343,12 @@ class ModpathRWDsp( Package ):
 
         # String id 
         if (stringid is not None): 
+            if ( not isinstance( stringid, str ) ): 
+                raise TypeError(
+                    f"{self.__class__.__name__}:"
+                    f" Invalid type for stringid. It should be str, but"
+                    f" {str(type(stringid))} was given."
+                )
             self.stringid = stringid
         else:
             self.stringid = ftype+str(self.id)
