@@ -23,8 +23,18 @@ class ModpathRWIc( Package ):
         The model object (of type :class: ModpathRW) to which
         this package will be added.
     kind  : int 
-        The kind of initial condition specification. In the meantime, there is only 
-        one format enabled loading the concentration parameter with u3d.
+        The kind of initial condition specification. All formats load concentration 
+        with u3d. Allowed values are: 
+          * 0: concentration is transformed into a distribution of particles, 
+               by considering the cell volume, porosity and retardation factor.
+               Particles mass is recomputed in order to impose consistency between 
+               the total mass contained in the distribution and the estimated with 
+               particles.
+          * 1: similar to the previous alternative, particlesmass is employed to estimate 
+               a number of particles per cell. The final mass of particles is obtained 
+               on a per cell basis, by imposing consistency of total mass locally.
+          * 2: all cells contain the same number of particles. Particles mass is calculated
+               from the total solute mass at each cell.  
     particlesmass  : float
         The scale of particles mass used for transforming the concentration data into 
         a distribution of particles. 
@@ -76,7 +86,8 @@ class ModpathRWIc( Package ):
             self._parent = model.multipackage[ftype]['instances'][0]._parent
 
         # Determines format for writing the initial condition
-        if (kind not in [0]): 
+        if (kind not in [0,1]): 
+        #if (kind not in [0]): 
             raise ValueError(
                 self.__class__.__name__ + ':'
                 + ' Invalid kind parameter ' + str(kind)
@@ -141,7 +152,8 @@ class ModpathRWIc( Package ):
 
         if (
             ( concentration is not None ) and 
-            ( self.kind == 0 )
+            ( self.kind in [0,1] )
+            #( self.kind == 0 )
         ):
             # TypeError if any other unsupported type
             if ( not isinstance( concentration, (list,float,int,np.ndarray) ) ):
@@ -221,7 +233,8 @@ class ModpathRWIc( Package ):
                 f.write(f"{ins.kind}\n")
 
                 # 0: resident concentration array  
-                if ins.kind == 0:
+                if ( ins.kind in [0,1] ):
+                #if ins.kind == 0:
 
                     # Give particles mass 
                     f.write(f"{ins.particlesmass:.10f}\n")
