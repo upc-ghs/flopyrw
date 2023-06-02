@@ -17,7 +17,7 @@ from .utils import multipackage
 
 class observationKindOption(Enum): 
     '''
-    Enumerate formats for timeseries output option
+    Enumerate formats for observation kinds
     '''
     res      = 0
     resident = 0

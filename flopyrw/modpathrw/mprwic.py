@@ -4,6 +4,7 @@ Configuration of MODPATH-RW initial conditions
 
 # python
 import numpy as np
+from enum import Enum
 
 # flopy
 from flopy.pakbase import Package
@@ -11,6 +12,26 @@ from flopy.utils import Util3d
 
 # local 
 from .utils import multipackage
+
+
+class icKindOption(Enum): 
+    '''
+    Enumerate formats for timeseries output option
+    '''
+    globalmass = 0
+    localmass  = 1
+
+
+class particlesDistributionOption(Enum): 
+    '''
+    Enumerate formats for timeseries output option
+    '''
+    equ         = 0 
+    equispaced  = 0
+    qra         = 1 
+    quasirandom = 1
+    ran         = 2
+    random      = 2
 
 
 class ModpathRWIc( Package ):
@@ -22,26 +43,39 @@ class ModpathRWIc( Package ):
     model : model object
         The model object (of type :class: ModpathRW) to which
         this package will be added.
-    kind  : int 
+    kind  : int or str 
         The kind of initial condition specification. All formats load concentration 
         with u3d. Allowed values are: 
-          * 0: concentration is transformed into a distribution of particles, 
-               by considering the cell volume, porosity and retardation factor.
-               Particles mass is recomputed in order to impose consistency between 
-               the total mass contained in the distribution and the estimated with 
-               particles.
-          * 1: similar to the previous alternative, particlesmass is employed to estimate 
-               a number of particles per cell. The final mass of particles is obtained 
-               on a per cell basis, by imposing consistency of total mass locally.
-          * 2: all cells contain the same number of particles. Particles mass is calculated
-               from the total solute mass at each cell.  
+          * 0 ('globalmass'): concentration is transformed into a distribution
+            of particles, by considering the cell volume, porosity and retardation factor.
+            Distribution is obtained by transforming the total mass inside the
+            cell into a number of particles estimated by means of particlesmass,
+            distributed according to the cell aspect ratio, while using equispaced 
+            and quasi-random particle distributions. Particles mass is unique for all 
+            particles, recomputed in order to impose consistency between the total mass
+            contained in the distribution and the estimated with particles.
+          * 1 ('localmass'): similar to the previous alternative, particlesmass is employed 
+            to estimate a number of particles per cell. The difference in this case, 
+            is that once a number of particles is determined, particles mass is recomputed
+            by establishing mass consistency at a cell level. This means that particles 
+            from different cells may have different mass. Global mass consistency is 
+            automatically satisfied.
     particlesmass  : float
         The scale of particles mass used for transforming the concentration data into 
-        a distribution of particles. 
+        a distribution of particles. Determines resolution. 
     concentration : list, ndarray, int or float
         Interpreted as a resident initial concentration. It will be written with Util3d, 
         meaning that if the input is multidimensional, it should be consistent with 
         flow model dimensions. 
+    particlesdist : int or str 
+        The protocol for placing the particles inside each cell. Allowed values are: 
+          * 0 ('equ','equispaced'): particles are placed following a uniform template
+            determined from the estimated number of particles and the cell aspect 
+            ratio. Particles are equispaced, and at half distance from the cell walls. 
+          * 1 ('qra','quasirandom'): the equispaced template is perturbated based on
+            a random number following a uniform distribution U[-1,1], proportional 
+            to half the particle spacing.
+          * 2 ('ran','random'): particles are placed randomly inside the cell. 
     speciesid : int 
         The species id to which this initial concentration is related. Will only 
         be written if particlesmassoption == 2. It should be given as the zero-based 
@@ -67,6 +101,7 @@ class ModpathRWIc( Package ):
         kind          = 0   ,
         particlesmass = 1.0 ,
         concentration = 0.0 ,
+        particlesdist = 0   ,
         speciesid     = 0   , 
         stringid      = None,
         extension     = 'ic',
@@ -85,45 +120,91 @@ class ModpathRWIc( Package ):
             # Pass the parent
             self._parent = model.multipackage[ftype]['instances'][0]._parent
 
-        # Determines format for writing the initial condition
-        if (kind not in [0,1]): 
-        #if (kind not in [0]): 
-            raise ValueError(
-                self.__class__.__name__ + ':'
-                + ' Invalid kind parameter ' + str(kind)
-                + '. Allowed values are 0 (read concentration with u3d).'
+        # Initial condition kind
+        if ( not isinstance( kind, (int,str) ) ):
+            raise TypeError(
+                f"{self.__class__.__name__}:"
+                f" Invalid type for initial condition kind."
+                f" It can be specified as int or str, but {str(type(kind))}"
+                f" was given." 
             )
-        self.kind = kind
+        if ( isinstance( kind, int ) ):
+            # Determines format for establishing mass consistency
+            if (kind not in [0,1]): 
+                raise ValueError(
+                    f"{self.__class__.__name__}:"
+                    f" Invalid initial condition kind parameter {str(kind)}."
+                    f" Allowed values are 0 (globalmass) or 1 (localmass)."
+                )
+            self.kind = kind
+        elif ( isinstance( kind, str ) ):
+            try:
+                self.kind = icKindOption[kind.lower()].value
+            except:
+                raise ValueError(
+                    f"{self.__class__.__name__}:"
+                    f" Invalid initial condition kind {str(kind)}."
+                    f" The allowed values are globalmass or localmass." 
+                )
 
         # The particles mass
         if ( not isinstance( particlesmass, (int,float) ) ):
             raise TypeError(
-                self.__class__.__name__ + ':' 
-                + ' Invalid type for particlesmass. It should be int/float, '
-                + ' but ' + str(type(particlesmass)) + ' was given.' 
+                f"{self.__class__.__name__}:"
+                f" Invalid type for particlesmass. It should be int/float,"
+                f" but {str(type(particlesmass))} was given."
             )
         if (particlesmass <= 0):
             raise ValueError(
-                self.__class__.__name__ + ':' 
-                + ' Invalid particle mass for initial condition. '
-                + 'It should be a positive value.' 
+                f"{self.__class__.__name__}:"
+                f" Invalid particle mass for initial condition."
+                f" It should be a positive value." 
             )
         self.particlesmass = particlesmass
+
+        # Particles distribution format 
+        if ( not isinstance( particlesdist, (int,str) ) ):
+            raise TypeError(
+                f"{self.__class__.__name__}:"
+                f" Invalid type for particlesdist parameter."
+                f" It can be specified as int or str, but {str(type(particlesdist))}"
+                f" was given." 
+            )
+        if ( isinstance( particlesdist, int ) ):
+            # Determines format for establishing mass consistency
+            if (particlesdist not in [0,1,2]): 
+                raise ValueError(
+                    f"{self.__class__.__name__}:"
+                    f" Invalid particlesdist parameter {str(particlesdist)}."
+                    f" Allowed values are 0 (equispaced), 1 (quasirandom) "
+                    f" or 2 (random)."
+                )
+            self.particlesdist = particlesdist
+        elif ( isinstance( particlesdist, str ) ):
+            try:
+                self.particlesdist = particlesDistributionOption[particlesdist.lower()].value
+            except:
+                raise ValueError(
+                    f"{self.__class__.__name__}:"
+                    f" Invalid particlesdist parameter {str(particlesdist)}."
+                    f" The allowed values are equ/equispaced, qra/quasirandom"
+                    f" or ran/random."
+                )
 
         # A species id, will only be written 
         # if particlesmassoption == 2
         if ( speciesid is not None ):
             if not isinstance( speciesid, int ): 
                 raise TypeError(
-                    self.__class__.__name__ + ':' 
-                    + ' Invalid type for speciesid. It should be integer, '
-                    + ' but ' + str(type(speciesid)) + ' was given.' 
+                    f"{self.__class__.__name__}:"
+                    f" Invalid type for speciesid. It should be integer,"
+                    f" but {str(type(speciesid))} was given."
                 )
             if (speciesid < 0):
                 raise ValueError(
-                    self.__class__.__name__ + ':' 
-                    + ' Invalid value for speciesid. It should be ' 
-                    + ' a valid zero-based index of species.' 
+                    f"{self.__class__.__name__}:" 
+                    f" Invalid value for speciesid. It should be"
+                    f" a valid zero-based index of species."
                 )
         self.speciesid = speciesid
 
@@ -153,14 +234,13 @@ class ModpathRWIc( Package ):
         if (
             ( concentration is not None ) and 
             ( self.kind in [0,1] )
-            #( self.kind == 0 )
         ):
             # TypeError if any other unsupported type
             if ( not isinstance( concentration, (list,float,int,np.ndarray) ) ):
                 raise TypeError(
-                    self.__class__.__name__ + ':'
-                    + ' Invalid type ' + str(type(concentration))
-                    + ' for concentration. It should be list, np.ndarray or a single numeric value.'
+                    f"{self.__class__.__name__}:"
+                    f" Invalid type {str(type(concentration))}"
+                    f" for concentration. It should be list, np.ndarray or a single numeric value."
                 )
             # If list, to np.array
             if ( isinstance( concentration, list ) ): 
@@ -171,9 +251,9 @@ class ModpathRWIc( Package ):
                     (concentration.dtype not in [np.int32, np.int64, np.float32, np.float64])
                 ):
                     raise TypeError(
-                        self.__class__.__name__ + ':' 
-                        + ' Invalid dtype ' + str(concentration.dtype) 
-                        + ' for concentration. It should be int or float. ' 
+                        f"{self.__class__.__name__}:"
+                        f" Invalid dtype {str(concentration.dtype)}" 
+                        f" for concentration. It should be int or float."
                     )
             try:
                 self.concentration = Util3d(
@@ -186,15 +266,15 @@ class ModpathRWIc( Package ):
                 )
             except:
                 raise Exception(
-                    self.__class__.__name__ + ':'
-                    + ' Error while initializing distributed variable concentration. '
-                    + 'Is the input shape consistent with flow model dimensions ? '
+                    f"{self.__class__.__name__}:"
+                    f" Error while initializing distributed variable concentration."
+                    f" Is the input shape consistent with flow model dimensions ?"
                 )
 
-        elif ( (self.kind == 0) and (concentration is None) ):
+        elif ( (self.kind in [0,1]) and (concentration is None) ):
             raise ValueError(
-                self.__class__.__name__ + ':'
-                + ' Invalid initial concentration. None was given.'
+                f"{self.__class__.__name__}:"
+                f" Invalid initial concentration. None was given."
             )
     
 
@@ -229,12 +309,11 @@ class ModpathRWIc( Package ):
                 # Write string id 
                 f.write(f"{ins.stringid}\n")
 
-                # Kind/format of initial condition 
-                f.write(f"{ins.kind}\n")
+                # Kind/format of initial condition and particles distribution 
+                f.write(f"{ins.kind}    {ins.particlesdist}\n")
 
-                # 0: resident concentration array  
+                # 0,1: resident concentration array  
                 if ( ins.kind in [0,1] ):
-                #if ins.kind == 0:
 
                     # Give particles mass 
                     f.write(f"{ins.particlesmass:.10f}\n")
@@ -248,9 +327,9 @@ class ModpathRWIc( Package ):
                             ( ins.speciesid < 0 ) 
                         ):
                             raise ValueError(
-                                self.__class__.__name__ + ':'
-                                + ' Invalid species id for initial condition. '
-                                + 'It should be a valid index in the list of species.' 
+                                f"{self.__class__.__name__}:"
+                                f" Invalid species id for initial condition."
+                                f" It should be a valid index in the list of species."
                             )
                         f.write(f"{ins.speciesid+1}\n")
 

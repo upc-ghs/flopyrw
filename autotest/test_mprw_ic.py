@@ -58,6 +58,25 @@ def test_mprw_ic_input_mf6(function_tmpdir):
     with pytest.raises(TypeError):
         # define with invalid species id 
         modpathrw.ModpathRWIc(mp, concentration=concentration, speciesid='aspecies' )
+    with pytest.raises(ValueError):
+        # define with invalid kind value
+        modpathrw.ModpathRWIc(mp, kind=2, concentration=concentration )
+    with pytest.raises(TypeError):
+        # define with invalid kind type
+        modpathrw.ModpathRWIc(mp, kind=None, concentration=concentration )
+    with pytest.raises(ValueError):
+        # define with invalid kind string value
+        modpathrw.ModpathRWIc(mp, kind='thekind', concentration=concentration )
+    with pytest.raises(ValueError):
+        # define with invalid particlesdist value
+        modpathrw.ModpathRWIc(mp, particlesdist=8, concentration=concentration )
+    with pytest.raises(ValueError):
+        # define with invalid particlesdist string value
+        modpathrw.ModpathRWIc(mp, particlesdist='thedistribution', concentration=concentration )
+    with pytest.raises(TypeError):
+        # define with invalid particlesdist type
+        modpathrw.ModpathRWIc(mp, particlesdist=None, concentration=concentration )
+
 
     # sim with particlesmassoption = 2
     simconfig = {
