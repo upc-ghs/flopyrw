@@ -83,6 +83,30 @@ def test_mprw_dsp_input_mf6(function_tmpdir):
     with pytest.raises(TypeError):
         # define with invalid a list with invalid interior type for dmeff 
         modpathrw.ModpathRWDsp(mp, dmeff=['dmeff'] )
+    with pytest.raises(Exception):
+        # define with inconsistent shape for alphalh array 
+        modpathrw.ModpathRWDsp(mp, modelkind='axi', alphalh=[[0.1,0.1],[1,0]])
+    with pytest.raises(Exception):
+        # define with inconsistent shape for alphalv array 
+        modpathrw.ModpathRWDsp(mp, modelkind='axi', alphalv=[[0.1,0.1],[1,0]])
+    with pytest.raises(Exception):
+        # define with inconsistent shape for alphath array 
+        modpathrw.ModpathRWDsp(mp, modelkind='axi', alphath=[[0.1,0.1],[1,0]])
+    with pytest.raises(Exception):
+        # define with inconsistent shape for alphath array 
+        modpathrw.ModpathRWDsp(mp, modelkind='axi', alphatv=[[0.1,0.1],[1,0]])
+    with pytest.raises(TypeError):
+        # define with invalid type for alphalh 
+        modpathrw.ModpathRWDsp(mp, modelkind='axi', alphalh=None )
+    with pytest.raises(TypeError):
+        # define with invalid type for alphalhv
+        modpathrw.ModpathRWDsp(mp, modelkind='axi', alphalv=None )
+    with pytest.raises(TypeError):
+        # define with invalid type for alphath
+        modpathrw.ModpathRWDsp(mp, modelkind='axi', alphath=None )
+    with pytest.raises(TypeError):
+        # define with invalid type for alphatv 
+        modpathrw.ModpathRWDsp(mp, modelkind='axi', alphavv=None )
 
 
     # Pass the dispersion parameters from the base case
@@ -92,12 +116,30 @@ def test_mprw_dsp_input_mf6(function_tmpdir):
         alphat=MT3DP09Cases.alphat,
         dmeff=MT3DP09Cases.dmeff,
     )
+    # Pass the dispersion parameters from the base case
+    # for the axisymmetric form
+    modpathrw.ModpathRWDsp(
+        mp,
+        modelkind = 'axi',
+        alphalh   = MT3DP09Cases.alphal,
+        alphalv   = MT3DP09Cases.alphal,
+        alphath   = MT3DP09Cases.alphat,
+        alphatv   = MT3DP09Cases.alphat,
+        dmeff=MT3DP09Cases.dmeff,
+    )
 
     dsp = modpathrw.ModpathRWDsp(mp)
     pkgs = mp.get_package_list() 
     assert dsp._ftype() in pkgs, (
             f"DSP package was not found in ModpathRW object"
         )
+    # Pass the dispersion parameters from the base case
+    modpathrw.ModpathRWDsp(
+        mp,
+        alphal=MT3DP09Cases.alphal,
+        alphat=MT3DP09Cases.alphat,
+        dmeff=MT3DP09Cases.dmeff,
+    )
 
     with pytest.raises(Exception):
         # Try to write without sim, rwopts and bas package
