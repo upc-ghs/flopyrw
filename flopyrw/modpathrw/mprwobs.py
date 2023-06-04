@@ -65,6 +65,44 @@ class ModpathRWObs( Package ):
         Allowed values are:
         * 0: timeseries with histogram reconstruction
         * 1: timeseries with both histogram and smoothed reconstruction
+    reconstructionoptions : bool
+        Enable interpretation of reconstruction parameters. 
+        Allowed values are:
+        * False: timeseries reconstruction with default parameters. 
+        * True: timeseries with parameters provided by the user.
+    noptloops : int
+        The number of bandwidth optimization loops. It should be a positive integer.
+    convergence : float
+        The limit relative change of the variables monitored during bandwidth optimization 
+        to determine the convergence of reconstruction. It should be positive.
+    initialsmoothingformat : int
+        Determines the protocol for selection of the initial kernel size from where to
+        begin the optimization for bandwidth selection. Allowed values are: 
+          * 0: selects initial bandwidth from the expression of Silverman (1986) 
+               for Gaussian distributions. It is based on the standard deviation of
+               the particle coordinates, and the number of particles. 
+          * 1: initial bandwidth as a factor multiplying the characteristic cell size.
+               It will use the parameter binsizefactor to perform the scaling.
+    binsizefactor : float
+        Scaling factor employed for determining the initial kernel size from where to start
+        the bandwidth optimization. Amplifies the bin size. In timeseries reconstruction, 
+        the bin size is time step defined for the timeseries simulation. 
+    effectiveweightformat : int
+        Determines the protocol for handling the reconstruction of particle distributions 
+        with different weights. Allowed values are: 
+          * 0: computes a unique effective number of particles and determines a 
+               domain-effective particle weight (Kish, 1965,1992), which is used to
+               transform the mass histogram into an equivalent particle distribution 
+               used for the bandwidth selection.
+          * 1: similar to the previous alternative, but the employed characteristic 
+               particle weight is the average over all particles. 
+          * 2: Bandwidth selection is performed taking into account only the particle 
+               coordinates and a final density estimation is performed over the mass 
+               histogram with the obtain distribution of kernel sizes.
+          * 3: An effective number of particles is computed for each histogram cell and 
+               is employed to transform the mass distribution into an effective particle 
+               distribution used for the bandwidth optimization. A final reconstruction
+               stage is performed considering the obtained distribution of kernel sizes.
     filename : str
         The output file where the observation is written, the name 
         without the extension. If None is given, will employ stringid. 
@@ -91,15 +129,21 @@ class ModpathRWObs( Package ):
     def __init__(
         self,
         model,
-        kind              = 0,
-        cellinputoption   = 0,
-        cells             = None,
-        structured        = None, 
-        outputoption      = 2,
-        postprocessoption = 1,
-        filename          = None, 
-        stringid          = None,
-        extension         = 'obs',
+        kind                   = 0,
+        cellinputoption        = 0,
+        cells                  = None,
+        structured             = None, 
+        outputoption           = 2,
+        postprocessoption      = 1,
+        reconstructionoptions  = False, 
+        noptloops              = 10, 
+        convergence            = 0.01,
+        initialsmoothingformat = 0,
+        binsizefactor          = 3.0,
+        effectiveweightformat  = 0, 
+        filename               = None, 
+        stringid               = None,
+        extension              = 'obs',
     ):
 
         # Call parent constructor
@@ -348,6 +392,96 @@ class ModpathRWObs( Package ):
                         f" Is the input shape consistent with flow model dimensions ?"
                     )
 
+        if ( not isinstance( reconstructionoptions,bool ) ):
+            raise TypeError(
+                f"{self.__class__.__name__}:"
+                f" Invalid type for reconstructionoptions. It should be bool, but"
+                f" {str(type(reconstructionoptions))} was given."
+            )
+        if reconstructionoptions:
+            self.reconstructionoptions = 1
+        else:
+            self.reconstructionoptions = 0
+
+        # process reconstruction options
+        if reconstructionoptions:
+
+            # noptloops
+            if ( not isinstance( noptloops,int ) ):
+                raise TypeError(
+                    f"{self.__class__.__name__}:"
+                    f" Invalid type for noptloops. It should be int, but"
+                    f" {str(type(noptloops))} was given."
+                )
+            if ( noptloops < 0 ):
+                raise ValueError(
+                    f"{self.__class__.__name__}:"
+                    f" Invalid value for noptloops. It should be positive or zero."
+                )
+            self.noptloops = noptloops
+
+            # convergence
+            if ( not isinstance( convergence, (int,float) ) ):
+                raise TypeError(
+                    f"{self.__class__.__name__}:"
+                    f" Invalid type for convergence. It should be float, but"
+                    f" {str(type(convergence))} was given."
+                )
+            if ( convergence <= 0 ):
+                raise ValueError(
+                    f"{self.__class__.__name__}:"
+                    f" Invalid value for convergence. It should be a positive real number."
+                )
+            self.convergence = convergence
+
+            # initialsmoothingformat
+            if ( not isinstance( initialsmoothingformat,int ) ):
+                raise TypeError(
+                    f"{self.__class__.__name__}:"
+                    f" Invalid type for initialsmoothingformat. It should be int, but"
+                    f" {str(type(initialsmoothingformat))} was given."
+                )
+            if initialsmoothingformat not in [0,1]: 
+                raise ValueError(
+                    f"{self.__class__.__name__}:"
+                    f" Invalid value for initialsmoothinformat. Allowed values are"
+                    f" 0 (automatic for Gaussian) or 1 (factor multiplying bin size)."
+                )
+            self.initialsmoothingformat = initialsmoothingformat
+
+            # binsizefactor
+            if ( not isinstance( binsizefactor, (int,float) ) ):
+                raise TypeError(
+                    f"{self.__class__.__name__}:"
+                    f" Invalid type for binsizefactor. It should be float, but"
+                    f" {str(type(binsizefactor))} was given."
+                )
+            if ( binsizefactor <= 0 ):
+                raise ValueError(
+                    f"{self.__class__.__name__}:"
+                    f" Invalid value for binsizefactor. It should be a positive real number."
+                )
+            self.binsizefactor = binsizefactor
+
+            # effectiveweightformat
+            if ( not isinstance( effectiveweightformat,int ) ):
+                raise TypeError(
+                    f"{self.__class__.__name__}:"
+                    f" Invalid type for effectiveweightformat. It should be int, but"
+                    f" {str(type(effectiveweightformat))} was given."
+                )
+            if effectiveweightformat not in [0,1,2,3]: 
+                raise ValueError(
+                    f"{self.__class__.__name__}:" 
+                    f" Invalid value for effectiveweightformat. Determines transformation"
+                    f" to an equivalen count of particles. Allowed values are"
+                    f" 0 (unique effective mass), 1 (scale by averaged mass),"
+                    f" 2 (real histogram) or 3 (local effective histogram)."
+                    f" {str(effectiveweightformat)} was given."
+                )
+            self.effectiveweightformat = effectiveweightformat
+
+
         # String id
         if (stringid is not None):
             if ( not isinstance( stringid, str ) ): 
@@ -418,9 +552,28 @@ class ModpathRWObs( Package ):
 
                 # Write obs filename
                 f.write(f"{ins.filename}\n")
-                
-                # Write the output and postprocess options
-                f.write(f"{ins.outputoption}  {ins.postprocessoption}\n")
+               
+                if ins.reconstructionoptions == 1:
+                    # Write the output and postprocess options
+                    f.write(f"{ins.outputoption}  {ins.postprocessoption}   {ins.reconstructionoptions}\n")
+
+                    # Write noptloops and convergence
+                    f.write(f"{ins.noptloops}   {ins.convergence}\n")
+
+                    if ins.initialsmoothingformat == 1:
+                        # Write initialsmoothingformat and binsizefactor
+                        f.write(f"{ins.initialsmoothingformat}   {ins.binsizefactor}\n")
+                    else:
+                        # Write initialsmoothingformat
+                        f.write(f"{ins.initialsmoothingformat}\n")
+
+                    # Write effectiveweightformat
+                    f.write(f"{ins.effectiveweightformat}\n")
+
+                else:
+                    # Write the output and postprocess options
+                    f.write(f"{ins.outputoption}  {ins.postprocessoption}\n")
+
 
                 # Write the celloption params
                 if ins.cellinputoption == 0:
