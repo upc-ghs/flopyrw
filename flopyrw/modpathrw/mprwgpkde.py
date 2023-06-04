@@ -847,9 +847,7 @@ class ModpathRWGpkde( Package ):
            
             # timepointdata
             if self.timepointoption == 1:
-                f.write(
-                    f"{self.timepointdata[0]} {self.timepointdata[1][0]}\n"
-                )
+                f.write(f"{self.timepointdata[0]}    {self.timepointdata[1][0]}\n")
             elif self.timepointoption == 2:
                 f.write(f"{self.timepointdata[0]}\n")
                 tp = self.timepointdata[1]
