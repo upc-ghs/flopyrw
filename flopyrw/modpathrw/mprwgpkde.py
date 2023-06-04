@@ -6,6 +6,7 @@ Configuration of MODPATH-RW gpkde reconstruction
 import numpy as np
 
 # flopy
+from flopy.utils import Util2d
 from flopy.pakbase import Package
 from flopy.discretization import StructuredGrid, VertexGrid, UnstructuredGrid
 
@@ -119,6 +120,17 @@ class ModpathRWGpkde( Package ):
                is employed to transform the mass distribution into an effective particle 
                distribution used for the bandwidth optimization. A final reconstruction
                stage is performed considering the obtained distribution of kernel sizes.
+    timepointdata : list or tuple
+        Follows a similar logic to timepointdata at the ModpathRWSim/Modpath7Sim class.
+        Is a list or tuple with 2 items. If the second item is a float then 
+        thetimepointdata corresponds to timepointoption 1 and the first entry is the
+        number of time points (timepointcount) and the second the interval.
+        If the second item is a list, tuple, or np.ndarray, timepointoption is 2 and
+        reconstruction is performed for the times of the given list. If timepointdata is None,
+        timepointoption is 0 and reconstruction follows the timeseries points. 
+    skipinitialcondition: bool
+        Flag to indicate whether reconstruction should be performed for the 
+        initial distribution of particles.
     extension : str, optional
         File extension (default is 'gpkde').
     """
@@ -153,6 +165,8 @@ class ModpathRWGpkde( Package ):
         binsizefactor          = 5.0, 
         asconcentration        = False,
         effectiveweightformat  = 0,
+        timepointdata          = None,
+        skipinitialcondition   = False,
         extension              = 'gpkde',
     ):
         
@@ -662,6 +676,58 @@ class ModpathRWGpkde( Package ):
             )
         self.effectiveweightformat = effectiveweightformat
 
+        # timepointdata, similar logic to mp7sim
+        if timepointdata is not None:
+            if not isinstance(timepointdata, (list, tuple)):
+                raise TypeError(
+                        f"{self.__class__.__name__}:" 
+                        f" Invalid type for timepointdata, it"
+                        f" should be a list or tuple, but"
+                        f" {type(timepoindata)} was given."
+                    )
+            else:
+                if len(timepointdata) != 2:
+                    raise ValueError(
+                        f"{self.__class__.__name__}:" 
+                        f" timepointdata must be a have 2 entries, but "
+                        f" {len(timepointdata)} were provided."
+                    )
+                else:
+                    # Infers the specification
+                    if isinstance(timepointdata[1], (list, tuple)):
+                        timepointdata[1] = np.array(timepointdata[1])
+                    elif isinstance(timepointdata[1], (int,float)):
+                        timepointdata[1] = np.array([timepointdata[1]]).astype(np.float32)
+
+                    # Infers timepointoption
+                    if timepointdata[1].shape[0] == timepointdata[0]:
+                        timepointoption = 2
+                    elif timepointdata[1].shape[0] > 1:
+                        raise ValueError(
+                            f"{self.__class__.__name__}:" 
+                            f" The number of given timepoints {str(timepointdata[1].shape[0])}"
+                            f" is not equal to the given timepointcount {str(timepointdata[0])}"
+                        )
+                    else:
+                        timepointoption = 1
+        else:
+            # follows timeseries
+            timepointoption = 0
+        self.timepointoption = timepointoption
+        self.timepointdata   = timepointdata
+
+        # skipinitialcondition
+        if ( not isinstance( skipinitialcondition, bool ) ): 
+            raise TypeError(
+                    f"{self.__class__.__name__}:" 
+                    f" Invalid type for skipinitialcondition, it"
+                    f" should be boolean, but "
+                    f" {type(skipinitialcondition)} was given."
+                )
+        if skipinitialcondition: 
+            self.skipinitialcondition = 1
+        else:
+            self.skipinitialcondition = 0
 
         # Add package 
         self.parent.add_package(self)
@@ -772,8 +838,30 @@ class ModpathRWGpkde( Package ):
             f.write(f"{int(self.asconcentration)}\n")
 
             # line 10
-            # as concentration 
+            # effectiveweightformat
             f.write(f"{self.effectiveweightformat}\n")
+
+            # line 11 
+            # timepointoption and skipinitialcondition
+            f.write(f"{self.timepointoption}    {self.skipinitialcondition}\n")
+           
+            # timepointdata
+            if self.timepointoption == 1:
+                f.write(
+                    f"{self.timepointdata[0]} {self.timepointdata[1][0]}\n"
+                )
+            elif self.timepointoption == 2:
+                f.write(f"{self.timepointdata[0]}\n")
+                tp = self.timepointdata[1]
+                v  = Util2d(
+                    self.parent,
+                    (tp.shape[0],),
+                    np.float32,
+                    tp,
+                    name="tpoints",
+                    locat=self.unit_number[0],
+                )
+                f.write(v.string)
 
         # Done
         return
