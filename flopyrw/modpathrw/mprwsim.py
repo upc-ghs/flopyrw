@@ -41,6 +41,15 @@ class timeseriesOutputOption(Enum):
     skip   = 2
 
 
+class endpointOutputOption(Enum): 
+    '''
+    Enumerate formats for endpoint output option 
+    '''
+    classic = 0
+    mass    = 1
+    skip    = 2
+
+
 class particlesMassOption(Enum): 
     '''
     Enumerate formats for particles mass option 
@@ -58,14 +67,6 @@ class speciesDispersionOption(Enum):
     specific = 1
 
 
-class endpointOutputOption(Enum): 
-    '''
-    Enumerate formats for endpoint output option 
-    '''
-    classic = 0
-    mass    = 1
-
-
 class ModpathRWSim( mp7.Modpath7Sim ):
     '''
     MODPATH-RW Simulation File Package Class. 
@@ -75,10 +76,15 @@ class ModpathRWSim( mp7.Modpath7Sim ):
     New Parameters
     --------------
     timeseriesoutputoption : int/ str
-        Specify behavior of timeseries writer. Allowed values are: 
-         * 0 or 'active': Write timeseries records only for active particles
-         * 1 or 'all': Write timesereis records for all particles
-         * 2 or 'skip': Skip the timeseries writer
+        Specify the behavior of timeseries writer. Allowed values are: 
+         * 0 or 'active': Write timeseries records only for active particles.
+         * 1 or 'all': Write timesereis records for all particles.
+         * 2 or 'skip': Skip the timeseries writer.
+    endpointoutputoption : int/ str
+        Specify the behavior of endpoint writer. Allowed values are: 
+         * 0 or 'classic': Write endpoint file with the classical format, modpath-v7. 
+         * 1 or 'mass': Write endpoint file with the simplified format for mass particles. 
+         * 2 or 'skip': Skip the endpoint writer.
     particlesmassoption: int/str
         Indicates whether a mass shall be read for classical particle groups
         specifications. Allowed values are: 
@@ -102,9 +108,9 @@ class ModpathRWSim( mp7.Modpath7Sim ):
             self,
             *args,
             timeseriesoutputoption=0,
+            endpointoutputoption=0,
             particlesmassoption=0,
             speciesdispersionoption=0,
-            endpointoutputoption=0,
             **kwargs
         ):
 
@@ -161,6 +167,34 @@ class ModpathRWSim( mp7.Modpath7Sim ):
                     f" The allowed values are active, all or skip."
                 )
 
+        # endpointoutputoption
+        if ( not isinstance( endpointoutputoption, (int,str) ) ):
+            raise TypeError(
+                f"{self.__class__.__name__}:"
+                f" Invalid type for endpointoutputoption."
+                f" It can be specified as int or str, but {str(type(endpointoutputoption))}"
+                f" was given." 
+            )
+        if ( isinstance( endpointoutputoption, int ) ):
+            if (endpointoutputoption not in [0,1,2]):
+                raise ValueError(
+                    f"{self.__class__.__name__}:"
+                    f" Invalid endpointoutputoption {str(endpointoutputoption)}"
+                    f" Allowed values are 0 (classic endpoint output),"
+                    f" 1 (mass particles endpoint output) or "
+                    f" 2 (skip writing of endpoint file)."
+                )
+            self.endpointoutputoption = endpointoutputoption
+        elif ( isinstance( endpointoutputoption, str ) ):
+            try:
+                self.endpointoutputoption = endpointOutputOption[endpointoutputoption.lower()].value
+            except:
+                raise ValueError(
+                    f"{self.__class__.__name__}:"
+                    f" Invalid endpointoutputoption {str(endpointoutputoption)}."
+                    f" The allowed values are classic or mass."
+                )
+
         # particlesmassoption
         if ( not isinstance( particlesmassoption, (int,str) ) ):
             raise TypeError(
@@ -215,33 +249,6 @@ class ModpathRWSim( mp7.Modpath7Sim ):
                     f" The allowed values are unique or specific."
                 )
 
-        # endpointoutputoption
-        if ( not isinstance( endpointoutputoption, (int,str) ) ):
-            raise TypeError(
-                f"{self.__class__.__name__}:"
-                f" Invalid type for endpointoutputoption."
-                f" It can be specified as int or str, but {str(type(endpointoutputoption))}"
-                f" was given." 
-            )
-        if ( isinstance( endpointoutputoption, int ) ):
-            if (endpointoutputoption not in [0,1]):
-                raise ValueError(
-                    f"{self.__class__.__name__}:"
-                    f" Invalid endpointoutputoption {str(endpointoutputoption)}"
-                    f" Allowed values are 0 (classic endpoint output) or"
-                    f" 1 (mass particles endpoint output)."
-                )
-            self.endpointoutputoption = endpointoutputoption
-        elif ( isinstance( endpointoutputoption, str ) ):
-            try:
-                self.endpointoutputoption = endpointOutputOption[endpointoutputoption.lower()].value
-            except:
-                raise ValueError(
-                    f"{self.__class__.__name__}:"
-                    f" Invalid endpointoutputoption {str(endpointoutputoption)}."
-                    f" The allowed values are classic or mass."
-                )
-
         # If simulation is RW
         if self.simulationtype > 4: 
             # Assign some properties to parent obj
@@ -286,9 +293,9 @@ class ModpathRWSim( mp7.Modpath7Sim ):
                     self.budgetoutputoption,
                     self.tracemode,
                     self.timeseriesoutputoption,
+                    self.endpointoutputoption,
                     self.particlesmassoption,
                     self.speciesdispersionoption,
-                    self.endpointoutputoption,
                 )
             )
             # item 4
