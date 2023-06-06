@@ -4,11 +4,22 @@ Configuration of MODPATH-RW gpkde reconstruction
 
 # python
 import numpy as np
+from enum import Enum
 
 # flopy
 from flopy.utils import Util2d
 from flopy.pakbase import Package
 from flopy.discretization import StructuredGrid, VertexGrid, UnstructuredGrid
+
+
+class slicedDimensionOption(Enum): 
+    '''
+    Enumerate possible values for sliced dimension 
+    '''
+    x = 0
+    y = 1
+    z = 2
+
 
 class ModpathRWGpkde( Package ):
     """
@@ -51,6 +62,15 @@ class ModpathRWGpkde( Package ):
         histogram cells. For a given dimension, the distance considered as buffer
         is equal to gridborderfraction*extentdimension and is distributed as half
         for each side. Should be between [0,1].
+    slicedreconstruction : bool
+        Performs reconstruction for each slice of a given dimension. Recommended 
+        for quasi two-dimensional problems, for example, when the horizontal extent
+        dominates over the vertical. 
+    sliceddimension: int or str
+        The dimension to be sliced. Allowed values are:
+          0 or 'x': reconstruction for each slice of dimension x 
+          1 or 'y': reconstruction for each slice of dimension y 
+          2 or 'z': reconstruction for each slice of dimension z
     noptloops : int
         The number of bandwidth optimization loops. It should be a positive integer.
     skiperror : bool
@@ -152,6 +172,8 @@ class ModpathRWGpkde( Package ):
         binsize                = None,
         gridallocformat        = 0, 
         gridborderfraction     = 0.05,
+        slicedreconstruction   = None, 
+        sliceddimension        = None, 
         noptloops              = 10,
         skiperror              = False, 
         convergence            = 0.02,
@@ -495,6 +517,116 @@ class ModpathRWGpkde( Package ):
                 )
             self.gridborderfraction = gridborderfraction
 
+        # sliced reconstruction
+        if ( slicedreconstruction is None ): 
+            # some inference for 3d problems
+            if ( np.all( binsize >  0 ) ):
+                # rough estimate of the number of bins
+                nbins = domainsize/binsize
+                # skip inference if any nbins is one, 
+                # gpkde will recognize this case.
+                if np.any( nbins == 1 ): 
+                    self.slicedreconstruction = False
+                    self.sliceddimension = 0
+                else:
+                    # Get the minimum number of bins and estimate 
+                    # anisotropy
+                    idmin, = np.where( nbins == np.min( nbins ) )
+                    idmin  = idmin.item()
+                    # none of these seems to be that general
+                    ani13  = nbins[idmin+1]/nbins[idmin]
+                    ani23  = nbins[idmin+2]/nbins[idmin]
+                    #ani13  = domainsize[idmin+1]/domainsize[idmin]
+                    #ani23  = domainsize[idmin+2]/domainsize[idmin]
+
+                    # Define an arbitrary threshold of 10
+                    if ( ( ani13 > 10 ) and ( ani23 > 10 ) ) :
+                        self.slicedreconstruction = True
+                        self.sliceddimension = idmin
+                    else:
+                        # the inference might be improved, but in the meantime
+                        # continue as false.
+                        self.slicedreconstruction = False
+                        self.sliceddimension = 0
+            else:
+                self.slicedreconstruction = False
+                self.sliceddimension = 0
+        else:
+            if ( not isinstance( slicedreconstruction, bool ) ) : 
+                raise TypeError(
+                    f"{self.__class__.__name__}:"
+                    f" Invalid type for the slicedreconstruction parameter. It should be bool, but"
+                    f" {str(type(slicedreconstruction))} was given."
+                )
+            self.slicedreconstruction = slicedreconstruction
+
+            # process sliceddimension
+            if ( self.slicedreconstruction ): 
+                if ( sliceddimension is None ):
+                    # Do the inference as before
+                    # some inference for 3d problems
+                    if ( np.all( binsize >  0 ) ):
+                        # rough estimate of the number of bins
+                        nbins = domainsize/binsize
+                        # skip inference if any nbins is one, 
+                        # gpkde will recognize this case.
+                        if np.any( nbins == 1 ):
+                            # force the user to provide a value
+                            raise ValueError(
+                                f"{self.__class__.__name__}:"
+                                f" Invalid value for sliceddimension. None was provided and"
+                                f" inference could not be done."
+                            )
+
+                        else:
+                            # Get the minimum number of bins and estimate 
+                            # anisotropy
+                            idmin, = np.where( nbins == np.min( nbins ) )
+                            idmin  = idmin.item()
+                            # none of these seems to be that general
+                            ani13  = nbins[idmin+1]/nbins[idmin]
+                            ani23  = nbins[idmin+2]/nbins[idmin]
+                            #ani13  = domainsize[idmin+1]/domainsize[idmin]
+                            #ani23  = domainsize[idmin+2]/domainsize[idmin]
+
+                            # Define an arbitrary threshold of 10
+                            if ( ( ani13 > 10 ) and ( ani23 > 10 ) ) :
+                                self.slicedreconstruction = True
+                                self.sliceddimension = idmin
+                            else:
+                                # the inference might be improved, but in the meantime
+                                # force the user to provide a value
+                                raise ValueError(
+                                    f"{self.__class__.__name__}:"
+                                    f" Invalid value for sliceddimension. None was provided and"
+                                    f" inference could not be done."
+                                )
+
+                elif ( not isinstance( sliceddimension, (int,str) ) ):
+                    raise TypeError(
+                        f"{self.__class__.__name__}:"
+                        f" Invalid type for the sliceddimension parameter. It should be int or str, but"
+                        f" {str(type(sliceddimension))} was given."
+                    )
+                else:
+                    if isinstance( sliceddimension, int ) :
+                        if ( sliceddimension not in [0,1,2] ):
+                            raise ValueError(
+                                f"{self.__class__.__name__}:"
+                                f" Invalid sliceddimension {str(sliceddimension)}."
+                                f" The allowed values are 0 (x), 1 (y) or 2 (z)."
+                            )
+                        self.sliceddimension = sliceddimension + 1 
+                    else:
+                        try:
+                            self.sliceddimension = slicedDimensionOption[sliceddimension.lower()].value + 1
+                        except:
+                            raise ValueError(
+                                f"{self.__class__.__name__}:"
+                                f" Invalid sliceddimension {str(sliceddimension)}."
+                                f" The allowed values are x, y or z."
+                            )
+
         # noptloops
         if ( not isinstance( noptloops, int) ): 
             raise TypeError(
@@ -797,24 +929,31 @@ class ModpathRWGpkde( Package ):
                     f.write(f"{b:10f}\t")
 
             # line 4:
+            # sliced reconstruction 
+            if not self.slicedreconstruction:
+                f.write(f"0\n")
+            else:
+                f.write(f"1      {self.sliceddimension}\n")
+
+            # line 5:
             # number of optimization loops 
             f.write(f"{self.noptloops}\n")
 
-            # line 5:
+            # line 6:
             # skip error convergence
             if ( self.skiperror ): 
                 f.write(f"{int(self.skiperror)}\n")
             else:
                 f.write(f"{int(self.skiperror)}    {self.convergence:6f}\n")
 
-            # line 6:
+            # line 7:
             # kernels
             if ( not self.isotropickernels ): 
                 f.write(f"{int(self.kerneldatabase)}    {self.boundkernelsize}\n")
             else:
                 f.write(f"{int(self.kerneldatabase)}    {self.boundkernelsize}    {int(self.isotropickernels)}\n")
 
-            # line 7:
+            # line 8:
             # kdb params
             if ( self.kerneldatabase ):
                 # Database params: minhd, deltahd, maxhd
@@ -826,29 +965,31 @@ class ModpathRWGpkde( Package ):
                 f.write(f"{self.minhd:10f}\t")
                 f.write(f"{self.maxhd:10f}\n")
 
-            # line 8:
+            # line 9:
             # initial smoothing
             if ( self.initialsmoothingformat == 1 ):
                 f.write(f"{self.initialsmoothingformat}   {self.binsizefactor}\n") 
             else:
                 f.write(f"{self.initialsmoothingformat}\n") 
 
-            # line 9
+            # line 10
             # as concentration 
             f.write(f"{int(self.asconcentration)}\n")
 
-            # line 10
+            # line 11
             # effectiveweightformat
             f.write(f"{self.effectiveweightformat}\n")
 
-            # line 11 
+            # line 12 
             # timepointoption and skipinitialcondition
             f.write(f"{self.timepointoption}    {self.skipinitialcondition}\n")
            
             # timepointdata
             if self.timepointoption == 1:
+                # line 13
                 f.write(f"{self.timepointdata[0]}    {self.timepointdata[1][0]}\n")
             elif self.timepointoption == 2:
+                # line 13, 14
                 f.write(f"{self.timepointdata[0]}\n")
                 tp = self.timepointdata[1]
                 v  = Util2d(
