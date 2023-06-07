@@ -9,7 +9,7 @@ from modflow_devtools.markers import requires_exe
 
 
 @requires_exe("mf6","mpathrw")
-def test_mprw_sim_run_tsobs_mf6(function_tmpdir):
+def test_mprw_run_tsobs_mf6(function_tmpdir):
     '''
     Verifies running of the simulation
     '''
