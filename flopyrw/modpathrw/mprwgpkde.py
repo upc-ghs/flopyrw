@@ -534,10 +534,10 @@ class ModpathRWGpkde( Package ):
                     idmin, = np.where( nbins == np.min( nbins ) )
                     idmin  = idmin.item()
                     # none of these seems to be that general
-                    ani13  = nbins[idmin+1]/nbins[idmin]
-                    ani23  = nbins[idmin+2]/nbins[idmin]
-                    #ani13  = domainsize[idmin+1]/domainsize[idmin]
-                    #ani23  = domainsize[idmin+2]/domainsize[idmin]
+                    ani13  = nbins[(idmin+1)%3]/nbins[idmin]
+                    ani23  = nbins[(idmin+2)%3]/nbins[idmin]
+                    #ani13  = domainsize[(idmin+1)%3]/domainsize[idmin]
+                    #ani23  = domainsize[(idmin+2)%3]/domainsize[idmin]
 
                     # Define an arbitrary threshold of 10
                     if ( ( ani13 > 10 ) and ( ani23 > 10 ) ) :
@@ -584,10 +584,10 @@ class ModpathRWGpkde( Package ):
                             idmin, = np.where( nbins == np.min( nbins ) )
                             idmin  = idmin.item()
                             # none of these seems to be that general
-                            ani13  = nbins[idmin+1]/nbins[idmin]
-                            ani23  = nbins[idmin+2]/nbins[idmin]
-                            #ani13  = domainsize[idmin+1]/domainsize[idmin]
-                            #ani23  = domainsize[idmin+2]/domainsize[idmin]
+                            ani13  = nbins[(idmin+1)%3]/nbins[idmin]
+                            ani23  = nbins[(idmin+2)%3]/nbins[idmin]
+                            #ani13  = domainsize[(idmin+1)%3]/domainsize[idmin]
+                            #ani23  = domainsize[(idmin+2)%3]/domainsize[idmin]
 
                             # Define an arbitrary threshold of 10
                             if ( ( ani13 > 10 ) and ( ani23 > 10 ) ) :
