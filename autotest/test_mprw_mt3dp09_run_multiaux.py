@@ -363,5 +363,3 @@ def test_mprw_sim_run_combined_multiaux_mf6(function_tmpdir):
 
     success, buff = mp.run_model(silent=True,report=True)
     assert success, f"mpathrw did not run correctly"
-
-
