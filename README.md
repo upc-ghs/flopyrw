@@ -1,15 +1,37 @@
-# flopyrw
-`python` interface for writing input files for solute transport models based on MODPATH-RW, based in `flopy`.
+## flopyrw
+Interface for writing input simulation files for MODPATH-RW, based on [FloPy](https://github.com/modflowpy/flopy)
 
-## Overview
-Package provides classes similar to those found in the `flopy/modpath` module for writing input files. These include
-    
-* `ModpathRwptDispersion`
-* `ModpathRwptReconstruction`
-* `ModpathRwptObs`
-* `ModpathRwptSim`
+### Overview
+Provides classes extended from the `modpath` module at `flopy` and further functionalities to write the package input files for [MODPATH-RW](https://gitub.com/upc-ghs/modpath-rw).
 
-Similar to `flopy`, these classes group parameters and input file writing logic for the different model options.
+Classes follow the same logic than `flopy`, configuring packages based on a MODFLOW flow-model object.
+
+### Quicktstart
+
+Install the package 
+
+Use it
+
+```py
+from flopy import modpathrw
+
+# Create a modpathrw model
+
+# Append some packages
+
+# Configure the simulation 
+
+# Write the files
+
+# And run 
+```
+
+Note: the interface requires the MODPATH-RW executable. 
+
+
+
+
+
 
 ## Install
 
