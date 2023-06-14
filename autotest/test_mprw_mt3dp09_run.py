@@ -97,7 +97,7 @@ def test_mprw_run_tsobs_mf6(function_tmpdir):
 
 
 @requires_exe("mf6","mpathrw")
-def test_mprw_sim_run_tsgpkde_mf6(function_tmpdir):
+def test_mprw_run_tsgpkde_mf6(function_tmpdir):
     '''
     Verifies running of the simulation with reconstruction
     '''
@@ -180,7 +180,7 @@ def test_mprw_sim_run_tsgpkde_mf6(function_tmpdir):
 
 
 @requires_exe("mf6","mpathrw")
-def test_mprw_sim_run_epoint_mf6(function_tmpdir):
+def test_mprw_run_epoint_mf6(function_tmpdir):
     '''
     Verifies running of endpoint simulation
     '''
@@ -259,7 +259,7 @@ def test_mprw_sim_run_epoint_mf6(function_tmpdir):
 
 
 @requires_exe("mf6","mpathrw")
-def test_mprw_sim_run_combined_mf6(function_tmpdir):
+def test_mprw_run_combined_mf6(function_tmpdir):
     '''
     Verifies running of combined simulation
     '''
@@ -339,7 +339,7 @@ def test_mprw_sim_run_combined_mf6(function_tmpdir):
 
 
 @requires_exe("mf6","mpathrw")
-def test_mprw_sim_run_tsobs_mf6disvusg(function_tmpdir):
+def test_mprw_run_tsobs_mf6disvusg(function_tmpdir):
     '''
     Verifies running of the simulation
     '''
@@ -428,7 +428,7 @@ def test_mprw_sim_run_tsobs_mf6disvusg(function_tmpdir):
 
 
 @requires_exe("mf6","mpathrw")
-def test_mprw_sim_run_tsobs_mf6disvmultilayer(function_tmpdir):
+def test_mprw_run_tsobs_mf6disvmultilayer(function_tmpdir):
     '''
     Verifies running of the simulation
 
@@ -596,6 +596,89 @@ def test_mprw_run_tsobs_mf6timeseriesaux(function_tmpdir):
         'timeseriesoutputoption' : 2,
         'particlesmassoption'    : 0,
         'speciesdispersionoption': 0,
+    }
+    mprwsim = modpathrw.ModpathRWSim(
+        mp, 
+        **simconfig
+    )
+
+
+    # Try to write ( checking consistency ).
+    # consistency should verify if any pgroup ?
+    mp.write_input(check=True)
+
+    success, buff = mp.run_model(silent=True,report=True)
+    assert success, f"mpathrw did not run correctly"
+
+
+@requires_exe("mf6","mpathrw")
+def test_mprw_run_epointextendobs_mf6(function_tmpdir):
+    '''
+    Verifies running of endpoint simulation
+    '''
+
+    # get the mf6 case
+    # brings WEL-1 and CHD-1 with aux CONCENTRATION
+    flowmf6 = MT3DP09Cases.mf6(function_tmpdir,write=True,run=True)
+
+    # modpath-rw
+    mp = modpathrw.ModpathRW(
+            modelname='mprwsim',
+            flowmodel=flowmf6,
+            model_ws =function_tmpdir,
+        )
+ 
+    # bas 
+    modpathrw.ModpathRWBas(mp,porosity=MT3DP09Cases.porosity)
+
+    # rwopts
+    modpathrw.ModpathRWOpts(
+        mp,
+        dimensionsmask= [1,1,0],
+        timestep      = 'min',
+        ctdisp        = 0.1,
+        courant       = 0.1
+    )
+
+    # src
+    sources = [
+        (
+            "WEL-1",
+            [
+                ["CONCENTRATION", 300.0, (4,4,1)],
+            ],
+        ),
+    ]
+    src = modpathrw.ModpathRWSrc(
+        mp,
+        inputformat='aux', 
+        sources=sources,
+    )
+
+    # dsp 
+    modpathrw.ModpathRWDsp(
+        mp,
+        alphal=MT3DP09Cases.alphal,
+        alphat=MT3DP09Cases.alphat,
+        dmeff=MT3DP09Cases.dmeff,
+    )
+
+    # obs
+    obs = modpathrw.ModpathRWObs(
+        mp,
+        kind='flux',
+        cells=[tuple(MT3DP09Cases.extwell)],
+    )
+
+    # sim
+    simconfig = {
+        'simulationtype'         : 'rwendpoint', 
+        'trackingdirection'      : 'forward',
+        'weaksinkoption'         : 'stop_at',
+        'weaksourceoption'       : 'pass_through',
+        'referencetime'          : 0.0,
+        'stoptimeoption'         : 'extend',
+        'endpointoutputoption'   : 1,
     }
     mprwsim = modpathrw.ModpathRWSim(
         mp, 
