@@ -1582,26 +1582,15 @@ class MT3DP09Cases:
         waveperiod = 10 * 86400  # n days in seconds
         omega      = np.pi/waveperiod
         phase      = 0.333*np.pi
-        qinj       = MT3DP09Cases.qinjwell*( np.sin(omega*times) + 1 )           # from zero to 2*qinjwell
-        cinj       = MT3DP09Cases.cinjwell*np.ones(shape=(len(times),))          # constant c
-        #cinj       = MT3DP09Cases.cinjwell*( np.cos(0.25*omega*times) + 1 )  # a cosine concentraton 
+        qinj       = MT3DP09Cases.qinjwell + 0.25*MT3DP09Cases.qinjwell*np.sin(omega*times) # qinjwell plus oscillation 
+        cinj       = MT3DP09Cases.cinjwell*np.ones(shape=(len(times),))                     # constant c
         waveperiod = 30 * 86400  # n days in seconds
         omega      = np.pi/waveperiod
-        qout       = 0.5*MT3DP09Cases.qextwell*( np.sin(omega*times) + 1 )   # from zero to qextwell
+        qout       = MT3DP09Cases.qextwell + 0.05*MT3DP09Cases.qextwell*np.sin(omega*times) # qextwell plus oscillation
         timeseries['timeseries']                 = [ (t,qinj[it],cinj[it], qout[it]) for it, t in enumerate( times ) ]
         timeseries['time_series_namerecord']     = ['QIN','CIN', 'QOUT']
         timeseries['interpolation_methodrecord'] = ['STEPWISE','STEPWISE', 'STEPWISE']
       
-        ##
-        #import matplotlib.pyplot as plt
-        #plt.plot( times, qinj/MT3DP09Cases.qinjwell, label='qin')
-        #plt.plot( times, qout/MT3DP09Cases.qextwell, label='qout')
-        #plt.plot( times, cinj/MT3DP09Cases.cinjwell, label='cin')
-        #plt.show(block=False)
-        #import pdb
-        #pdb.set_trace()
-        ##
-
         # wel package
         # first stress period
         welsp1 = []
