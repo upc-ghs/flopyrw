@@ -25,6 +25,16 @@ class observationKindOption(Enum):
     sink     = 1
 
 
+class histogramBinOption(Enum): 
+    '''
+    Enumerate formats for observation kinds
+    '''
+    scott    = 0
+    fd       = 1
+    given    = 2
+    ts       = 3
+
+
 class ModpathRWObs( Package ):
     """
     MODPATH-RW Observation Package Class.
@@ -67,9 +77,8 @@ class ModpathRWObs( Package ):
         * 1: timeseries with both histogram and smoothed reconstruction
     reconstructionoptions : bool
         Enable interpretation of reconstruction parameters. 
-        Allowed values are:
         * False: timeseries reconstruction with default parameters. 
-        * True: timeseries with parameters provided by the user.
+        * True : timeseries reconstruction with parameters provided by the user.
     noptloops : int
         The number of bandwidth optimization loops. It should be a positive integer.
     convergence : float
@@ -103,6 +112,26 @@ class ModpathRWObs( Package ):
                is employed to transform the mass distribution into an effective particle 
                distribution used for the bandwidth optimization. A final reconstruction
                stage is performed considering the obtained distribution of kernel sizes.
+    histogramoptions : bool 
+        Enable interpretation of histogram parameters. The histogram is the base over 
+        which smoothed reconstruction is performed. 
+        * False: histogram options handled internally with default parameters, not written. 
+        * True : interpret histogram options, written to package file.
+    binoption : int or str
+        Selection of the histogram bin size. Allowed values are: 
+          * 0 or 'scott': applies the automatic selection for Gaussian distributions.
+          * 1 or 'fd'   : applies the automatic selection based on the inter quartile range.
+          * 2 or 'given': user provided value in binparam.
+          * 3 or 'ts'   : infered from the timeseries, assumed uniform time step.
+    binparam : float
+        Auxiliary parameter controlling the selection of the histogram bin size. 
+        If binoption is 0 or 1, binparam is fraction (0,1] multiplying the automatic value. 
+        If binoption is 2, binparam is the bin size. 
+        If binoption is 3, binparam is not read.
+    timestepout : float
+        Value determining the time discretization to write the timeseries data. If given, 
+        interpolates the values obtained from the model to the given resolution. 
+        Interpolation is linear and performed only within the limits of the real data. 
     filename : str
         The output file where the observation is written, the name 
         without the extension. If None is given, will employ stringid. 
@@ -140,7 +169,11 @@ class ModpathRWObs( Package ):
         convergence            = 0.01,
         initialsmoothingformat = 0,
         binsizefactor          = 3.0,
-        effectiveweightformat  = 0, 
+        effectiveweightformat  = 0,
+        histogramoptions       = False, 
+        binoption              = 1, 
+        binparam               = None,
+        timestepout            = None, 
         filename               = None, 
         stringid               = None,
         extension              = 'obs',
@@ -482,6 +515,94 @@ class ModpathRWObs( Package ):
             self.effectiveweightformat = effectiveweightformat
 
 
+        if ( not isinstance( histogramoptions,bool ) ):
+            raise TypeError(
+                f"{self.__class__.__name__}:"
+                f" Invalid type for histogramoptions. It should be bool, but"
+                f" {str(type(histogramoptions))} was given."
+            )
+        if histogramoptions:
+            self.histogramoptions = 1
+        else:
+            self.histogramoptions = 0
+
+        if histogramoptions: 
+
+            # binoption
+            if ( not isinstance( binoption,int ) ):
+                raise TypeError(
+                    f"{self.__class__.__name__}:"
+                    f" Invalid type for binoption. It should be int, but"
+                    f" {str(type(binoption))} was given."
+                )
+            if binoption not in [0,1,2,3]: 
+                raise ValueError(
+                    f"{self.__class__.__name__}:" 
+                    f" Invalid value for binoption. Determines selection"
+                    f" of histogram bin size. Allowed values are"
+                    f" 0 (based on Scott's rule), 1 (based on Freedman-Diaconis rule),"
+                    f" 2 (given by user) or 3 (infered from timepointdata)."
+                    f" {str(binoption)} was given."
+                )
+            self.binoption = binoption
+
+            # binparam
+            if binparam is None: 
+
+                if ( self.binoption in [0,1] ):
+                    # Set a default 
+                    self.binparam = 0.75
+
+                if ( self.binoption == 2 ):
+                    # Needs to be requested
+                    raise ValueError(
+                        f"{self.__class__.__name__}:"
+                        f" Invalid value for binparam. None was given."
+                    )
+
+            else:
+
+                if ( not isinstance( binparam, (int,float) ) ):
+                    raise TypeError(
+                        f"{self.__class__.__name__}:"
+                        f" Invalid type for binparam. It should be float, but"
+                        f" {str(type(binparam))} was given."
+                    )
+
+                if ( self.binoption in [0,1] ):
+                    if ( ( binparam <= 0 ) or ( binparam > 1 ) ):
+                        raise ValueError(
+                            f"{self.__class__.__name__}:"
+                            f" Invalid value for binparam. It should be a fraction."
+                        )
+                    self.binparam = binparam
+
+                if ( self.binoption == 2 ):
+                    if ( binparam <= 0 ):
+                        raise ValueError(
+                            f"{self.__class__.__name__}:"
+                            f" Invalid value for binparam. It should be a positive real number."
+                        )
+                    self.binparam = binparam
+
+            # timestepout
+            if timestepout is not None: 
+                if ( not isinstance( timestepout, (int,float) ) ):
+                    raise TypeError(
+                        f"{self.__class__.__name__}:"
+                        f" Invalid type for timestepout. It should be float, but"
+                        f" {str(type(timestepout))} was given."
+                    )
+                if ( timestepout <= 0 ):
+                    raise ValueError(
+                        f"{self.__class__.__name__}:"
+                        f" Invalid value for timestepout. It should be a positive real number."
+                    )
+                self.timestepout = timestepout
+            else:
+                self.timestepout = None
+
+
         # String id
         if (stringid is not None):
             if ( not isinstance( stringid, str ) ): 
@@ -552,7 +673,25 @@ class ModpathRWObs( Package ):
 
                 # Write obs filename
                 f.write(f"{ins.filename}\n")
-               
+
+                # For sink observations
+                if ins.kind == 1:
+                    # Write the observation options 
+                    f.write(f"{ins.outputoption}  {ins.postprocessoption}  {ins.histogramoptions}  {ins.reconstructionoptions}\n")
+                else:
+                    # Write the observation options 
+                    f.write(f"{ins.outputoption}  {ins.postprocessoption}  {ins.reconstructionoptions}\n")
+
+                # write the histogram data
+                if ( (ins.kind==1) and (ins.histogramoptions==1) ):
+                    if ( ins.binoption==3 ): 
+                        f.write(f"{ins.binoption}\n")
+                    else:
+                        if ( ins.timestepout is None ): 
+                            f.write(f"{ins.binoption}  {ins.binparam:.10f}\n")
+                        else:
+                            f.write(f"{ins.binoption}  {ins.binparam:.10f}  {ins.timestepout:.10f}\n")
+
                 if ins.reconstructionoptions == 1:
                     # Write the output and postprocess options
                     f.write(f"{ins.outputoption}  {ins.postprocessoption}   {ins.reconstructionoptions}\n")
@@ -570,9 +709,6 @@ class ModpathRWObs( Package ):
                     # Write effectiveweightformat
                     f.write(f"{ins.effectiveweightformat}\n")
 
-                else:
-                    # Write the output and postprocess options
-                    f.write(f"{ins.outputoption}  {ins.postprocessoption}\n")
 
 
                 # Write the celloption params
