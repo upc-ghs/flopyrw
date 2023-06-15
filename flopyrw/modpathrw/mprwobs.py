@@ -693,9 +693,6 @@ class ModpathRWObs( Package ):
                             f.write(f"{ins.binoption}  {ins.binparam:.10f}  {ins.timestepout:.10f}\n")
 
                 if ins.reconstructionoptions == 1:
-                    # Write the output and postprocess options
-                    f.write(f"{ins.outputoption}  {ins.postprocessoption}   {ins.reconstructionoptions}\n")
-
                     # Write noptloops and convergence
                     f.write(f"{ins.noptloops}   {ins.convergence}\n")
 
