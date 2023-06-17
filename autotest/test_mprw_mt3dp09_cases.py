@@ -1692,7 +1692,7 @@ class MT3DP09Cases:
                 [
                     tuple(MT3DP09Cases.extwell), 
                     MT3DP09Cases.qextwell, 
-                    MT3DP09Cases.cinjwell,
+                    0.025*MT3DP09Cases.cinjwell,
                 ]
             ) 
         welspd = {0: welsp1, 1: welsp2}
