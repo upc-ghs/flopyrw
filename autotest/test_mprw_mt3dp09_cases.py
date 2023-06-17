@@ -77,9 +77,12 @@ class MT3DP09Cases:
 
 
     @staticmethod
-    def mf6(function_tmpdir, write=False, run=False):
+    def mf6(function_tmpdir, write=False, run=False, backward=False):
         """
-        Configures the flow model with MODFLOW 6
+        Configures the flow model with MODFLOW 6 and aux variables
+
+        The backward enables non-zero concentration at extraction well
+        and zero for injection.
         """
 
         # model name
@@ -189,38 +192,72 @@ class MT3DP09Cases:
 
         # wel package
         # first stress period
+        # modifies concentrations if backward tracking
         welsp1 = []
-        welsp1.append( # Injection well
-            # (k, i, j), flow, conc
-            [
-                tuple(MT3DP09Cases.injwell), 
-                MT3DP09Cases.qinjwell, 
-                MT3DP09Cases.cinjwell
-            ]
-        ) 
-        welsp1.append( # Extraction well
-            [
-                tuple(MT3DP09Cases.extwell), 
-                MT3DP09Cases.qextwell, 
-                MT3DP09Cases.czero
-            ]
-        ) 
-        # second stress period
-        welsp2 = []
-        welsp2.append( # Injection well
-            [
-                tuple(MT3DP09Cases.injwell), 
-                MT3DP09Cases.qinjwell, 
-                MT3DP09Cases.czero
-            ]
-        ) 
-        welsp2.append( # Extraction well
-            [
-                tuple(MT3DP09Cases.extwell), 
-                MT3DP09Cases.qextwell, 
-                MT3DP09Cases.czero
-            ]
-        ) 
+        if not backward:
+            welsp1.append( # Injection well
+                # (k, i, j), flow, conc
+                [
+                    tuple(MT3DP09Cases.injwell), 
+                    MT3DP09Cases.qinjwell, 
+                    MT3DP09Cases.cinjwell
+                ]
+            ) 
+            welsp1.append( # Extraction well
+                [
+                    tuple(MT3DP09Cases.extwell), 
+                    MT3DP09Cases.qextwell, 
+                    MT3DP09Cases.czero
+                ]
+            ) 
+            # second stress period
+            welsp2 = []
+            welsp2.append( # Injection well
+                [
+                    tuple(MT3DP09Cases.injwell), 
+                    MT3DP09Cases.qinjwell, 
+                    MT3DP09Cases.czero
+                ]
+            ) 
+            welsp2.append( # Extraction well
+                [
+                    tuple(MT3DP09Cases.extwell), 
+                    MT3DP09Cases.qextwell, 
+                    MT3DP09Cases.czero
+                ]
+            )
+        else:
+            welsp1.append( # Injection well
+                # (k, i, j), flow, conc
+                [
+                    tuple(MT3DP09Cases.injwell), 
+                    MT3DP09Cases.qinjwell, 
+                    MT3DP09Cases.czero
+                ]
+            ) 
+            welsp1.append( # Extraction well
+                [
+                    tuple(MT3DP09Cases.extwell), 
+                    MT3DP09Cases.qextwell, 
+                    MT3DP09Cases.czero
+                ]
+            ) 
+            # second stress period
+            welsp2 = []
+            welsp2.append( # Injection well
+                [
+                    tuple(MT3DP09Cases.injwell), 
+                    MT3DP09Cases.qinjwell, 
+                    MT3DP09Cases.czero
+                ]
+            ) 
+            welsp2.append( # Extraction well
+                [
+                    tuple(MT3DP09Cases.extwell), 
+                    MT3DP09Cases.qextwell, 
+                    0.025*MT3DP09Cases.cinjwell # something not so large
+                ]
+            )
         welspd = {0: welsp1, 1: welsp2}
         mf6.ModflowGwfwel(
             gwf,
@@ -1441,7 +1478,7 @@ class MT3DP09Cases:
 
 
     @staticmethod
-    def mf6timeseriesaux(function_tmpdir, write=False, run=False):
+    def mf6timeseriesaux(function_tmpdir, write=False, run=False, backward=False):
         """
         Configures the flow model with MODFLOW 6 including 
         a timeseries flow rate for the injection well, together 
@@ -1587,45 +1624,77 @@ class MT3DP09Cases:
         waveperiod = 30 * 86400  # n days in seconds
         omega      = np.pi/waveperiod
         qout       = MT3DP09Cases.qextwell + 0.05*MT3DP09Cases.qextwell*np.sin(omega*times) # qextwell plus oscillation
-        timeseries['timeseries']                 = [ (t,qinj[it],cinj[it], qout[it]) for it, t in enumerate( times ) ]
-        timeseries['time_series_namerecord']     = ['QIN','CIN', 'QOUT']
-        timeseries['interpolation_methodrecord'] = ['STEPWISE','STEPWISE', 'STEPWISE']
+        timeseries['timeseries'] = [ (t,qinj[it],cinj[it], qout[it], 0.025*cinj[it]) for it, t in enumerate( times ) ]
+        timeseries['time_series_namerecord']     = ['QIN', 'CIN', 'QOUT', 'CINOUT' ]
+        timeseries['interpolation_methodrecord'] = ['STEPWISE','STEPWISE', 'STEPWISE', 'STEPWISE']
       
         # wel package
         # first stress period
         welsp1 = []
-        welsp1.append( # Injection well
-            # (k, i, j), flow, conc
-            [
-                tuple(MT3DP09Cases.injwell), 
-                'QIN', 
-                'CIN' 
-            ]
-        ) 
-        welsp1.append( # Extraction well
-            [
-                tuple(MT3DP09Cases.extwell), 
-                'QOUT', 
-                #MT3DP09Cases.qextwell, 
-                MT3DP09Cases.czero,
-            ]
-        ) 
-        # second stress period
-        welsp2 = []
-        welsp2.append( # Injection well
-            [
-                tuple(MT3DP09Cases.injwell), 
-                MT3DP09Cases.qinjwell,
-                MT3DP09Cases.czero,
-            ]
-        ) 
-        welsp2.append( # Extraction well
-            [
-                tuple(MT3DP09Cases.extwell), 
-                MT3DP09Cases.qextwell, 
-                MT3DP09Cases.czero,
-            ]
-        ) 
+        if not backward:
+            welsp1.append( # Injection well
+                # (k, i, j), flow, conc
+                [
+                    tuple(MT3DP09Cases.injwell), 
+                    'QIN', 
+                    'CIN' 
+                ]
+            ) 
+            welsp1.append( # Extraction well
+                [
+                    tuple(MT3DP09Cases.extwell), 
+                    'QOUT', 
+                    MT3DP09Cases.czero,
+                ]
+            ) 
+            # second stress period
+            welsp2 = []
+            welsp2.append( # Injection well
+                [
+                    tuple(MT3DP09Cases.injwell), 
+                    MT3DP09Cases.qinjwell,
+                    MT3DP09Cases.czero,
+                ]
+            ) 
+            welsp2.append( # Extraction well
+                [
+                    tuple(MT3DP09Cases.extwell), 
+                    MT3DP09Cases.qextwell, 
+                    MT3DP09Cases.czero,
+                ]
+            ) 
+        else:
+            welsp1.append( # Injection well
+                # (k, i, j), flow, conc
+                [
+                    tuple(MT3DP09Cases.injwell), 
+                    MT3DP09Cases.qinjwell,
+                    MT3DP09Cases.czero,
+                ]
+            ) 
+            welsp1.append( # Extraction well
+                [
+                    tuple(MT3DP09Cases.extwell), 
+                    MT3DP09Cases.qextwell, 
+                    MT3DP09Cases.czero,
+                ]
+            ) 
+            # second stress period
+            welsp2 = []
+            welsp2.append( # Injection well
+                [
+                    tuple(MT3DP09Cases.injwell), 
+                    MT3DP09Cases.qinjwell,
+                    MT3DP09Cases.czero,
+                ]
+            ) 
+            welsp2.append( # Extraction well
+                [
+                    tuple(MT3DP09Cases.extwell), 
+                    MT3DP09Cases.qextwell, 
+                    MT3DP09Cases.cinjwell,
+                ]
+            ) 
         welspd = {0: welsp1, 1: welsp2}
         mf6.ModflowGwfwel(
             gwf,
