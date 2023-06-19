@@ -1725,7 +1725,315 @@ class MT3DP09Cases:
             success, buff = sim.run_simulation(silent=True)
             assert success, "MT3DP09Cases: mf6 model did not run."
 
+
         return gwf 
+
+
+    @staticmethod
+    def mf6timeserieslinear(function_tmpdir, write=False, run=False, aux=False, backward=False):
+        """
+        Configures the flow model with MODFLOW 6 including 
+        a timeseries flow rate for the injection well, together 
+        with a timeseries concentration. 
+        multiple aux variables:
+         - CONCENTRATION is the aux variable name. 
+        """
+
+        # model name
+        ws = function_tmpdir
+        nm = "p09mf6"
+        gwfname = 'gwf-'+nm
+
+        # flopy mf6 sim 
+        sim = mf6.MFSimulation(
+            sim_name=nm, exe_name="mf6", version="mf6", sim_ws=ws
+        )
+
+        # specific stress periods
+        nsteps = 365
+        stress_periods = [ 
+            {    
+                'id': 0, 
+                'length'       : 365 * 86400, # 1 year, seconds 
+                'n_time_steps' : nsteps, 
+                'ts_multiplier': 1, 
+                'steady_state' : False, 
+            }, 
+            {   
+                'id': 1, 
+                'length'       : 365 * 86400, # 1 year, seconds 
+                'n_time_steps' : nsteps, 
+                'ts_multiplier': 1, 
+                'steady_state' : False, 
+            } 
+        ] 
+        tlength = 2*stress_periods[0]['length'] 
+        deltat  = tlength/(2*nsteps)
+        times   = np.arange(0,tlength+deltat,deltat) 
+
+        # tdis package
+        perioddata = []
+        for sp in stress_periods:
+            perioddata.append( [sp['length'], sp['n_time_steps'], sp['ts_multiplier']] )
+        mf6.ModflowTdis(
+            sim,
+            nper=len(stress_periods),
+            perioddata=perioddata,
+            time_units=MT3DP09Cases.time_units, 
+        )
+
+        # gwf package
+        gwf = mf6.ModflowGwf(
+            sim,
+            modelname=gwfname,
+            save_flows=True,
+            model_nam_file="{}.nam".format(gwfname), 
+        )
+
+        # ims package
+        imsconfig = {
+            'print_option'       : "SUMMARY",
+            'outer_dvclose'      : MT3DP09Cases.hclose,
+            'outer_maximum'      : MT3DP09Cases.nouter,
+            'under_relaxation'   : "NONE",
+            'inner_maximum'      : MT3DP09Cases.ninner,
+            'inner_dvclose'      : MT3DP09Cases.hclose,
+            'rcloserecord'       : MT3DP09Cases.rclose,
+            'linear_acceleration': "CG",
+            'scaling_method'     : "NONE",
+            'reordering_method'  : "NONE",
+            'relaxation_factor'  : MT3DP09Cases.relax,
+            'filename'           : "{}.ims".format(gwfname),
+        }
+        imsgwf = mf6.ModflowIms(
+                sim,
+                **imsconfig
+            )
+        sim.register_ims_package(imsgwf, [gwf.name]) 
+
+        # dis package
+        disconfig = { 
+            'length_units': MT3DP09Cases.length_units, 
+            'nlay'        : MT3DP09Cases.nlay,
+            'nrow'        : MT3DP09Cases.nrow,
+            'ncol'        : MT3DP09Cases.ncol,
+            'delr'        : MT3DP09Cases.delr,
+            'delc'        : MT3DP09Cases.delc,
+            'top'         : MT3DP09Cases.top,
+            'botm'        : MT3DP09Cases.botm,
+            'idomain'     : MT3DP09Cases.idomain,
+            'filename'    : "{}.dis".format(gwfname),
+        }
+        mf6.ModflowGwfdis(
+            gwf,
+            **disconfig
+        )
+
+        # ic package
+        mf6.ModflowGwfic(
+            gwf,
+            strt=MT3DP09Cases.chdh, 
+            filename="{}.ic".format(gwfname)
+        )
+
+        # npf package
+        mf6.ModflowGwfnpf(  
+            gwf,
+            k=MT3DP09Cases.hk,
+            k33=MT3DP09Cases.hk,
+            save_flows=True,
+            save_specific_discharge=True,
+            filename="{}.npf".format(gwfname),
+        )
+
+        # chd package
+        xc = gwf.modelgrid.xcellcenters
+        chdspd = []
+        if not aux:
+            for j in range(MT3DP09Cases.ncol):
+                # Loop through the top & bottom sides
+                # lay, row, col, head, aux0, aux1, aux2
+                chdspd.append([(0,  0, j), MT3DP09Cases.chdh])  # Top boundary
+                hd = 20.0 + (xc[-1, j] - xc[-1, 0]) * 2.5 / 100
+                chdspd.append([(0, 17, j),    hd])  # Bottom boundary
+            chdspd = {0: chdspd}
+            mf6.ModflowGwfchd(
+                gwf,
+                stress_period_data=chdspd,
+                save_flows=True,
+                maxbound=len(chdspd),
+                pname="CHD-1",
+                filename="{}.chd".format(nm),
+            )
+        else:
+            for j in range(MT3DP09Cases.ncol):
+                # Loop through the top & bottom sides
+                # lay, row, col, head, aux0, aux1, aux2
+                chdspd.append([(0,  0, j), MT3DP09Cases.chdh, 0.0])  # Top boundary
+                hd = 20.0 + (xc[-1, j] - xc[-1, 0]) * 2.5 / 100
+                chdspd.append([(0, 17, j),    hd, 0.0])  # Bottom boundary
+            chdspd = {0: chdspd}
+            mf6.ModflowGwfchd(
+                gwf,
+                stress_period_data=chdspd,
+                save_flows=True,
+                maxbound=len(chdspd),
+                auxiliary=['CONCENTRATION'],
+                pname="CHD-1",
+                filename="{}.chd".format(nm),
+            )
+
+        # Well input as timeseries
+        timeseries = {}
+        qinslope   = (0.5*MT3DP09Cases.qinjwell)/(2.0*365*86400)
+        qoutslope  = (0.5*MT3DP09Cases.qextwell)/(2.0*365*86400)
+        qinj       = 0.5*MT3DP09Cases.qinjwell + qinslope*times
+        qout       = 0.5*MT3DP09Cases.qextwell + qoutslope*times
+        timeseries['timeseries'] = [ (t,qinj[it],qout[it]) for it, t in enumerate( times ) ]
+        timeseries['time_series_namerecord']     = ['QIN', 'QOUT']
+        timeseries['interpolation_methodrecord'] = ['STEPWISE','STEPWISE']
+      
+        # wel package
+        # first stress period
+        welsp1 = []
+        if not aux:
+            welsp1.append( # Injection well
+                # (k, i, j), flow
+                [
+                    tuple(MT3DP09Cases.injwell), 
+                    'QIN' 
+                ]
+            ) 
+            welsp1.append( # Extraction well
+                [
+                    tuple(MT3DP09Cases.extwell), 
+                    'QOUT' 
+                ]
+            ) 
+            # second stress period
+            welsp2 = []
+            welsp2.append( # Injection well
+                [
+                    tuple(MT3DP09Cases.injwell), 
+                    'QIN' 
+                ]
+            ) 
+            welsp2.append( # Extraction well
+                [
+                    tuple(MT3DP09Cases.extwell), 
+                    'QOUT' 
+                ]
+            ) 
+            welspd = {0: welsp1, 1: welsp2}
+            mf6.ModflowGwfwel(
+                gwf,
+                stress_period_data=welspd,
+                print_input = True,
+                print_flows = True,
+                save_flows  = True,
+                pname       = "WEL-1",
+                timeseries  = timeseries,
+            )
+        else:
+            if not backward:
+                welsp1.append( # Injection well
+                    # (k, i, j), flow
+                    [
+                        tuple(MT3DP09Cases.injwell), 
+                        'QIN',
+                        MT3DP09Cases.cinjwell, 
+
+                    ]
+                ) 
+                welsp1.append( # Extraction well
+                    [
+                        tuple(MT3DP09Cases.extwell), 
+                        'QOUT',
+                        MT3DP09Cases.czero, 
+                    ]
+                ) 
+                # second stress period
+                welsp2 = []
+                welsp2.append( # Injection well
+                    [
+                        tuple(MT3DP09Cases.injwell), 
+                        'QIN',
+                        MT3DP09Cases.czero, 
+                    ]
+                ) 
+                welsp2.append( # Extraction well
+                    [
+                        tuple(MT3DP09Cases.extwell), 
+                        'QOUT', 
+                        MT3DP09Cases.czero, 
+                    ]
+                )
+            else:
+                welsp1.append( # Injection well
+                    # (k, i, j), flow
+                    [
+                        tuple(MT3DP09Cases.injwell), 
+                        'QIN',
+                        MT3DP09Cases.czero,
+
+                    ]
+                ) 
+                welsp1.append( # Extraction well
+                    [
+                        tuple(MT3DP09Cases.extwell), 
+                        'QOUT',
+                        MT3DP09Cases.czero, 
+                    ]
+                ) 
+                # second stress period
+                welsp2 = []
+                welsp2.append( # Injection well
+                    [
+                        tuple(MT3DP09Cases.injwell), 
+                        'QIN',
+                        MT3DP09Cases.czero, 
+                    ]
+                ) 
+                welsp2.append( # Extraction well
+                    [
+                        tuple(MT3DP09Cases.extwell), 
+                        'QOUT', 
+                        0.025*MT3DP09Cases.cinjwell, 
+                    ]
+                ) 
+            welspd = {0: welsp1, 1: welsp2}
+            mf6.ModflowGwfwel(
+                gwf,
+                stress_period_data=welspd,
+                print_input = True,
+                print_flows = True,
+                save_flows  = True,
+                auxiliary   = ['CONCENTRATION'],
+                pname       = "WEL-1",
+                timeseries  = timeseries,
+            )
+
+        # oc package
+        mf6.ModflowGwfoc(
+            gwf,
+            head_filerecord="{}.hds".format(gwfname),
+            budget_filerecord="{}.bud".format(gwfname),
+            headprintrecord=[
+                ("COLUMNS", 10, "WIDTH", 15, "DIGITS", 6, "GENERAL")
+            ],
+            saverecord =[("HEAD", "ALL"), ("BUDGET", "ALL")],
+            printrecord=[("HEAD", "ALL"), ("BUDGET", "ALL")],
+        )
+
+        if write:
+            sim.write_simulation(silent=True)
+        if run:
+            success, buff = sim.run_simulation(silent=True)
+            assert success, "MT3DP09Cases: mf6 model did not run."
+
+
+        return gwf 
+
 
 
 

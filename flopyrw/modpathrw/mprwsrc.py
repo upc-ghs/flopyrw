@@ -156,7 +156,7 @@ class ModpathRWSrc( Package ):
     template : list[tuple(int)]
         The distribution of particles on a cell for a given species. 
         If templateoption==1, then one template is expected for different 
-        species. These, in combination with  the particlesmass, determine 
+        species. These, in combination with the particlesmass, determine 
         the number of particles and overall the resolution 
         with which the source injection is characterized. 
     templateoption : int
@@ -1279,6 +1279,9 @@ class ModpathRWSrc( Package ):
                     + str(src['cellinput']) + ' requires cells to be ' 
                     + 'specified but None was given.' 
                 )
+            if ( src['cellinput'] == 0 ):
+                # Same concentration for all cells
+                ncellsforinput = 1
             if ( src['cellinput'] == 1 ):
                 if ( not isinstance( src['cells'], list ) ):
                     raise ValueError(
@@ -1287,11 +1290,11 @@ class ModpathRWSrc( Package ):
                         + 'input option is 1 but no list of cells was given.' 
                     )
                 # Requires something to validate versus the structured parameter
+                # Concpercell ? 
                 cells          = np.array(src['cells'])
                 ncellsforinput = cells.shape[0]
             if ( src['cellinput'] == 2 ):
-                # This cellinput format forces the same concentration 
-                # for all cells.
+                # Same concentration for all cells
                 cells = src['cells']
                 src['cells'] = Util3d(
                     self.model,
@@ -1354,6 +1357,7 @@ class ModpathRWSrc( Package ):
                         + ') are not consistent with the '
                         + 'number of time intervals ' + str(ntin) + '.'
                     )
+                # Verifies how many concentrations  
                 if ( conc.shape[1] != nsp*ncellsforinput ):
                     raise ValueError(
                         self.__class__.__name__ + ':'
@@ -1363,7 +1367,6 @@ class ModpathRWSrc( Package ):
                         + 'with the number of species and cells for ' 
                         + 'the given concpercell parameter.'
                     )
-                # Needs some review
 
                 # Pass it back 
                 src['concentration'] = conc.tolist()
