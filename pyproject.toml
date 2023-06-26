@@ -28,6 +28,4 @@ test = [
     "pyshp",
     "modflow-devtools",
     "pytest",
-    "pytest-dotenv",
-    "pytest-xdist",
 ]

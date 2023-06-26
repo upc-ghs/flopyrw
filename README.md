@@ -1,86 +1,111 @@
 ## flopyrw
-Interface for writing input simulation files for MODPATH-RW, based on [FloPy](https://github.com/modflowpy/flopy)
+An extension of [FloPy](https://github.com/modflowpy/flopy) to write input simulation files for [MODPATH-RW](https://gitub.com/upc-ghs/modpath-rw) with Python.
 
 ### Overview
-Provides classes extended from the `modpath` module at `flopy` and further functionalities to write the package input files for [MODPATH-RW](https://gitub.com/upc-ghs/modpath-rw).
-
-Classes follow the same logic than `flopy`, configuring packages based on a MODFLOW flow-model object.
-
-### Quicktstart
-
-Install the package 
-
-Use it
-
-```py
-from flopy import modpathrw
-
-# Create a modpathrw model
-
-# Append some packages
-
-# Configure the simulation 
-
-# Write the files
-
-# And run 
-```
-
-Note: the interface requires the MODPATH-RW executable. 
+Provides classes extended from the `modpath` module in `flopy` adapted to specific structures required by MODPATH-RW. Also introduces new package writers required by the program, consistent with the [Documentation of Input-Output](https://github.com/upc-ghs/modpath-rw/doc/modpath-rw_IO_v100_.pdf). 
 
 
+### Quickstart
+**Install**
 
-
-
-
-## Install
-
-Clone reposistory and install as dependency in your environment. Suggested process is 
+To install the package from source, clone the repository:
 
 ```
-git clone https://gitlab.com/upc-ghs/flopyrw.git
+git clone https://github.com/upc-ghs/flopyrw
 ```
-
-Change directory to the package
-
-```
-cd flopyrw
-```
-
-Activate the `python` environment
-
-```
-source /path/to/env/bin/activate
-```
-
-And install
-
-```
-python setup.py install
-```
-
-Another alternative would be to directly install the cloned repository once the `python` environment is activated. This is done with the command
+and install 
 
 ```
 pip install -e /the/path/to/flopyrw/
 ```
 
-Then, published changes in the central repository can be integrated by regularly checking the output of the command (executed inside the cloned `flopyrw` repository)
+You can also install the current release from [PyPI](https://pypi.org/project/flopyrw/):
 
 ```
-git fetch 
+pip install flopyrw
 ```
 
-In case of changes, these can be integrated with `git pull`.
+**Use it**
+
+Classes follow the same logic than `flopy`, configuring packages on top of a MODFLOW flow-model object.
+
+```py
+from flopyrw import modpathrw
+
+# Suppose an existing gwt (mf6) model with 
+# the aux variable 'CONCENTRATION' in 'WEL-1' package... 
+
+# Create a modpathrw model
+mprw = modpathrw.ModpathRW(modelname="mprwsim", flowmodel=gwt) 
+
+# Random walk options
+modpathrw.ModpathRWOpts(
+    mprw,
+    dimensionsmask=[1,1,0], # Random walk in x,y and not in z
+    timestep='min',
+    ctdisp=0.1,
+    courant=0.1
+)
+
+# Dispersion parameters 
+modpathrw.ModpathRWDsp( 
+    mprw,
+    alphal= 0.1,
+    alphat= 0.01, 
+    dmeff = 0.0, 
+)
+
+# bas 
+modpathrw.ModpathRWBas(mp,porosity=0.3)
+
+# Define a solute source 
+modpathrw.ModpathRWSrc(
+    mp,
+    sources=(
+        "WEL-1", # package name
+        [   # auxvar, particlesmass, release template
+            [ "CONCENTRATION", 300.0, (4,4,1)], 
+        ],
+    ),
+)
+
+# Configure the simulation 
+simconfig = {
+    'simulationtype'    : 'rwendpoint', 
+    'trackingdirection' : 'forward',
+    'weaksinkoption'    : 'stop_at',
+    'weaksourceoption'  : 'pass_through',
+    'stoptimeoption'    : 'specified',
+    'stoptime'          : 1.0,
+}
+modpathrw.ModpathRWSim(
+    mprw, 
+    **simconfig
+)
+
+# Write the input files
+mprw.write_input()
+
+# And run 
+mprw.run_model()
+```
+
+**Note**: In order to run a model via the interface a [MODPATH-RW](https://gitub.com/upc-ghs/modpath-rw) executable is required. 
 
 
-## Writing MODPATH-RW input files
-Package extends from the `flopy` classes for writing `modpath` input files. For `modpath-rw`, additional classes are considered for writing dispersion, reconstruction and other configuration files required for the program. Workflow for applying these packages follows the same logic than a `modpath-v7` simulation in `flopy`. 
+### Testing
+A suite of [automated tests](autotest/) is available verifying different aspects of the interface and the program. In order to run these tests, install the test dependencies with 
+
+```
+pip install ".[test]"
+```
+
+You can follow the [FloPy test guidelines](https://github.com/modflowpy/flopy/blob/develop/DEVELOPER.md#running-tests) for running and debugging tests.
+
 
 
 
 ## Resources
-
 * [MODPATH](https://www.usgs.gov/software/modpath-particle-tracking-model-modflow)
 * [modpath-v7 repository](https://github.com/MODFLOW-USGS/modpath-v7)
 * [modpath-omp repository](https://github.com/MARSoluT/modpath-omp)
