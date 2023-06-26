@@ -15,16 +15,13 @@ class ModpathRW( Modpath7 ):
 
     Extends flopy.modpath.Modpath7 and overloads method write_name_file
 
-    A random walk simulation requires the DSP and RWOPTS packages
-    and giving these will be enforced by the class before completing 
-    the writing of input files.
-
-    The basic package (porosities) is also required by modpath and this
-    class will also enforce its specification if not given.
-
-    A simulation class is also required by modpath and will be enforced 
-    by the class.
-
+    While writing input files with check=True, the existence of the 
+    following packages will be verified: 
+    
+        - ModpathRWSim : the simulation class
+        - ModpathRWDsp : dispersion package
+        - ModpathRWOpts: random walk options 
+        - ModpathRWBas : basic package, porosities
     '''
 
     def __init__(self, *args, **kwargs):
