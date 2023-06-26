@@ -280,3 +280,102 @@ def test_mprw_src_aux_input_mf2005(function_tmpdir):
 
     # Try to write ( not checking consistency of dsp and rwopts, check=False )
     mp.write_input()
+
+
+def test_mprw_src_spec_input_mf6(function_tmpdir):
+    '''
+    Verifies the inputformat specified with different
+    source combinations, while using a mf6 model.
+    '''
+
+    # get the mf6 case
+    # brings WEL-1 and CHD-1 with aux CONCENTRATION
+    flowmf6 = MT3DP09Cases.mf6(function_tmpdir) 
+
+    # modpath-rw
+    mp = modpathrw.ModpathRW(
+            flowmodel=flowmf6,
+            model_ws =function_tmpdir,
+        )
+   
+    # simple checks #
+    #---------------#
+    with pytest.raises(ValueError):
+        # If sources is None, requires kwargs
+        modpathrw.ModpathRWSrc(
+            mp,
+            inputformat='spec',
+            sources=None,
+        )
+    # Define kwargs incrementaly 
+    pkwargs = {}
+    pkwargs = {
+        'budgetname': 'WEL',
+    }
+    with pytest.raises(ValueError):
+        # Requires timeintervals
+        modpathrw.ModpathRWSrc(
+            mp,
+            inputformat='spec',
+            **pkwargs
+        )
+    pkwargs['timeintervals'] = [0.0]
+    with pytest.raises(ValueError):
+        # Give a bad timeintervals
+        modpathrw.ModpathRWSrc(
+            mp,
+            inputformat='spec',
+            **pkwargs
+        )
+
+    # Give a good timeintervals 
+    pkwargs['timeintervals'] = [0.0, 365*86400.0]
+    with pytest.raises(ValueError):
+        # Require concentration
+        modpathrw.ModpathRWSrc(
+            mp,
+            inputformat='spec',
+            **pkwargs
+        )
+    pkwargs['concentration'] = [10,199]
+    with pytest.raises(ValueError):
+        # Give a bad concentration
+        modpathrw.ModpathRWSrc(
+            mp,
+            inputformat='spec',
+            **pkwargs
+        )
+    pkwargs['concentration'] = [MT3DP09Cases.cinjwell]
+
+    src = modpathrw.ModpathRWSrc(
+        mp,
+        inputformat='spec',
+        **pkwargs
+    )
+
+    pkgs = mp.get_package_list() 
+    assert src._ftype() in pkgs, (
+            f"SRC package was not found in ModpathRW object"
+        )
+
+    # sim with particlesmassoption = 0
+    simconfig = {
+        'simulationtype'         : 'rwtimeseries', 
+        'trackingdirection'      : 'forward',
+        'weaksinkoption'         : 'stop_at',
+        'weaksourceoption'       : 'pass_through',
+        'referencetime'          : 0.0,
+        'stoptimeoption'         : 'specified',
+        'stoptime'               : 2*365*86400,
+        'particlesmassoption'    : 0, 
+        'speciesdispersionoption': 0,
+        'timeseriesoutputoption' : 2, 
+        'timepointdata'          : [2, (1.0*365*86400)],
+    }
+    mpsim = modpathrw.ModpathRWSim(
+        mp,
+        **simconfig
+    )
+
+    # Try to write ( not checking consistency of dsp and rwopts, check=False )
+    mp.write_input()

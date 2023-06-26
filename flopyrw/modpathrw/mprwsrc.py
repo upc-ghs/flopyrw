@@ -248,26 +248,25 @@ class ModpathRWSrc( Package ):
         # Verify format type
         if ( not isinstance(inputformat,str) ):
             raise TypeError(
-                self.__class__.__name__ + ':' 
-                + ' Invalid type ' + str(type(inputformat))
-                + ' for the format specification.'
-                + '. It should be str. '
+                f"{self.__class__.__name__}:"
+                f" Invalid type {str(type(inputformat))}"
+                f" for the format specification. It should be str."
             )
         # Validate given format 
         if ( ( inputformat.upper() not in ['AUX','AUXILIARY','SPEC','SPECIFIED'] ) ):
             raise ValueError(
-                self.__class__.__name__ + ':' 
-                + ' Invalid input format ' + str(inputformat)
-                + '. Allowed values are AUX (AUXILIARY) or SPEC (SPECIFIED). '
+                f"{self.__class__.__name__}:"
+                f" Invalid input format {str(inputformat)}."
+                f" Allowed values are AUX (AUXILIARY) or SPEC (SPECIFIED)."
             )
         self.inputformat = inputformat.upper()
         # Save ifaceoption
         if ( ifaceoption not in [0,1] ): 
             raise ValueError(
-                self.__class__.__name__ + ':'
-                + ' Invalid ifaceoption ' + str(ifaceoption)
-                + '. The allowed values are 0 (do not read in budgets) '
-                + 'or 1 (read from budgets).'
+                f"{self.__class__.__name__}:"
+                f" Invalid ifaceoption {str(ifaceoption)}."
+                f" The allowed values are 0 (do not read in budgets)"
+                f" or 1 (read from budgets)."
             )
         self.ifaceoption = ifaceoption
 
@@ -1084,10 +1083,9 @@ class ModpathRWSrc( Package ):
         # This format is more rigid, force reading specs from dicts
         if ( not isinstance(sources,(list,dict)) ):
             raise TypeError(
-                self.__class__.__name__ + ':'
-                + ' Invalid type for sources in specified input format, '
-                + 'expected list or dict. '
-                + str(type(sources))+ ' was given.'
+                f"{self.__class__.__name__}:"
+                f" Invalid type for sources in specified input format,"
+                f" expected list or dict. {str(type(sources))} was given."
             )
         if ( isinstance(sources,(dict)) ):
             sources = [sources]
@@ -1095,12 +1093,11 @@ class ModpathRWSrc( Package ):
             for src in sources:
                 if ( not isinstance( src, dict ) ): 
                     raise TypeError(
-                        self.__class__.__name__ + ':'
-                        + ' Invalid type for source in specified input '
-                        + 'format, expected dict. '
-                        + str(type(src))+ ' was given.'
+                        f"{self.__class__.__name__}:"
+                        f" Invalid type for source in specified input format, expected dict."
+                        f" {str(type(src))} was given."
                     )
-        
+
         # Do more advanced validation for each source specification 
         # Consider recycling the machinery for validating params in mf6 classes
         for src in sources:
@@ -1113,22 +1110,22 @@ class ModpathRWSrc( Package ):
             # budgetname
             if ('budgetname' not in keys ):
                 raise ValueError(
-                    self.__class__.__name__ + ':'
-                    + ' Invalid source specification. The key '
-                    + 'budgetname was not found in specification.'
+                    f"{self.__class__.__name__}:"
+                    f" Invalid source specification. The key"
+                    f" budgetname was not found in specification."
                 )
             if ( src['budgetname'] is None ): 
                 raise ValueError(
-                    self.__class__.__name__ + ':'
-                    + ' Invalid source specification. The key '
-                    + 'budgetname is None.'
+                    f"{self.__class__.__name__}:"
+                    f" Invalid source specification. The key"
+                    f" budgetname is None."
                 )
             if ( not isinstance( src['budgetname'], str ) ): 
                 raise TypeError(
-                    self.__class__.__name__ + ':'
-                    + ' Invalid source specification. The key '
-                    + 'budgetname is not a str.'
-                    + str(type(src['budgetname'])) + ' was given.'
+                    f"{self.__class__.__name__}:"
+                    f" Invalid source specification. The key"
+                    f" budgetname is not a str."
+                    f" {str(type(src['budgetname']))} was given."
                 )
             # It could be considered a check versus the packages available at the model 
             # but headers could have different names e.g. "CONSTANT HEAD" in mf2005
@@ -1139,17 +1136,16 @@ class ModpathRWSrc( Package ):
                 src['nspecies'] = self.__class__.defaultnspecies
             if ( not isinstance( src['nspecies'], int ) ): 
                 raise TypeError(
-                    self.__class__.__name__ + ':'
-                    + ' Invalid source specification. The key '
-                    + 'nspecies should be int. '
-                    + str(type(src['nspecies'])) + ' was given.'
+                    f"{self.__class__.__name__}:"
+                    f" Invalid source specification. The key"
+                    f" nspecies should be int. {str(type(src['nspecies']))} was given."
                 )
             if ( src['nspecies'] <= 0 ): 
                 raise ValueError(
-                    self.__class__.__name__ + ':'
-                    + ' Invalid source specification. The nspecies should '
-                    + 'be a positive integer. '
-                    + str(src['nspecies']) + ' was given.'
+                    f"{self.__class__.__name__}:"
+                    f" Invalid source specification. The nspecies should"
+                    f" be a positive integer."
+                    f" {str(src['nspecies'])} was given."
                 )
             nsp = src['nspecies']
             
@@ -1172,10 +1168,10 @@ class ModpathRWSrc( Package ):
             if ( not isinstance( src['particlesmass'], list ) ):
                 if ( not isinstance( src['particlesmass'], (int,float) ) ): 
                     raise TypeError(
-                        self.__class__.__name__ + ':'
-                        + ' Invalid source specification. The given '
-                        + 'particles mass is not int/float. '
-                        + str(type(src['particlesmass'])) + ' was given.'
+                        f"{self.__class__.__name__}:"
+                        f" Invalid source specification. The given"
+                        f" particles mass is not int/float."
+                        f" {str(type(src['particlesmass']))} was given."
                     )
                 if ( nsp == 1 ): 
                     src['particlesmass'] = [src['particlesmass']]
@@ -1185,12 +1181,12 @@ class ModpathRWSrc( Package ):
             else:
                 if( not ( len( src['particlesmass'] == nsp ) ) ):
                     raise ValueError(
-                        self.__class__.__name__ + ':'
-                        + ' Invalid source specification. The number of' 
-                        + 'elements in particlesmass list '
-                        + 'is not consistent with nspecies. '
-                        + 'Nspecies is ' + str(nsp) + ' and '
-                        + str(len(src['particlesmass'])) + ' masses were given.'
+                        f"{self.__class__.__name__}:"
+                        f" Invalid source specification. The number of"
+                        f" elements in particlesmass list"
+                        f" is not consistent with nspecies."
+                        f" Nspecies is {str(nsp)} and"
+                        f" {str(len(src['particlesmass']))} masses were given."
                     )
 
             # cellinput
@@ -1199,10 +1195,10 @@ class ModpathRWSrc( Package ):
                 src['cellinput'] = self.__class__.defaultcellinput
             if ( src['cellinput'] not in [0,1,2] ):
                 raise ValueError(
-                    self.__class__.__name__ + ':'
-                    + ' Invalid source specification. The cellinput '
-                    + 'parameter is not 0, 1 or 2. '
-                    + str(src['cellinput']) + ' was given.'
+                    f"{self.__class__.__name__}:"
+                    f" Invalid source specification. The cellinput"
+                    f" parameter is not 0, 1 or 2."
+                    f" {str(src['cellinput'])} was given."
                 )
 
             # structured 
@@ -1216,10 +1212,10 @@ class ModpathRWSrc( Package ):
                 src['ifaceoption'] = self.__class__.defaultifaceoption
             if ( src['ifaceoption'] not in [0,1] ):
                 raise ValueError(
-                    self.__class__.__name__ + ':'
-                    + ' Invalid source specification. The ifaceoption '
-                    + 'parameter is not 0 or 1. '
-                    + str(src['ifaceoption']) + ' was given.'
+                    f"{self.__class__.__name__}:"
+                    f" Invalid source specification. The ifaceoption"
+                    f" parameter is not 0 or 1."
+                    f" {str(src['ifaceoption'])} was given."
                 )
 
             # defaultiface
@@ -1309,27 +1305,27 @@ class ModpathRWSrc( Package ):
             # timeintervals
             if ('timeintervals' not in keys ):
                 raise ValueError(
-                    self.__class__.__name__ + ':'
-                    + ' Invalid source specification. The key '
-                    + 'timeintervals was not found in specification.'
+                    f"{self.__class__.__name__}:"
+                    f" Invalid source specification. The key"
+                    f" timeintervals was not found in specification."
                 )
-            if ( not isinstance( src['concentration'], list ) ):
+            if ( not isinstance( src['timeintervals'], list ) ):
                 raise ValueError(
-                    self.__class__.__name__ + ':'
-                    + ' Invalid source specification. The key '
-                    + 'timeintervals should be a list. ' 
+                    f"{self.__class__.__name__}:"
+                    f" Invalid source specification. The key timeintervals should be"
+                    f" a list, but {str(type(src['timeintervals']))} was given."
                 )
             else:
                 tintervals = np.array( src['timeintervals'] )
-                # Forgive if given only one tstart,tend
-                if ( ( tintervals.shape[1] == 1 ) and (len(tintervals)==2)): 
-                    tintervals = tintervals.transpose()
+                # Handle the case when given only one tstart, tend
+                if ( len( tintervals.shape ) == 1 ):
+                    tintervals = np.expand_dims( tintervals, axis=0 )
                 if ( not ( tintervals.shape[1] == 2 ) ): 
                     raise ValueError(
-                        self.__class__.__name__ + ':' 
-                        + ' Invalid source specification. The key '
-                        + 'timeintervals should be have a '
-                        + 'shape of two in axis=1 indicating tstart, tend'
+                        f"{self.__class__.__name__}:"
+                        f" Invalid source specification. The key"
+                        f" timeintervals should be have a"
+                        f" shape of two in axis=1 indicating tstart, tend."
                     )
                 ntin = tintervals.shape[0]
         
@@ -1340,34 +1336,36 @@ class ModpathRWSrc( Package ):
             # concentration
             if ('concentration' not in keys ):
                 raise ValueError(
-                    self.__class__.__name__ + ':'
-                    + ' Invalid source specification. The key '
-                    + 'concentration was not found in specification.'
+                    f"{self.__class__.__name__}:"
+                    f" Invalid source specification. The key"
+                    f" concentration was not found in specification."
                 )
-            if ( isinstance( src['concentration'], list ) ):
+            if ( not isinstance( src['concentration'], list ) ):
+                raise ValueError(
+                    f"{self.__class__.__name__}:"
+                    f" Invalid source specification. The key concentration should be"
+                    f" a list, but {str(type(src['concentration']))} was given."
+                )
+            else:
                 # To numpy array 
                 conc = np.array(src['concentration'])
-                if ( (len(conc.shape)==1) ): 
+                if ( len( conc.shape ) == 1 ): 
                     conc = np.expand_dims( conc, axis=1 )
                 if ( conc.shape[0] != ntin ): 
                     raise ValueError(
-                        self.__class__.__name__ + ':'
-                        + ' Invalid source specification. The given '
-                        + 'concentrations ('+ str(conc.shape[0])
-                        + ') are not consistent with the '
-                        + 'number of time intervals ' + str(ntin) + '.'
+                        f"{self.__class__.__name__}:"
+                        f" Invalid source specification. The number of given concentrations"
+                        f" ({str(conc.shape[0])}) is not consistent with the"
+                        f" number of time intervals ({str(ntin)})."
                     )
                 # Verifies how many concentrations  
                 if ( conc.shape[1] != nsp*ncellsforinput ):
                     raise ValueError(
-                        self.__class__.__name__ + ':'
-                        + ' Invalid source specification. The given '
-                        + 'concentrations in axis = 1 ('
-                        + str(conc.shape[1]) + ') are not consistent '
-                        + 'with the number of species and cells for ' 
-                        + 'the given concpercell parameter.'
+                        f"{self.__class__.__name__}:"
+                        f" Invalid source specification. The given"
+                        f" concentrations in axis = 1 ({str(conc.shape[1])}) is not consistent"
+                        f" with the number of species and cells for the given concpercell parameter."
                     )
-
                 # Pass it back 
                 src['concentration'] = conc.tolist()
 
