@@ -94,16 +94,25 @@ mprw.run_model()
 
 
 ### Testing
-A suite of [automated tests](autotest/) is available verifying different aspects of the interface and the program. In order to run these tests, install the test dependencies with 
+A suite of [automated tests](autotest/) is available verifying different aspects of the interface and the program. In order to run these tests, the current release candidate of [FloPy](https://github.com/modflowpy/flopy) is required. Install it with the command:
+
+```
+pip install https://github.com/modflowpy/flopy/zipball/develop
+```
+
+Install the additional test dependencies with:
 
 ```
 pip install ".[test]"
 ```
 
-You can follow the [FloPy test guidelines](https://github.com/modflowpy/flopy/blob/develop/DEVELOPER.md#running-tests) for running and debugging tests.
+You can follow the [FloPy test guidelines](https://github.com/modflowpy/flopy/blob/develop/DEVELOPER.md#running-tests) for running and debugging tests. 
 
+Run the complete test suite from the folder ``autotest`` with the command:
 
-
+```
+pytest -s -v 
+```
 
 ## Resources
 * [MODPATH](https://www.usgs.gov/software/modpath-particle-tracking-model-modflow)
