@@ -2037,7 +2037,6 @@ class MT3DP09Cases:
 
 
 
-
 @requires_exe("mf6")
 def test_mprw_mt3dp09_mf6(function_tmpdir):
     '''

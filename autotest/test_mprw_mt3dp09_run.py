@@ -958,6 +958,92 @@ def test_mprw_run_srcspec_mf6timeserieslinear(function_tmpdir):
 
 
 @requires_exe("mf6","mpathrw")
+def test_mprw_run_srcspec_mf6(function_tmpdir):
+    '''
+    Verifies running of mpathrw simulation 
+    with source using spec format. 
+    '''
+
+    # get the mf6 case
+    # brings WEL-1 and CHD-1
+    flowmf6 = MT3DP09Cases.mf6(function_tmpdir,write=True,run=True)
+
+    # modpath-rw
+    mp = modpathrw.ModpathRW(
+            modelname='mprwsim',
+            flowmodel=flowmf6,
+            model_ws =function_tmpdir,
+        )
+    # bas 
+    modpathrw.ModpathRWBas(mp,porosity=MT3DP09Cases.porosity)
+    # rwopts
+    modpathrw.ModpathRWOpts(
+        mp,
+        dimensionsmask=[1,1,0],
+        timestep='min',
+        ctdisp=0.1,
+        courant=0.1
+    )
+    # src
+    sources = [
+        {
+            'budgetname': 'WEL', 
+            'timeintervals' : [
+                [0.0,365*86400.0],
+            ],
+            'cellinput': 0,
+            'concentration': [MT3DP09Cases.cinjwell],
+            'particlesmass': 300, 
+            'template':[(4,4,1)],
+            'speciesid': 0,
+            'cells': None,
+        },
+    ]
+    src = modpathrw.ModpathRWSrc(
+        mp,
+        inputformat='spec', 
+        sources=sources,
+    )
+    # dsp 
+    modpathrw.ModpathRWDsp(
+        mp,
+        alphal=MT3DP09Cases.alphal,
+        alphat=MT3DP09Cases.alphat,
+        dmeff=MT3DP09Cases.dmeff,
+    )
+    # obs
+    obs = modpathrw.ModpathRWObs(
+        mp,
+        kind ='flux',
+        cells=[tuple(MT3DP09Cases.extwell)],
+        outputoption = 1, 
+    )
+    # sim
+    simconfig = {
+        'simulationtype'         : 'rwendpoint', 
+        'trackingdirection'      : 'forward',
+        'weaksinkoption'         : 'stop_at',
+        'weaksourceoption'       : 'pass_through',
+        'referencetime'          : 0.0,
+        'stoptimeoption'         : 'specified',
+        'stoptime'               : 2*365*86400.0,
+        'endpointoutputoption'   : 2,
+    }
+    mprwsim = modpathrw.ModpathRWSim(
+        mp, 
+        **simconfig
+    )
+
+
+    # Try to write ( checking consistency ).
+    mp.write_input(check=True)
+
+    success, buff = mp.run_model(silent=True,report=True)
+    assert success, f"mpathrw did not run correctly"
+
+
+
+@requires_exe("mf6","mpathrw")
 def test_mprw_run_srcaux_mf6timeserieslinear_backward(function_tmpdir):
     '''
     Verifies running of mpathrw simulation 
