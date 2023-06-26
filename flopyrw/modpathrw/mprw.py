@@ -26,8 +26,7 @@ class ModpathRW( Modpath7 ):
 
     def __init__(self, *args, **kwargs):
 
-        # Assign defaults values 
-        # but preserving user provided information 
+        # Assign defaults values, prioritizing user provided information
         try:
             kwargs['exe_name']
         except KeyError:
@@ -36,6 +35,10 @@ class ModpathRW( Modpath7 ):
             kwargs['simfile_ext']
         except KeyError:
             kwargs['simfile_ext'] = 'mprw' # should be consistent with ModpathRWSim
+        try:
+            kwargs['modelname']
+        except KeyError:
+            kwargs['modelname'] = 'mprwsim' 
 
 
         # Call parent constructor
