@@ -39,7 +39,20 @@ class ModpathRW( Modpath7 ):
             kwargs['modelname']
         except KeyError:
             kwargs['modelname'] = 'mprwsim' 
-
+        try:
+            kwargs['flowmodel']
+            # If flowmodel was given and not model_ws, 
+            # define by default with the model_ws from 
+            # the flowmodel
+            try:
+                kwargs['model_ws']
+            except KeyError:
+                kwargs['model_ws'] = kwargs['flowmodel'].model_ws
+        except KeyError:
+            raise ValueError(
+                    f"{self.__class__.__name__}:"
+                    f" The flowmodel argument should be given for defining a particle tracking model."
+                )
 
         # Call parent constructor
         super().__init__(*args,**kwargs)
