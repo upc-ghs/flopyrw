@@ -99,8 +99,8 @@ class ModpathRWSrc( Package ):
                    the keyword arguments, creating a single source.
 
     budgetname : str
-        The budget header from where to extract flow-rates. For mf6 is the name given 
-        to the package, stored in TXT2ID2 (see mf6io.docs). 
+        The budget header from where to extract flow-rates. For mf6 can be the specific 
+        name given to the package, stored in TXT2ID2 (see mf6io.docs). 
     timeintervals : list[ [float,float] ]
         A list of time intervals delimited by [tstart,tend]. Each interval defines 
         the duration of an injection at a given concentration. 
