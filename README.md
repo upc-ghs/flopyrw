@@ -82,14 +82,15 @@ modpathrw.ModpathRWDsp( mprw, alphal=0.1, alphat=0.01,  dmeff=0.0 )
 # Basic package
 modpathrw.ModpathRWBas( mprw, porosity=0.3 )
 
-# Define the solute source 
+# Define the solute source
+# In forward tracking, only cells with injecting flow-rate release particles
 modpathrw.ModpathRWSrc(
         mprw,
         sources=(
-            "CHD", # package name
+            'CHD', # package name
             [            
                 [
-                    "CONCENTRATION", # aux variable
+                    'CONCENTRATION', # aux variable
                     0.001,           # particlesmass
                     (4,4,1)          # template
                 ], 
@@ -114,17 +115,17 @@ mprw.write_input()
 # And run 
 mprw.run_model()
 
-# Postprocess and plot 
-head  = gwf.output.head().get_data()
-bud   = gwf.output.budget()
-spdis = bud.get_data(text='DATA-SPDIS')[0]
+# Get output and plot
+head   = gwf.output.head().get_data()
+bud    = gwf.output.budget()
+epoint = flopy.utils.EndpointFile( os.path.join( ws, mprwsim.endpointfilename ) ) 
+spdis  = bud.get_data(text='DATA-SPDIS')[0]
 qx, qy, qz = flopy.utils.postprocessing.get_specific_discharge(spdis, gwf)
 pmv = flopy.plot.PlotMapView(gwf)
 pmv.plot_array(head)
 pmv.plot_grid(colors='white')
 pmv.contour_array(head, levels=[.2, .4, .6, .8], linewidths=3.)
 pmv.plot_vector(qx, qy, normalize=True, color="white")
-epoint = flopy.utils.EndpointFile( os.path.join( ws, mprwsim.endpointfilename ) ) 
 pmv.plot_endpoint( epoint.get_alldata(), zorder=10, s=4, linewidth=0.5, edgecolor='k' )
 ```
 <img src="img/quickstart.png" alt="plot" style="width:30;height:30">
@@ -154,7 +155,7 @@ pytest -s -v
 ```
 
 ## Resources
-* [MODPATH](https://www.usgs.gov/software/modpath-particle-tracking-model-modflow)
-* [modpath-v7 repository](https://github.com/MODFLOW-USGS/modpath-v7)
-* [modpath-omp repository](https://github.com/MARSoluT/modpath-omp)
 * [flopy](https://github.com/modflowpy/flopy)
+* [MODPATH](https://www.usgs.gov/software/modpath-particle-tracking-model-modflow)
+* [modpath-v7](https://github.com/MODFLOW-USGS/modpath-v7)
+* [modpath-omp](https://github.com/MARSoluT/modpath-omp)
