@@ -59,8 +59,8 @@ class ModpathRWSrc( Package ):
             where:
 
               * package name : str : indicates the package name from where to extract 
-                                     the aux variables
-              * aux_var_name : str : is the name of auxiliary variable
+                                     the aux variables.
+              * aux_var_name : str : is the name of auxiliary variable.
               * particles_mass : float : the mass assigned to particles. It should be 
                                          greater than zero.
               * (nx,ny,nz) : int : a template for particles release. It could be a 
@@ -75,7 +75,7 @@ class ModpathRWSrc( Package ):
               * The minimum required specification is the package_name and aux_var_name,
                 and the rest of parameters are interpreted incrementally, meaning for
                 example that if particles_mass is not given, none of the following 
-                will be interpreted and default values are assigned
+                will be interpreted and default values are assigned.
         * While using the SPEC/SPECIFIED input format, sources could be given as a list 
           of dictionaries with keys as the keyword parameters of the __init__ function
           starting from budgetname until particlesmass, like:
@@ -114,13 +114,13 @@ class ModpathRWSrc( Package ):
         notes: all of the given cells, regardless the specification format, will 
                release particles during the time intervals in which the flow-rate
                stored in budget is positive (into the aquifer).
-    cells : list, np.array
+    cells : list, np.ndarray
         The list of cell ids to be related to the injection. If cellinput==2 then
         this should be the modelgrid array with 1 for cells to be considered 
         and 0 for those to be excluded.
     structured : bool
         The format to interpret the cells if cellinput == 1. True stands 
-        for (lay row col) and False for the linear cellnumber
+        for (lay row col) and False for the linear cellnumber.
     ifaceoption : int
         Flag to indicate whether an iface shall be applied for injection cells.
         iface can be specified individually for each cell.
@@ -139,8 +139,8 @@ class ModpathRWSrc( Package ):
     concpercell : int
         Flag to indicate that different concentrations are given for each 
         cell in the source. Only applies if cellinput == 1.
-            * 0: all cells with the same concentration
-            * 1: cells with specific concentration
+            * 0: all cells with the same concentration.
+            * 1: cells with specific concentration.
     nspecies : int
         The number of species being injected. Defines how many concentrations 
         per time interval shall be written to the package file. At least 1.
@@ -166,7 +166,7 @@ class ModpathRWSrc( Package ):
     particlesmass : list[float]
         The particlemass for each species.
     nparticles : int
-        If a template is not given, it will be filled with (nparticles nparticles nparticles)
+        If a template is not given, it will be filled with (nparticles nparticles nparticles).
     stringid : str, optional
         An id for the dispersion specification. If not given is automatically 
         filled with the package ftype and an integer id. 
@@ -494,12 +494,12 @@ class ModpathRWSrc( Package ):
                             # Verify len
                             if ( src['nspecies'] != len(src['speciesid']) ): 
                                 raise Exception(
-                                    self.__class__.__name__ + ':' 
-                                    + ' The number of species is not consistent'
-                                    + ' with the number of given species ids. '
-                                    + str(src['nspecies']) + ' species were indicated '
-                                    + 'at nspecies and ' + str(len(src['speciesid']))
-                                    + ' were given as species ids.' 
+                                    f"{self.__class__.__name__}:"
+                                    f" The number of species is not consistent"
+                                    f" with the number of given species ids."
+                                    f" {str(src['nspecies'])} species were indicated"
+                                    f" at nspecies and {str(len(src['speciesid']))}"
+                                    f" were given as species ids." 
                             )
 
                             # The format
@@ -590,18 +590,18 @@ class ModpathRWSrc( Package ):
             ( sources is None )
         ):
             raise ValueError(
-                self.__class__.__name__ + ':' 
-                + ' Input format AUX (AUXILIARY) requires the ' 
-                + 'specification of sources, but None was given.' 
+                f"{self.__class__.__name__}:"
+                f" Input format AUX (AUXILIARY) requires the"
+                f" specification of sources, but None was given."
             )
 
         # It should be a list or tuple
         if ( not isinstance( sources, (list, tuple) ) ):
             raise TypeError(
-                self.__class__.__name__ + ':'
-                + ' Sources specification for input format '
-                + 'AUX (AUXILIARY) should be a list or tuple. '
-                + str(type(sources)) + ' was given.'
+                f"{self.__class__.__name__}:"
+                f" Sources specification for input format"
+                f" AUX (AUXILIARY) should be a list or tuple."
+                f" {str(type(sources))} was given."
             )
 
         # Infer the number of sources
@@ -618,18 +618,18 @@ class ModpathRWSrc( Package ):
                 for s in sources:
                     if not isinstance( s, (list,tuple) ): 
                         raise ValueError(
-                            self.__class__.__name__ + ':'
-                            + ' Invalid sources specification for '
-                            + 'input format AUX (AUXILIARY). Verify structure.'
+                            f"{self.__class__.__name__}:"
+                            f" Invalid sources specification for"
+                            f" input format AUX (AUXILIARY). Verify structure."
                         )
                 NSOURCES = lensources
         elif ( lensources == 1 ):
             if isinstance( sources[0], (list,tuple) ):
                 if not isinstance( sources[0][0], str ): 
                     raise ValueError(
-                        self.__class__.__name__ + ':'
-                        + ' Invalid sources specification for '
-                        + 'input format AUX (AUXILIARY). Verify structure.'
+                        f"{self.__class__.__name__}:"
+                        f" Invalid sources specification for"
+                        f" input format AUX (AUXILIARY). Verify structure."
                     )
                 NSOURCES = 1
                 sources  = sources[0]
@@ -639,9 +639,9 @@ class ModpathRWSrc( Package ):
         # Short circuit just in case
         if ( NSOURCES == 0 ): 
             raise ValueError(
-                self.__class__.__name__ + ':' 
-                + ' Invalid sources specification for input ' 
-                + 'format AUX (AUXILIARY). Empty sources list.' 
+                f"{self.__class__.__name__}:"
+                f" Invalid sources specification for input"
+                f" format AUX (AUXILIARY). Empty sources list."
             )
 
         # Validate sources, verify auxiliary variables 
@@ -661,19 +661,19 @@ class ModpathRWSrc( Package ):
             pname = sd[0]
             if not isinstance( pname, str ): 
                 raise TypeError(
-                    self.__class__.__name__ + ':'
-                    + ' Invalid type for package name in source '
-                    + 'specification. It should be str and '
-                    + str(type(pname)) + ' was given.'
+                    f"{self.__class__.__name__}:"
+                    f" Invalid type for package name in source"
+                    f" specification. It should be str and"
+                    f" {str(type(pname))} was given."
                 )
 
             # With the package name, look for the package in the model
             pkg = self._parent.flowmodel.get_package(pname.lower())
             if pkg is None:
                 raise ValueError(
-                    self.__class__.__name__ + ':' 
-                    + ' Package name ' + pname.upper() + ' was not found in model. '
-                    + 'Available packages are: ' + ','.join(self._parent.flowmodel.get_package_list())
+                    f"{self.__class__.__name__}:"
+                    f" Package name {pname.upper()} was not found in model."
+                    f" Available packages are: {','.join(self._parent.flowmodel.get_package_list())}."
                 )
 
             # Extract the list of aux vars for package
@@ -681,8 +681,8 @@ class ModpathRWSrc( Package ):
             if self.modelversion == 'mf6':
                 if not pkg.auxiliary.has_data():
                     raise Exception(
-                        self.__class__.__name__ + ':' 
-                        + ' Auxiliary property without data for package ' + pkg.name[0] 
+                        f"{self.__class__.__name__}:"
+                        f" Auxiliary property without data for package {pkg.name[0]}."
                     )
                 aux     = pkg.auxiliary.array[0]
                 auxlist = [a.upper() for a in aux ]
@@ -697,15 +697,15 @@ class ModpathRWSrc( Package ):
                     auxlistcand = pkg.options
                 else:
                     raise TypeError(
-                        self.__class__.__name__ + ':' 
-                        + ' Unexpected options type in package ' + pkg.name[0]
-                        + 'for the modelversion '+ self.modelversion
+                        f"{self.__class__.__name__}:"
+                        f" Unexpected options type in package {pkg.name[0]}"
+                        f" for the modelversion {self.modelversion}."
                     )
                 # Verify at least one candidate
                 if ( len(auxlistcand) == 0):
                     raise Exception(
-                        self.__class__.__name__ + ':' 
-                        + ' No auxiliary variables were found in package ' + pkg.name[0]
+                        f"{self.__class__.__name__}:"
+                        f" No auxiliary variables were found in package {pkg.name[0]}."
                     )
                 # Loop over aux candidates and create auxlist
                 auxlist = []
@@ -734,18 +734,18 @@ class ModpathRWSrc( Package ):
                     else:
                         # Probably the case in which auxvars have whitespace in between. 
                         raise Exception(
-                            self.__class__.__name__ + ':'
-                            + ' Unexpected definition of aux variable in ' + pkg.name[0]
-                            + 'Found name was ' + ' '.join(cand)
-                            + '. Maybe multiple white spaces ?'
+                            f"{self.__class__.__name__}:"
+                            f" Unexpected definition of aux variable in {pkg.name[0]}."
+                            f" Found name was {' '.join(cand)}."
+                            f" Maybe multiple white spaces ?"
                         )
 
             # Short circuit just in case 
             if (len(auxlist) == 0):
                 raise Exception(
-                    self.__class__.__name__ + ':' 
-                    + ' No auxiliary variables were found, '
-                    + 'something wrong. Package ' + pkg.name[0]
+                    f"{self.__class__.__name__}:"
+                    f" No auxiliary variables were found,"
+                    f" something wrong. Package {pkg.name[0]}."
                 )
             
             # Now process the source specification #
@@ -767,15 +767,15 @@ class ModpathRWSrc( Package ):
                     # Verify particles mass
                     if not isinstance( sd[2], (int,float) ):
                         raise TypeError(
-                            self.__class__.__name__ + ':'
-                            + ' Invalid particle mass. It was expecting int/float, but '
-                            + str(type(sd[2]))+ ' was given.'
+                            f"{self.__class__.__name__}:"
+                            f" Invalid particle mass. It was expecting int/float, but"
+                            f" {str(type(sd[2]))} was given."
                         )
                     if ( sd[2] <= 0 ): 
                         raise ValueError(
-                            self.__class__.__name__ + ':' 
-                            + ' Invalid particle mass. It should be greater than zero. ' 
-                            + str(sd[2])+ ' was given.'
+                            f"{self.__class__.__name__}:"
+                            f" Invalid particle mass. It should be greater than zero." 
+                            f" {str(sd[2])} was given."
                         )
                     # Save mass 
                     auxmasses[0] = sd[2]
@@ -787,50 +787,50 @@ class ModpathRWSrc( Package ):
                             for inp, npa in enumerate(sd[3]):
                                 if ( npa <= 0 ): 
                                     raise ValueError(
-                                        self.__class__.__name__ + ':' 
-                                        + ' Invalid particle template. '
-                                        + 'All entries should be greater than zero. '
-                                        + str(npa)+ ' was given at position ' + str(inp) + '.'
+                                        f"{self.__class__.__name__}:"
+                                        f" Invalid particle template."
+                                        f" All entries should be greater than zero."
+                                        f" {str(npa)} was given at position {str(inp)}."
                                     )
                                 auxtemplates[0,inp] = npa
                         elif isinstance( sd[3], int ):
                             # Assume uniform template
                             if ( sd[3] <= 0 ): 
                                 raise ValueError(
-                                    self.__class__.__name__ + ':'
-                                    + ' Invalid particle template. '
-                                    + 'All entries should be greater than zero. '
-                                    + str(sd[3])+ ' was given.'
+                                    f"{self.__class__.__name__}:"
+                                    f" Invalid particle template."
+                                    f" All entries should be greater than zero."
+                                    f" {str(sd[3])} was given."
                                 )
                             auxtemplates[0,:] = sd[3]
                         else:
                             raise TypeError(
-                                self.__class__.__name__ + ':'
-                                + ' Invalid particles template. '
-                                + 'It was expecting int/list/tuple, but '
-                                + str(type(sd[3]))+ ' was given.'
+                                f"{self.__class__.__name__}:"
+                                f" Invalid particles template."
+                                f" It was expecting int/list/tuple, but"
+                                f" {str(type(sd[3]))} was given."
                             )
                         # Source specification as [auxvar,mass,template,soluteid]
                         if lensd == 5:
                             if not isinstance(sd[4],int):
                                 raise TypeError(
-                                    self.__class__.__name__ + ':'
-                                    + ' Invalid species id specification. '
-                                    + 'It was expecting an integer, but '
-                                    + str(type(sd[4]))+ ' was given.'
+                                    f"{self.__class__.__name__}:"
+                                    f" Invalid species id specification."
+                                    f" It was expecting an integer, but"
+                                    f" {str(type(sd[4]))} was given."
                                 )
                             if ( sd[4] < 0 ):
                                 raise ValueError(
-                                    self.__class__.__name__ + ':'
-                                    + ' Invalid species id specification. '
-                                    + 'It was expecting a positive integer, but '
-                                    + str(sd[4])+ ' was given.'
+                                    f"{self.__class__.__name__}:"
+                                    f" Invalid species id specification."
+                                    f" It was expecting a positive integer, but"
+                                    f" {str(sd[4])} was given."
                                 )
                             auxsolutes[0] = sd[4]
                 else: 
                     raise ValueError(
-                        self.__class__.__name__ + ':'
-                        + ' Invalid specification, exceeds maximum parameters length.'
+                        f"{self.__class__.__name__}:"
+                        f" Invalid specification, exceeds maximum parameters length."
                     )
 
             # If a list of aux var specs
@@ -851,10 +851,10 @@ class ModpathRWSrc( Package ):
                             # Source specification as [auxvar]
                             if not isinstance( aspc, str ):
                                 raise TypeError(
-                                    self.__class__.__name__ + ':'
-                                    + ' Invalid auxiliary variable specification.'
-                                    + 'It was expecting str, but '
-                                    + str(type(aspc))+ ' was given.'
+                                    f"{self.__class__.__name__}:"
+                                    f" Invalid auxiliary variable specification."
+                                    f" It was expecting str, but"
+                                    f" {str(type(aspc))} was given."
                                 )
                             # Good, save it to the list of names
                             auxnames.append( aspc.upper() )
@@ -863,10 +863,10 @@ class ModpathRWSrc( Package ):
                             # Verify str for auxliary variable name 
                             if not isinstance( aspc[0], str ): 
                                 raise TypeError(
-                                    self.__class__.__name__ + ':'
-                                    + ' Invalid auxiliary variable specification. ' 
-                                    + 'It was expecting str, but '
-                                    + str(type(aspc[0]))+ ' was given.'
+                                    f"{self.__class__.__name__}:"
+                                    f" Invalid auxiliary variable specification."
+                                    f" It was expecting str, but"
+                                    f" {str(type(aspc[0]))} was given."
                                 )
                             # Good, save it to the list of names
                             auxnames.append( aspc[0].upper() )
@@ -874,16 +874,16 @@ class ModpathRWSrc( Package ):
                             # Verify particles mass
                             if not isinstance( aspc[1], (int,float) ):
                                 raise TypeError(
-                                    self.__class__.__name__ + ':'
-                                    + ' Invalid particle mass. It was expecting '
-                                    + 'int/float, but '
-                                    + str(type(aspc[1]))+ ' was given.'
+                                    f"{self.__class__.__name__}:"
+                                    f" Invalid particle mass. It was expecting"
+                                    f" int/float, but"
+                                    f" {str(type(aspc[1]))} was given."
                                 )
                             if ( aspc[1] <= 0 ): 
                                 raise ValueError(
-                                    self.__class__.__name__ + ':'
-                                    + ' Invalid particle mass. It should be greater than zero. '
-                                    + str(aspc[1])+ ' was given.'
+                                    f"{self.__class__.__name__}:"
+                                    f" Invalid particle mass. It should be greater than zero."
+                                    f" {str(aspc[1])} was given."
                                 )
                             # Good
                             auxmasses[iaspc] = aspc[1]
@@ -896,68 +896,68 @@ class ModpathRWSrc( Package ):
                                     for inp, npa in enumerate(aspc[2]):
                                         if ( npa <= 0 ): 
                                             raise ValueError(
-                                                self.__class__.__name__ + ':'
-                                                + ' Invalid particle template. ' 
-                                                + 'All entries should be greater than zero. '
-                                                + str(npa)+ ' was given at position ' + str(inp) + '.'
+                                                f"{self.__class__.__name__}:"
+                                                f" Invalid particle template."
+                                                f" All entries should be greater than zero."
+                                                f" {str(npa)} was given at position {str(inp)}."
                                             )
                                         auxtemplates[iaspc,inp] = npa
                                 elif isinstance( aspc[2], int ):
                                     # Assume uniform template 
                                     if ( aspc[2] <= 0 ): 
                                         raise ValueError(
-                                            self.__class__.__name__ + ':'
-                                            + ' Invalid particle template. ' 
-                                            + 'All entries should be greater than zero. '
-                                            + str(aspc[2])+ ' was given.'
+                                            f"{self.__class__.__name__}:"
+                                            f" Invalid particle template."
+                                            f" All entries should be greater than zero."
+                                            f" {str(aspc[2])} was given."
                                         )
                                     auxtemplates[iaspc,:] = aspc[2]
                                 else:
                                     raise TypeError(
-                                        self.__class__.__name__ + ':'
-                                        + ' Invalid particles template. '
-                                        + 'It was expecting int/list/tuple, but '
-                                        + str(type(aspc[2]))+ ' was given.'
+                                        f"{self.__class__.__name__}:"
+                                        f" Invalid particles template."
+                                        f" It was expecting int/list/tuple, but"
+                                        f" {str(type(aspc[2]))} was given."
                                     )
                                 # Source specification as [auxvar,mass,template,soluteid]
                                 if auxspeclen == 4:
                                     if not isinstance(aspc[3],int):
                                         raise TypeError(
-                                            self.__class__.__name__ + ':'
-                                            + ' Invalid species id specification. '
-                                            + 'It was expecting an integer, but '
-                                            + str(type(aspc[3]))+ ' was given.'
+                                            f"{self.__class__.__name__}:"
+                                            f" Invalid species id specification."
+                                            f" It was expecting an integer, but"
+                                            f" {str(type(aspc[3]))} was given."
                                         )
                                     if ( aspc[3] < 0 ):
                                         raise ValueError(
-                                            self.__class__.__name__ + ':' 
-                                            + ' Invalid species id specification. ' 
-                                            + 'It was expecting a positive integer, but '
-                                            + str(aspc[3])+ ' was given.'
+                                            f"{self.__class__.__name__}:"
+                                            f" Invalid species id specification."
+                                            f" It was expecting a positive integer, but"
+                                            f" {str(aspc[3])} was given."
                                         )
                                     auxsolutes[iaspc] = aspc[3]
                         else:
                             raise ValueError(
-                                self.__class__.__name__ + ':' 
-                                + ' Invalid specification, maximum length is 4, but '
-                                + str(len(aspc))+ ' was given.'
+                                f"{self.__class__.__name__}:"
+                                f" Invalid specification, maximum length is 4, but"
+                                f" {str(len(aspc))} was given."
                             )
                     elif isinstance( aspc, str ):
                         # Is a str, save it to the list
                         auxnames.append( aspc.upper() )
                     else:
                         raise TypeError(
-                            self.__class__.__name__ + ':' 
-                            + ' Invalid auxiliary variable '
-                            + 'specification. It was expecting str. '
-                            + str(type(aspc))+ ' was given.'
+                            f"{self.__class__.__name__}:"
+                            f" Invalid auxiliary variable"
+                            f" specification. It was expecting str."
+                            f" {str(type(aspc))} was given."
                         )
             else:
                 raise TypeError(
-                    self.__class__.__name__ + ':'
-                    + ' Invalid auxiliary variable specification. '
-                    + 'It was expecting type str or a list/tuple. '
-                    + str(type(auxspec))+ ' was given.'
+                    f"{self.__class__.__name__}:"
+                    f" Invalid auxiliary variable specification."
+                    f" It was expecting type str or a list/tuple."
+                    f" {str(type(auxspec))} was given."
                 )
 
 
@@ -967,18 +967,18 @@ class ModpathRWSrc( Package ):
                 # If the aux name is more than once 
                 if acount > 1:
                     raise Exception(
-                        self.__class__.__name__ + ':'
-                        + ' Auxiliary name ' + an.upper() + ' was given '
-                        + 'more than once in package '
-                        + pname.upper() + '. Check definition.'
+                        f"{self.__class__.__name__}:"
+                        f" Auxiliary name {an.upper()} was given"
+                        f" more than once in package"
+                        f" {pname.upper()}. Check definition."
                     )
                 # If the given name is not in the list of aux vars of the package
                 if (an.upper() not in auxlist):
                     raise ValueError(
-                        self.__class__.__name__ + ':'
-                        + ' Auxiliary name ' + an.upper() + ' was not found '
-                        + 'in aux variables of package '
-                        + pname.upper() + '. Available variables are: ' + ','.join(auxlist)
+                        f"{self.__class__.__name__}:"
+                        f" Auxiliary name {an.upper()} was not found"
+                        f" in aux variables of package"
+                        f" {pname.upper()}. Available variables are: {','.join(auxlist)}."
                     )
                 # Definition is consistent, save the pair [sourcename,auxname]
                 tempair  = [pname.upper(),an.upper()]
@@ -1001,9 +1001,9 @@ class ModpathRWSrc( Package ):
         # Break if some a combination was given more than once
         if not np.all( counterstatus ):
             raise Exception(
-                self.__class__.__name__ + ':'
-                + ' Some pairs [package_name,aux_var_name] are repeated. '
-                + 'Combination should be unique for all source packages.'
+                f"{self.__class__.__name__}:"
+                f" Some pairs [package_name,aux_var_name] are repeated."
+                f" Combination should be unique for all source packages."
             )
 
         # Combination of sourcenames,auxnames is valid
@@ -1224,17 +1224,17 @@ class ModpathRWSrc( Package ):
                 src['defaultiface'] = self.__class__.defaultdefaultiface
             if ( not isinstance( src['defaultiface'], int ) ):
                 raise TypeError(
-                    self.__class__.__name__ + ':'
-                    + ' Invalid source specification. The defaultiface is '
-                    + 'not an integer. '
-                    + str(type(src['defaultiface'])) + ' was given.'
+                    f"{self.__class__.__name__}:"
+                    f" Invalid source specification. The defaultiface is"
+                    f" not an integer."
+                    f" {str(type(src['defaultiface']))} was given."
                 )
             if ( not (0<= src['defaultiface']<=6) ):
                 raise ValueError(
-                    self.__class__.__name__ + ':'
-                    + ' Invalid source specification. Allowed values '
-                    + 'for defaultiface are from 0 to 6. '
-                    + str(src['defaultiface']) + ' was given.'
+                    f"{self.__class__.__name__}:"
+                    f" Invalid source specification. Allowed values"
+                    f" for defaultiface are from 0 to 6."
+                    f" {str(src['defaultiface'])} was given."
                 )
 
             # concpercell
@@ -1243,10 +1243,10 @@ class ModpathRWSrc( Package ):
                 src['concpercell'] = self.__class__.defaultconcpercell
             if ( src['concpercell'] not in [0,1] ):
                 raise ValueError(
-                    self.__class__.__name__ + ':'
-                    + ' Invalid source specification. The concpercell '
-                    + 'parameter is not 0 or 1. '
-                    + str(src['concpercell']) + ' was given.'
+                    f"{self.__class__.__name__}:"
+                    f" Invalid source specification. The concpercell"
+                    f" parameter is not 0 or 1."
+                    f" {str(src['concpercell'])} was given."
                 )
 
             # templateoption 
@@ -1255,10 +1255,10 @@ class ModpathRWSrc( Package ):
                 src['templateoption'] = self.__class__.defaulttemplateoption
             if ( src['templateoption'] not in [0,1] ):
                 raise ValueError(
-                    self.__class__.__name__ + ':'
-                    + ' Invalid source specification. The templateoption '
-                    + 'parameter is not 0 or 1. '
-                    + str(src['templateoption']) + ' was given.'
+                    f"{self.__class__.__name__}:"
+                    f" Invalid source specification. The templateoption"
+                    f" parameter is not 0 or 1."
+                    f" {str(src['templateoption'])} was given."
                 )
 
             # template
@@ -1270,10 +1270,10 @@ class ModpathRWSrc( Package ):
             # cells
             if ( ( src['cells'] is None ) and ( src['cellinput'] in [1,2] ) ):
                 raise ValueError(
-                    self.__class__.__name__ + ':' 
-                    + ' Invalid source specification. The cell input option '
-                    + str(src['cellinput']) + ' requires cells to be ' 
-                    + 'specified but None was given.' 
+                    f"{self.__class__.__name__}:"
+                    f" Invalid source specification. The cell input option"
+                    f" {str(src['cellinput'])} requires cells to be"
+                    f" specified but None was given."
                 )
             if ( src['cellinput'] == 0 ):
                 # Same concentration for all cells
@@ -1281,9 +1281,9 @@ class ModpathRWSrc( Package ):
             if ( src['cellinput'] == 1 ):
                 if ( not isinstance( src['cells'], list ) ):
                     raise ValueError(
-                        self.__class__.__name__ + ':'
-                        + ' Invalid source specification. The cell '
-                        + 'input option is 1 but no list of cells was given.' 
+                        f"{self.__class__.__name__}:"
+                        f" Invalid source specification. The cell"
+                        f" input option is 1 but no list of cells was given."
                     )
                 # Requires something to validate versus the structured parameter
                 # Concpercell ? 
