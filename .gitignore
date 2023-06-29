@@ -8,3 +8,6 @@ build/*
 *.swn
 *.swo
 autotest/*export*/*
+dev/*
+examples/mprwexsim/*
+*mprwexsim*
