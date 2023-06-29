@@ -9,7 +9,7 @@ keywords = ["MODPATH-RW", "hydrogeology", "rwpt"]
 classifiers = []
 requires-python = ">=3.8"
 dependencies = [
-    "flopy >=3.3.6",
+    "flopy >=3.4.0",
 ]
 dynamic = ["readme","version"]
 
