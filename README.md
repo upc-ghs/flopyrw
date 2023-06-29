@@ -27,47 +27,76 @@ pip install flopyrw
 
 **Use it**
 
-Classes follow the same logic than `flopy`, configuring packages on top of a MODFLOW flow-model object.
+Classes follow the same logic than `flopy`, configuring packages on top of a MODFLOW flow-model object. For example, the `flopy` quickstart case: 
 
 ```py
+import os
+import flopy
 from flopyrw import modpathrw
 
-# Suppose an existing gwt (mf6) model with 
-# the aux variable 'CONCENTRATION' in 'WEL-1' package... 
+ws   = './mymodel'
+name = 'mymodel'
+sim  = flopy.mf6.MFSimulation(sim_name=name, sim_ws=ws, exe_name='mf6')
+tdis = flopy.mf6.ModflowTdis(sim)
+ims  = flopy.mf6.ModflowIms(sim)
+gwf  = flopy.mf6.ModflowGwf(sim, modelname=name, save_flows=True)
+dis  = flopy.mf6.ModflowGwfdis(gwf, nrow=10, ncol=10)
+ic   = flopy.mf6.ModflowGwfic(gwf)
+npf  = flopy.mf6.ModflowGwfnpf(gwf, save_specific_discharge=True)
+# Same than in flopy quickstart,
+# but with an aux var for concentration.
+chd  = flopy.mf6.ModflowGwfchd(
+        gwf,
+        auxiliary=['CONCENTRATION'],
+        stress_period_data=[
+            [(0, 0, 0), 1.,1.],
+            [(0, 9, 9), 0.,0.]
+        ]
+    )
+budget_file = name + '.bud'
+head_file   = name + '.hds'
+oc = flopy.mf6.ModflowGwfoc(gwf,
+        budget_filerecord=budget_file,
+        head_filerecord=head_file,
+        saverecord=[('HEAD', 'ALL'), ('BUDGET', 'ALL')]
+    )
+sim.write_simulation()
+sim.run_simulation()
 
 # Create a modpathrw model
-mprw = modpathrw.ModpathRW(modelname="mprwsim", flowmodel=gwt) 
+# By default executable is 'mpathrw'
+mprw = modpathrw.ModpathRW(flowmodel=gwf)
 
 # Random walk options
 modpathrw.ModpathRWOpts(
-    mprw,
-    dimensionsmask=[1,1,0], # Random walk in x,y and not in z
-    timestep='min',
-    ctdisp=0.1,
-    courant=0.1
-)
+        mprw,
+        timestep = 'min',
+        ctdisp   = 0.1,
+        courant  = 0.1,
+        dimensionsmask=[1,1,0], # Random walk in x,y and not in z
+    )
 
 # Dispersion parameters 
-modpathrw.ModpathRWDsp( 
-    mprw,
-    alphal= 0.1,
-    alphat= 0.01, 
-    dmeff = 0.0, 
-)
+modpathrw.ModpathRWDsp( mprw, alphal=0.1, alphat=0.01,  dmeff=0.0 )
 
-# bas 
-modpathrw.ModpathRWBas(mp,porosity=0.3)
+# Basic package
+modpathrw.ModpathRWBas( mprw, porosity=0.3 )
 
-# Define a solute source 
+# Define the solute source
+# In forward tracking, only cells with injecting flow-rate release particles
 modpathrw.ModpathRWSrc(
-    mp,
-    sources=(
-        "WEL-1", # package name
-        [   # auxvar, particlesmass, release template
-            [ "CONCENTRATION", 300.0, (4,4,1)], 
-        ],
-    ),
-)
+        mprw,
+        sources=(
+            'CHD', # package name
+            [            
+                [
+                    'CONCENTRATION', # aux variable
+                    0.001,           # particlesmass
+                    (4,4,1)          # template
+                ], 
+            ],
+        ),
+    )
 
 # Configure the simulation 
 simconfig = {
@@ -76,19 +105,30 @@ simconfig = {
     'weaksinkoption'    : 'stop_at',
     'weaksourceoption'  : 'pass_through',
     'stoptimeoption'    : 'specified',
-    'stoptime'          : 1.0,
+    'stoptime'          : 20.0,
 }
-modpathrw.ModpathRWSim(
-    mprw, 
-    **simconfig
-)
+mprwsim = modpathrw.ModpathRWSim( mprw,  **simconfig )
 
 # Write the input files
 mprw.write_input()
 
 # And run 
 mprw.run_model()
+
+# Get output and plot
+head   = gwf.output.head().get_data()
+bud    = gwf.output.budget()
+epoint = flopy.utils.EndpointFile( os.path.join( ws, mprwsim.endpointfilename ) ) 
+spdis  = bud.get_data(text='DATA-SPDIS')[0]
+qx, qy, qz = flopy.utils.postprocessing.get_specific_discharge(spdis, gwf)
+pmv = flopy.plot.PlotMapView(gwf)
+pmv.plot_array(head)
+pmv.plot_grid(colors='white')
+pmv.contour_array(head, levels=[.2, .4, .6, .8], linewidths=3.)
+pmv.plot_vector(qx, qy, normalize=True, color="white")
+pmv.plot_endpoint( epoint.get_alldata(), zorder=10, s=4, linewidth=0.5, edgecolor='k' )
 ```
+<img src="img/quickstart.png" alt="plot" style="width:30;height:30">
 
 **Note**: In order to run a model via the interface a [MODPATH-RW](https://gitub.com/upc-ghs/modpath-rw) executable is required. 
 
@@ -109,7 +149,7 @@ pytest -s -v
 ```
 
 ## Resources
-* [MODPATH](https://www.usgs.gov/software/modpath-particle-tracking-model-modflow)
-* [modpath-v7 repository](https://github.com/MODFLOW-USGS/modpath-v7)
-* [modpath-omp repository](https://github.com/MARSoluT/modpath-omp)
 * [flopy](https://github.com/modflowpy/flopy)
+* [MODPATH](https://www.usgs.gov/software/modpath-particle-tracking-model-modflow)
+* [modpath-v7](https://github.com/MODFLOW-USGS/modpath-v7)
+* [modpath-omp](https://github.com/MARSoluT/modpath-omp)
