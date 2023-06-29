@@ -94,13 +94,7 @@ mprw.run_model()
 
 
 ### Testing
-A suite of [automated tests](autotest/) is available verifying different aspects of the interface and the program. In order to run these tests, the current release candidate of [FloPy](https://github.com/modflowpy/flopy) is required. Install it with the command:
-
-```
-pip install https://github.com/modflowpy/flopy/zipball/develop
-```
-
-Install the additional test dependencies with:
+A suite of [automated tests](autotest/) is available verifying different aspects of the interface and the program. In order to run these tests, some additional dependencies are required, which can be installed with:
 
 ```
 pip install ".[test]"
