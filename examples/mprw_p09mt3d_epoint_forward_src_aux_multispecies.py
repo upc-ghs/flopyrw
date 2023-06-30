@@ -299,11 +299,13 @@ dsp1 = modpathrw.ModpathRWDsp(
 )
 
 # spc package: relation between spc and dispersion parameters.
-modpathrw.ModpathRWSpc(
+# define species 0, related to dsp0
+spc0 = modpathrw.ModpathRWSpc(
     mp,
     dsp0
 )
-modpathrw.ModpathRWSpc(
+# define species 1, related to dsp1
+spc1 = modpathrw.ModpathRWSpc(
     mp,
     dsp1
 )
