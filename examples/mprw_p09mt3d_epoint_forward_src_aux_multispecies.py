@@ -1,12 +1,14 @@
 '''
-Transport near low-permeability zone
+Transport near low-permeability zone, multispecies
 
-Injection of a single solute, based on P09 from MT3DMS. Considers an
-observation of flux concentrations at the extraction well. 
+Problem illustrates the injection of multiple solutes, with specific dispersion properties. 
+Two auxiliary variables ('CONCENTRATION', 'CONCENTRATION2') are stored in the flow model. 
+While defining the SRC package, each auxiliary is identified as a different solute. 
+The SPC package relate these solutes with specific dispersion properties.
 
 References:
     - Zheng, C. & Wang, P., 1999, MT3DMS: a modular three-dimensional multispecies transport
-      model for simulation of advection, dispersion, and chemical reactions of contaminants
+      model for simulation of advection, dispersion, and chemical reactions of contaminants 
       in groundwater systems; documentation and user’s guide.
     - https://modflow6-examples.readthedocs.io/en/master/_examples/ex-gwt-mt3dms-p09.html
 '''
@@ -164,9 +166,9 @@ chdspd = []
 for j in range(ncol):
     # Loop through the top & bottom sides.
     #               l,  r, c,  head, conc
-    chdspd.append([(0,  0, j), chdh, 0.0])  # Top boundary
+    chdspd.append([(0,  0, j), chdh, 0.0, 0.0])  # Top boundary
     hd = 20.0 + (xc[-1, j] - xc[-1, 0]) * 2.5 / 100
-    chdspd.append([(0, 17, j),    hd, 0.0])  # Bottom boundary
+    chdspd.append([(0, 17, j),    hd, 0.0, 0.0])  # Bottom boundary
 
 chdspd = {0: chdspd}
 flopy.mf6.ModflowGwfchd(
@@ -174,7 +176,7 @@ flopy.mf6.ModflowGwfchd(
     stress_period_data=chdspd,
     save_flows=True,
     maxbound=len(chdspd),
-    auxiliary="CONCENTRATION",
+    auxiliary=["CONCENTRATION","CONCENTRATION2"],
     pname="CHD-1",
     filename="{}.chd".format(gwfname),
 )
@@ -187,14 +189,16 @@ welsp1.append( # Injection well
     [
         tuple(injwell), 
         qinjwell, 
-        cinjwell
+        cinjwell,
+        1.5*cinjwell,
     ]
 ) 
 welsp1.append( # Extraction well
     [
         tuple(extwell), 
         qextwell, 
-        czero
+        czero,
+        czero,
     ]
 ) 
 # second stress period
@@ -203,14 +207,16 @@ welsp2.append( # Injection well
     [
         tuple(injwell), 
         qinjwell, 
-        czero
+        czero,
+        czero,
     ]
 ) 
 welsp2.append( # Extraction well
     [
         tuple(extwell), 
         qextwell, 
-        czero
+        czero,
+        czero,
     ]
 )
 welspd = {0: welsp1, 1: welsp2}
@@ -220,7 +226,7 @@ flopy.mf6.ModflowGwfwel(
     print_input = True,
     print_flows = True,
     save_flows  = True,
-    auxiliary   = ["CONCENTRATION"],
+    auxiliary   = ["CONCENTRATION", "CONCENTRATION2"],
     pname       = "WEL-1",
 )
 
@@ -266,7 +272,9 @@ sources = [
     (
         "WEL-1",
         [
-            ["CONCENTRATION", 200.0, (4,4,1)],
+            # auxvar, particlesmass, template, speciesid
+            ["CONCENTRATION" , 200.0, (4,4,1), 0],
+            ["CONCENTRATION2", 200.0, (4,4,1), 1],
         ],
     ),
 ]
@@ -277,19 +285,38 @@ src = modpathrw.ModpathRWSrc(
 )
 
 # dsp package
-modpathrw.ModpathRWDsp(
+dsp0 = modpathrw.ModpathRWDsp(
     mp,
     alphal=alphal,
     alphat=alphat,
     dmeff =dmeff,
 )
+dsp1 = modpathrw.ModpathRWDsp(
+    mp,
+    alphal=0.5*alphal,
+    alphat=0.5*alphat,
+    dmeff =0.5*dmeff,
+)
+
+# spc package: relation between spc and dispersion parameters.
+modpathrw.ModpathRWSpc(
+    mp,
+    dsp0
+)
+modpathrw.ModpathRWSpc(
+    mp,
+    dsp1
+)
 
 # obs package
+# Note: btc is not configured to share
+# time vector, data for each species is 
+# appended vertically.
 obs = modpathrw.ModpathRWObs(
     mp,
     kind='flux',
     cells=[tuple(extwell)],
-    filename='obs_wout_fluxc'
+    filename='obs_wout_multispc'
 )
 
 # sim
@@ -300,6 +327,8 @@ simconfig = {
     'weaksourceoption'       : 'pass_through',
     'referencetime'          : 0.0,
     'stoptimeoption'         : 'total',
+    'particlesmassoption'    : 'massspc',  # indicates that solute ids are given by the user (at src package in this case).
+    'speciesdispersionoption': 'specific', # interpret specific dispersion models. 
 }
 mprwsim = modpathrw.ModpathRWSim(
     mp, 
