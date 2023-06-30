@@ -150,6 +150,7 @@ pytest -s -v
 
 ## Resources
 * [flopy](https://github.com/modflowpy/flopy)
+* [MODPATH-RW](https://github.com/upc-ghs/modpath-rw)
 * [MODPATH](https://www.usgs.gov/software/modpath-particle-tracking-model-modflow)
 * [modpath-v7](https://github.com/MODFLOW-USGS/modpath-v7)
-* [modpath-omp](https://github.com/MARSoluT/modpath-omp)
+* [modpath-omp](https://github.com/upc-ghs/modpath-omp)
