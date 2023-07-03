@@ -740,3 +740,79 @@ class ModpathRWObs( Package ):
 
         # Done
         return
+
+
+    def get_output(self):
+        '''
+        Load the observation output file into a rec array
+
+        Note: the current implementation loads data for the cases
+              where the time vector is different for each observation, 
+              that is, the bin size was selected automatically and without
+              interpolation (data appended vertically).
+        '''
+        import os 
+        from flopy.utils.flopy_io import loadtxt
+        # Shouldn't this be a case to handle at loadtxt ?
+        try:
+            import pandas as pd
+            use_pandas = True
+        except ImportError:
+            use_pandas = False
+        
+
+        if self.stringkind == 'RESIDENT':
+            raise NotImplementedError(
+                    f"{self.__class__.__name__}:get_output:"
+                    f" Output loading is not yet implemented for observations of kind RESIDENT."
+                )
+
+        if self.stringkind == 'FLUX':
+            if self.outputoption in [1,2]:
+                # Loading structure at this point only for btc's
+                # with specific time vector
+                if (
+                    ( self.histogramoptions==1 ) and (
+                        ( self.binoption in [2,3] ) or
+                        ( self.timestepout is not None )
+                    )
+                ):
+                    raise NotImplementedError(
+                            f"{self.__class__.__name__}:get_output:"
+                            f" Output loading is not yet implemented for observations of type FLUX "
+                            f" with the same time step for all species."
+                        )
+
+                # continue
+                dtypelist = [
+                        ("speciesid" , np.int32  ),
+                        ("tid"       , np.int32  ),
+                        ("time"      , np.float32),
+                        ("qsink"     , np.float32),
+                        ("chist"     , np.float32),
+                    ]
+                # extend list if postprocessed
+                if self.postprocessoption == 1:
+                    dtypelist.append( ("cgpkde"    , np.float32) )
+
+                # load
+                recdata = loadtxt(
+                    os.path.join( self._parent.model_ws, self.filename ),
+                    dtype=np.dtype(dtypelist),
+                    skiprows=0,
+                    use_pandas=use_pandas
+                )
+                
+                # To python zero-based indexation
+                recdata['speciesid'] = recdata['speciesid'] - 1
+
+                # done
+                return recdata
+
+            # for observations with only records
+            else:
+                raise NotImplementedError(
+                        f"{self.__class__.__name__}:get_output:"
+                        f" Output loading is not yet implemented for observations of type FLUX "
+                        f" storing only records."
+                    )

@@ -28,7 +28,17 @@ dtype = np.dtype(
         ("lnk"   , np.float32 ),
     ]
 )
-lnkdata = loadtxt( os.path.join( 'data', 'lnk2ddata50x250.csv' ), dtype=dtype, skiprows=0 )
+try:
+    import pandas as pd
+    use_pandas = True
+except ImportError:
+    use_pandas = False
+lnkdata = loadtxt(
+    os.path.join( 'data', 'lnk2ddata50x250.csv' ),
+    dtype=dtype,
+    skiprows=0 ,
+    use_pandas=use_pandas
+)
 hkarray = np.exp( np.sqrt(hkvariance)*lnkdata['lnk'].reshape(nlay,nrow,ncol) )
 stress_periods = [
         {
@@ -230,7 +240,10 @@ mp.run_model(silent=False, report=True)
 # Note.3: remember to plt.show() or savefig in order to visualize the figure.
 cdata = gpkde.get_data()
 pmv = flopy.plot.PlotMapView(gwf)
-pmv.plot_array(cdata)
+im  = pmv.plot_array(cdata)
+pmv.ax.set_xlabel('x[m]')
+pmv.ax.set_ylabel('y[m]')
 
-#import matplotlib.pyplot as plt
-#plt.show()
+import matplotlib.pyplot as plt
+plt.colorbar(im,ax=pmv.ax)
+plt.show()

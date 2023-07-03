@@ -268,6 +268,8 @@ modpathrw.ModpathRWOpts(
 )
 
 # src package
+# note: some variations in results between model runs could be expected
+#       for simulations with low-resolution. 
 sources = [
     (
         "WEL-1",
@@ -340,3 +342,22 @@ mprwsim = modpathrw.ModpathRWSim(
 # write and run 
 mp.write_input()
 mp.run_model(silent=False,report=True)
+
+# get output for visualization
+# Note.1: obs.get_output is currently implemented only for flux observations, 
+#         with independent time vector.
+obsdata = obs.get_output()
+
+# Plot btcs
+import matplotlib.pyplot as plt
+spcobs = obsdata[obsdata['speciesid']==0]
+plt.plot( spcobs['time'], spcobs['chist'], color='g', linestyle='--', label='spc0-hist'  )
+plt.plot( spcobs['time'], spcobs['cgpkde'], color='g', label='spc0-gpkde' )
+spcobs = obsdata[obsdata['speciesid']==1]
+plt.plot( spcobs['time'], spcobs['chist'], color='b', linestyle='--', label='spc1-hist' )
+plt.plot( spcobs['time'], spcobs['cgpkde'], color='b', label='spc1-gpkde' )
+plt.legend()
+ax = plt.gca()
+ax.set_xlabel('t[s]')
+ax.set_ylabel('c[ppm]')
+plt.show()

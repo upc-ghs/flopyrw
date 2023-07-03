@@ -1032,7 +1032,14 @@ class ModpathRWGpkde( Package ):
         '''
         import os 
         from flopy.utils.flopy_io import loadtxt
-        
+        # Shouldn't this be a case to handle by loadtxt ?
+        try:
+            import pandas as pd
+            use_pandas = True
+        except ImportError:
+            use_pandas = False
+       
+
         if self.outputfileformat == 1:
             raise NotImplementedError(
                 f"{self.__class__.__name__}:get_output:" 

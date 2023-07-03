@@ -193,7 +193,13 @@ dtype = np.dtype(
         ("cgpkde", np.float32),
     ]
 )
-cfluxdata = loadtxt( os.path.join( 'data', cfluxfname ), dtype=dtype, skiprows=0 )
+# Shouldn't this be a case to handle at loadtxt ?
+try:
+    import pandas as pd
+    use_pandas = True
+except ImportError:
+    use_pandas = False
+cfluxdata = loadtxt( os.path.join( 'data', cfluxfname ), dtype=dtype, skiprows=0, use_pandas=use_pandas )
 times     = np.arange( 0.0, tlength+86400.0, 86400.0 )
 cflux     = np.zeros( shape=times.shape )
 cflux[ cfluxdata['tid']-1 ] = cfluxdata['cgpkde']
@@ -268,6 +274,8 @@ modpathrw.ModpathRWOpts(
 )
 
 # src package
+# note: some variations in results between model runs could be expected
+#       for simulations with low-resolution. 
 sources = [
     (
         "WEL-1",
@@ -303,12 +311,13 @@ obs = modpathrw.ModpathRWObs(
 )
 
 # sim
+reftime   = 2.0*365*86400, # modflow sim time is reversed
 simconfig = {
     'simulationtype'         : 'rwendpoint', 
     'trackingdirection'      : 'backward',
     'weaksinkoption'         : 'pass_through',# particles pass at the extraction well (original, forward model) 
     'weaksourceoption'       : 'stop_at',     # particles stop at the injection well  (original, forward model)
-    'referencetime'          : 2.0*365*86400, # modflow sim time is reversed
+    'referencetime'          : reftime,  
     'stoptimeoption'         : 'total',
     'endpointoutputoption'   : 2,
     'particlesmassoption'    : 0,
@@ -322,3 +331,19 @@ mprwsim = modpathrw.ModpathRWSim(
 # write and run 
 mp.write_input()
 mp.run_model(silent=False,report=True)
+
+
+# get output for visualization
+# Note.1: obs.get_output is currently implemented only for flux observations, 
+#         with independent time vector.
+obsdata = obs.get_output()
+
+# Plot btcs ( in modflow time )
+import matplotlib.pyplot as plt
+plt.plot( reftime - obsdata['time'], obsdata['chist'], color='g', linestyle='--', label='spc0-hist'  )
+plt.plot( reftime - obsdata['time'], obsdata['cgpkde'], color='g', label='spc0-gpkde' )
+plt.legend()
+ax = plt.gca()
+ax.set_xlabel('t[s]')
+ax.set_ylabel('c[ppm]')
+plt.show()

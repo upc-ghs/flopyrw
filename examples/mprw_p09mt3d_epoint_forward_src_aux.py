@@ -309,3 +309,18 @@ mprwsim = modpathrw.ModpathRWSim(
 # write and run 
 mp.write_input()
 mp.run_model(silent=False,report=True)
+
+# get output for visualization
+# Note.1: obs.get_output is currently implemented only for flux observations, 
+#         with independent time vector.
+obsdata = obs.get_output()
+
+# Plot btcs
+import matplotlib.pyplot as plt
+plt.plot( obsdata['time'], obsdata['chist'], color='g', linestyle='--', label='spc0-hist'  )
+plt.plot( obsdata['time'], obsdata['cgpkde'], color='g', label='spc0-gpkde' )
+plt.legend()
+ax = plt.gca()
+ax.set_xlabel('t[s]')
+ax.set_ylabel('c[ppm]')
+plt.show()
