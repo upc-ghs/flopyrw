@@ -198,7 +198,7 @@ modpathrw.ModpathRWDsp(
     )
 
 # gpkde package 
-modpathrw.ModpathRWGpkde(
+gpkde = modpathrw.ModpathRWGpkde(
         mp, 
         skipinitialcondition = True, 
     )
@@ -221,3 +221,16 @@ mprwsim = modpathrw.ModpathRWSim(
 # write and run 
 mp.write_input()
 mp.run_model(silent=False, report=True)
+
+# get data to visualize the output
+# Note.1: returns an array with the shape of the flowmodel grid. Up to this point 
+#         works only for regular StructuredGrid, and reconstruction grid following
+#         the flow-model discretization.
+# Note.2: see flopyrw/modpathrw/mprwgpkde.py:ModpathRWGpkde:get_data for more details.
+# Note.3: remember to plt.show() or savefig in order to visualize the figure.
+cdata = gpkde.get_data()
+pmv = flopy.plot.PlotMapView(gwf)
+pmv.plot_array(cdata)
+
+#import matplotlib.pyplot as plt
+#plt.show()

@@ -1024,3 +1024,232 @@ class ModpathRWGpkde( Package ):
 
         # Done
         return
+
+
+    def get_output(self):
+        '''
+        Load the output file into a rec array
+        '''
+        import os 
+        from flopy.utils.flopy_io import loadtxt
+        
+        if self.outputfileformat == 1:
+            raise NotImplementedError(
+                f"{self.__class__.__name__}:get_output:" 
+                f" Reader for binary output file has not been implemented yet."
+            )
+
+        if self.outputcolformat == 0:
+            dtype = np.dtype(
+                [
+                    ("tid"       , np.int32  ),
+                    ("time"      , np.float32),
+                    ("speciesid" , np.int32  ),
+                    ("idbinx"    , np.int32  ),
+                    ("idbiny"    , np.int32  ),
+                    ("idbinz"    , np.int32  ),
+                    ("cgpkde"    , np.float32),
+                    ("chist"     , np.float32),
+                ]
+            )
+        elif self.outputcolformat == 1:
+            dtype = np.dtype(
+                [
+                    ("tid"       , np.int32  ),
+                    ("time"      , np.float32),
+                    ("speciesid" , np.int32  ),
+                    ("idbinx"    , np.int32),
+                    ("idbiny"    , np.int32),
+                    ("idbinz"    , np.int32),
+                    ("x"         , np.float32),
+                    ("y"         , np.float32),
+                    ("z"         , np.float32),
+                    ("cgpkde"    , np.float32),
+                    ("chist"     , np.float32),
+                ]
+            )
+        elif self.outputcolformat == 2:
+            dtype = np.dtype(
+                [
+                    ("tid"       , np.int32  ),
+                    ("time"      , np.float32),
+                    ("speciesid" , np.int32  ),
+                    ("x"         , np.float32),
+                    ("y"         , np.float32),
+                    ("z"         , np.float32),
+                    ("cgpkde"    , np.float32),
+                    ("chist"     , np.float32),
+                ]
+            )
+
+        # read data
+        recdata = loadtxt( os.path.join( self._parent.model_ws, self.outputfilename ), dtype=dtype, skiprows=0 )
+
+        # To python zero-based indexes those quantities 
+        # that need this treatment. Leave tid as it came.
+        recdata['speciesid'] = recdata['speciesid'] - 1
+        if self.outputcolformat != 2:
+            recdata['idbinx'] = recdata['idbinx'] - 1
+            recdata['idbiny'] = recdata['idbiny'] - 1
+            recdata['idbinz'] = recdata['idbinz'] - 1
+
+        # store variables
+        self.times = np.unique(recdata['time'])
+        self.speciesids = np.unique(recdata['speciesid'])
+
+        # useful, heavy ?
+        self.outputrecdata = recdata
+
+        # return
+        return recdata 
+
+
+    def get_times(self):
+        '''
+        Return the array of times stored in data file
+        '''
+        try:
+            return self.times
+        except AttributeError:
+            self.get_output()
+            return self.times
+
+
+    def get_data(self, which='cgpkde', totim=None, speciesid=None):
+        '''
+        Get output data array
+
+        For a reconstruction grid coincident with the flowmodel grid of 
+        type StructuredGrid and is_regular=True, will fill an array with shape 
+        (nlay,nrow,ncol), with the concentration data requested in 'which'.
+          * which=cgpkde returns the smoothed reconstruction. 
+          * which=chist returns the histogram reconstruction. 
+
+        In case the grid is not of type StructuredGrid or not regular, 
+        will filter the recarray data by speciesid and totim, and not by 'which'.
+        The same applies for the case in which self.outputcolformat == 2, where 
+        reconstruction grid indexes are not given in the output file. 
+
+        Note: the gpkde reconstruction grid follows the modpath convention of 
+              coordinates and not the lay,row,col convention so there should an
+              adequate reinterpration of grid indexes.
+        '''
+    
+        # Default value for non existent indexes
+        defaultnan = 0.0
+
+        # Validate which
+        if not isinstance(which,str):
+            raise TypeError(
+                f"{self.__class__.__name__}:get_data:" 
+                f" Invalid type for which parameter, it should be str but {str(type(which))} was given."
+            )
+        if (which.lower() not in ['cgpkde', 'chist']):
+            raise ValueError(
+                f"{self.__class__.__name__}:get_data:"
+                f" Invalid value for which parameter. It can be"
+                f" cgpkde or chist, but {str(which)} was given."
+            )
+        which = which.lower()
+
+        # Load the output file if not loaded already
+        try: 
+            recdata = self.outputrecdata
+        except AttributeError:
+            recdata = self.get_output()
+
+        # If total time was none, assign the last in 
+        # self.times
+        if totim is None: 
+            totim = self.times[-1]
+        else:
+            tindex = np.where(self.times==totim)[0]
+            if len(tindex)==0:
+                raise ValueError(
+                    f"{self.__class__.__name__}:get_data:"
+                    f" The given value for totim was not found in the array of times. "
+                    f" totim={str(totim)} was given."
+                )
+            else:
+                totim = self.times[tindex.item()]
+
+        # Similar to times, do it for speciesid
+        if speciesid is None: 
+            speciesid = self.speciesids[-1]
+        else:
+            spcindex = np.where(self.speciesids==speciesid)[0]
+            if len(spcindex)==0:
+                raise ValueError(
+                    f"{self.__class__.__name__}:get_data:"
+                    f" The given value for speciesid was not found in the array of speciesids. "
+                    f" speciesid={str(speciesid)} was given."
+                )
+            else:
+                speciesid = self.speciesids[spcindex.item()]
+
+        # Filter data
+        filtdata = recdata[ (recdata['time'] == totim)&(recdata['speciesid'] == speciesid) ]
+
+        # If no data, error.
+        if ( len(filtdata) == 0 ):
+            raise Exception(
+                f"{self.__class__.__name__}:get_data:"
+                f" No data was found for totim={str(totim)} and speciesid={str(speciesid)}"
+            )
+
+        # If no grid indexes, return
+        if ( self.outputcolformat == 2 ):
+            # return
+            return filtdata
+
+        # The following would only work for
+        # StructuredGrid with is_regular=True.
+        # Additional alternatives could be provided 
+        # by for example interpolating with griddata
+        if isinstance( self.parent.flowmodel.modelgrid, StructuredGrid ):
+
+            # If is regular it can potentially be given with 
+            # the same structure than the flow model
+            if self.parent.flowmodel.modelgrid.is_regular:
+
+                nlay = self.parent.flowmodel.modelgrid.nlay
+                nrow = self.parent.flowmodel.modelgrid.nrow
+                ncol = self.parent.flowmodel.modelgrid.ncol
+                
+                data = np.empty((nlay, nrow, ncol), dtype=np.float32)
+                data[:, :, :] = defaultnan
+
+                # If the reconstruction grid has the same 
+                # size than the flow model grid... 
+                # needs checking of consistent sizes. 
+
+                layers = np.unique( filtdata['idbinz'] )
+                for lay in layers:
+                    srec = filtdata[ filtdata['idbinz'] == lay ]
+                    laydata = np.empty((nrow,ncol),dtype=np.float32)
+                    laydata[:,:] = defaultnan
+                    laydata[ nrow - srec['idbiny'] - 1, srec['idbinx'] ] = srec[which] 
+                    data[nlay - lay - 1,:,:] = laydata
+
+
+                return data
+
+            else:
+                print( 
+                    f"Warning: data for flowmodel with non-regular StructuredGrid" 
+                    f" is returned filtered only by totim and speciesid. The user should apply "
+                    f" an adequate coordinates conversion (e.g., scipy.interpolate.griddata)."
+                )
+                # return
+                return filtdata
+        else:
+            print( 
+                f"Warning: data for flowmodel with {str(type(self.parent.flowmodel.modelgrid))} grid "
+                f" is returned filtered only by totim and speciesid. The user should apply "
+                f" an adequate coordinates conversion. "
+            )
+            # return
+            return filtdata
+
+
+
