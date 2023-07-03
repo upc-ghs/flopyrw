@@ -92,6 +92,12 @@ class ModpathRWGpkde( Package ):
         is done in terms of the kernel smoothing (h), meaning that if the bin sizes 
         are non-isotropic, then the program will force the same kernel smoothing taking 
         into account the different cell sizes.
+    anisotropickernelsic : int
+        Indicate the isotropy status for kernels employed in the reconstruction of the 
+        initial condition. Allowed values are:
+          * 0: kernels are isotropic.
+          * 1: kernels are anisotropic.
+          * 2: kernels follow the variable isotropickernels.
     boundkernelsize : int
         Determines the protocol for bounding the kernel size. Allowed values are: 
           * 0: bound size by domain constraints. 
@@ -180,6 +186,7 @@ class ModpathRWGpkde( Package ):
         kerneldatabase         = False, 
         isotropickernels       = False,
         boundkernelsize        = 0, 
+        anisotropickernelsic   = 0, 
         minhd                  = 1.0 ,
         maxhd                  = 0.1 ,
         deltahd                = 10.0,
@@ -684,6 +691,22 @@ class ModpathRWGpkde( Package ):
             )
         self.isotropickernels = isotropickernels
 
+        # anisotropickernelsic
+        if ( not isinstance( anisotropickernelsic, int ) ): 
+            raise TypeError(
+                f"{self.__class__.__name__}:" 
+                f" Invalid type for the anisotropickernelsic parameter. It should be int, but"
+                f" {str(type(anisotropickernelsic))} was given."
+            )
+        if ( anisotropickernelsic not in [0,1,2] ): 
+            raise ValueError(
+                f"{self.__class__.__name__}:" 
+                f" Invalid value for anisotropickernelsic . Allowed values are 0 (isotropic kernels for ic),"
+                f" 1 (anisotropic kernels for ic) or 2 (follow isotropickernels)."
+                f" {str(anisotropickernelsic)} was given."
+            )
+        self.anisotropickernelsic = anisotropickernelsic
+
         # boundkernelsize
         if ( boundkernelsize not in [0,1,2] ): 
             raise ValueError(
@@ -944,14 +967,11 @@ class ModpathRWGpkde( Package ):
             if ( self.skiperror ): 
                 f.write(f"{int(self.skiperror)}\n")
             else:
-                f.write(f"{int(self.skiperror)}    {self.convergence:6f}\n")
+                f.write(f"{int(self.skiperror)}   {self.convergence:6f}\n")
 
             # line 7:
             # kernels
-            if ( not self.isotropickernels ): 
-                f.write(f"{int(self.kerneldatabase)}    {self.boundkernelsize}\n")
-            else:
-                f.write(f"{int(self.kerneldatabase)}    {self.boundkernelsize}    {int(self.isotropickernels)}\n")
+            f.write(f"{int(self.kerneldatabase)}   {self.boundkernelsize}   {int(self.isotropickernels)}   {int(self.anisotropickernelsic)}\n")
 
             # line 8:
             # kdb params
