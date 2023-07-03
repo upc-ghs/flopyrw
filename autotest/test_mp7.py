@@ -133,7 +133,7 @@ def ex01b_mf6_model(function_tmpdir):
     )
 
     # Write the datasets
-    sim.write_simulation()
+    sim.write_simulation(silent=True)
     return sim, function_tmpdir
 
 
@@ -146,7 +146,7 @@ def build_modpath(ws, mpn, particlegroups, grid):
     defaultiface6 = {"RCH": 6, "EVT": 6}
 
     # load the MODFLOW 6 model
-    sim = MFSimulation.load("mf6mod", "mf6", "mf6", ws)
+    sim = MFSimulation.load("mf6mod", "mf6", "mf6", ws, verbosity_level=0)
     gwf = sim.get_model(ex01b_mf6_model_name)
 
     # create modpath files
@@ -169,7 +169,7 @@ def build_modpath(ws, mpn, particlegroups, grid):
     mp.write_input()
 
     # run modpath
-    success, buff = mp.run_model()
+    success, buff = mp.run_model(silent=True, report=True)
     assert success, f"mpathrw model ({mp.name}) did not run"
 
 
@@ -240,7 +240,7 @@ def endpoint_compare(fpth0, epf):
 def test_default_modpath(ex01b_mf6_model):
     sim, function_tmpdir = ex01b_mf6_model
 
-    success, buff = sim.run_simulation()
+    success, buff = sim.run_simulation(silent=True)
     assert success, "mf6 model did not run"
 
     mpnam = f"{ex01b_mf6_model_name}_mp_default"
@@ -272,7 +272,7 @@ def test_faceparticles_is1(ex01b_mf6_model):
         ]
     )
 
-    success, buff = sim.run_simulation()
+    success, buff = sim.run_simulation(silent=True)
     assert success, "mf6 model did not run"
 
     mpnam = f"{ex01b_mf6_model_name}_mp_face_t1node"
@@ -319,7 +319,7 @@ def test_faceparticles_is1(ex01b_mf6_model):
 def test_facenode_is3(ex01b_mf6_model):
     sim, function_tmpdir = ex01b_mf6_model
     grid = sim.get_model(ex01b_mf6_model_name).modelgrid
-    success, buff = sim.run_simulation()
+    success, buff = sim.run_simulation(silent=True)
     assert success, "mf6 model did not run"
 
     mpnam = f"{ex01b_mf6_model_name}_mp_face_t3node"
@@ -360,7 +360,7 @@ def test_facenode_is3(ex01b_mf6_model):
 def test_facenode_is3a(ex01b_mf6_model):
     sim, function_tmpdir = ex01b_mf6_model
     grid = sim.get_model(ex01b_mf6_model_name).modelgrid
-    success, buff = sim.run_simulation()
+    success, buff = sim.run_simulation(silent=True)
     assert success, "mf6 model did not run"
 
     mpnam = f"{ex01b_mf6_model_name}_mp_face_t3anode"
@@ -406,7 +406,7 @@ def test_facenode_is3a(ex01b_mf6_model):
 def test_facenode_is2a(ex01b_mf6_model):
     sim, function_tmpdir = ex01b_mf6_model
     grid = sim.get_model(ex01b_mf6_model_name).modelgrid
-    success, buff = sim.run_simulation()
+    success, buff = sim.run_simulation(silent=True)
     assert success, "mf6 model did not run"
 
     mpnam = f"{ex01b_mf6_model_name}_mp_face_t2anode"
@@ -445,7 +445,7 @@ def test_facenode_is2a(ex01b_mf6_model):
 def test_cellparticles_is1(ex01b_mf6_model):
     sim, function_tmpdir = ex01b_mf6_model
     grid = sim.get_model(ex01b_mf6_model_name).modelgrid
-    success, buff = sim.run_simulation()
+    success, buff = sim.run_simulation(silent=True)
     assert success, "mf6 model did not run"
 
     mpnam = f"{ex01b_mf6_model_name}_mp_cell_t1node"
@@ -487,7 +487,7 @@ def test_cellparticles_is1(ex01b_mf6_model):
 def test_cellparticleskij_is1(ex01b_mf6_model):
     sim, function_tmpdir = ex01b_mf6_model
     grid = sim.get_model(ex01b_mf6_model_name).modelgrid
-    success, buff = sim.run_simulation()
+    success, buff = sim.run_simulation(silent=True)
     assert success, "mf6 model did not run"
 
     mpnam = f"{ex01b_mf6_model_name}_mp_cell_t1kij"
@@ -515,7 +515,7 @@ def test_cellparticleskij_is1(ex01b_mf6_model):
 def test_cellnode_is3(ex01b_mf6_model):
     sim, function_tmpdir = ex01b_mf6_model
     grid = sim.get_model(ex01b_mf6_model_name).modelgrid
-    success, buff = sim.run_simulation()
+    success, buff = sim.run_simulation(silent=True)
     assert success, "mf6 model did not run"
 
     mpnam = f"{ex01b_mf6_model_name}_mp_cell_t3node"
@@ -548,7 +548,7 @@ def test_cellnode_is3(ex01b_mf6_model):
 def test_cellnode_is3a(ex01b_mf6_model):
     sim, function_tmpdir = ex01b_mf6_model
     grid = sim.get_model(ex01b_mf6_model_name).modelgrid
-    success, buff = sim.run_simulation()
+    success, buff = sim.run_simulation(silent=True)
     assert success, "mf6 model did not run"
 
     mpnam = f"{ex01b_mf6_model_name}_mp_cell_t3anode"
@@ -596,7 +596,7 @@ def test_cellnode_is2a(ex01b_mf6_model):
     sim, function_tmpdir = ex01b_mf6_model
     grid = sim.get_model(ex01b_mf6_model_name).modelgrid
 
-    success, buff = sim.run_simulation()
+    success, buff = sim.run_simulation(silent=True)
     assert success, "mf6 model did not run"
 
     mpnam = f"{ex01b_mf6_model_name}_mp_cell_t2anode"
@@ -715,7 +715,7 @@ def ex01_mf6_model(function_tmpdir):
     )
 
     # Write the datasets
-    sim.write_simulation()
+    sim.write_simulation(silent=True)
 
     return sim, function_tmpdir
 
@@ -725,13 +725,13 @@ def ex01_mf6_model(function_tmpdir):
 def test_forward(ex01_mf6_model):
     sim, function_tmpdir = ex01_mf6_model
     # Run the simulation
-    success, buff = sim.run_simulation()
+    success, buff = sim.run_simulation(silent=True)
     assert success, "mf6 model did not run"
 
     mpnam = f"{ex01_mf6_model_name}_mp_forward"
 
     # load the MODFLOW 6 model
-    sim = MFSimulation.load("mf6mod", "mf6", "mf6", function_tmpdir)
+    sim = MFSimulation.load("mf6mod", "mf6", "mf6", function_tmpdir, verbosity_level=0)
     gwf = sim.get_model(ex01_mf6_model_name)
 
     mp = Modpath7.create_mp7(
@@ -749,7 +749,7 @@ def test_forward(ex01_mf6_model):
     mp.write_input()
 
     # run modpath
-    success, buff = mp.run_model()
+    success, buff = mp.run_model(silent=True, report=True)
     assert success, f"mpathrw model ({mp.name}) did not run"
 
 
@@ -757,13 +757,13 @@ def test_forward(ex01_mf6_model):
 @requires_exe("mf6", "mpathrw")
 def test_backward(ex01_mf6_model):
     sim, function_tmpdir = ex01_mf6_model
-    success, buff = sim.run_simulation()
+    success, buff = sim.run_simulation(silent=True)
     assert success, "mf6 model did not run"
 
     mpnam = f"{ex01_mf6_model_name}_mp_backward"
 
     # load the MODFLOW 6 model
-    sim = MFSimulation.load("mf6mod", "mf6", "mf6", function_tmpdir)
+    sim = MFSimulation.load("mf6mod", "mf6", "mf6", function_tmpdir, verbosity_level=0)
     gwf = sim.get_model(ex01_mf6_model_name)
 
     mp = Modpath7.create_mp7(
@@ -781,7 +781,7 @@ def test_backward(ex01_mf6_model):
     mp.write_input()
 
     # run modpath
-    success, buff = mp.run_model()
+    success, buff = mp.run_model(silent=True, report=True)
     assert success, f"mpathrw model ({mp.name}) did not run"
 
 
@@ -791,11 +791,11 @@ def test_pathline_output(function_tmpdir):
     case_mf6 = Mp7Cases.mp7_mf6(function_tmpdir)
 
     case_mf2005.write_input()
-    success, buff = case_mf2005.run_model()
+    success, buff = case_mf2005.run_model(silent=True,report=True)
     assert success, f"modpath model ({case_mf2005.name}) did not run"
 
     case_mf6.write_input()
-    success, buff = case_mf6.run_model()
+    success, buff = case_mf6.run_model(silent=True,report=True)
     assert success, f"modpath model ({case_mf6.name}) did not run"
 
     fpth0 = Path(case_mf2005.model_ws) / "ex01_mf2005_mp.mppth"
@@ -824,11 +824,11 @@ def test_endpoint_output(function_tmpdir):
     case_mf6 = Mp7Cases.mp7_mf6(function_tmpdir)
 
     case_mf2005.write_input()
-    success, buff = case_mf2005.run_model()
+    success, buff = case_mf2005.run_model(silent=True,report=True)
     assert success, f"modpath model ({case_mf2005.name}) did not run"
 
     case_mf6.write_input()
-    success, buff = case_mf6.run_model()
+    success, buff = case_mf6.run_model(silent=True,report=True)
     assert success, f"modpath model ({case_mf6.name}) did not run"
 
     # if models not run then there will be no output
@@ -876,7 +876,7 @@ def test_endpoint_output(function_tmpdir):
 def test_pathline_plotting(function_tmpdir):
     ml = Mp7Cases.mp7_mf6(function_tmpdir)
     ml.write_input()
-    success, buff = ml.run_model()
+    success, buff = ml.run_model(silent=True,report=True)
     assert success, f"modpath model ({ml.name}) did not run"
 
     modelgrid = ml.flowmodel.modelgrid
@@ -902,8 +902,8 @@ def test_pathline_plotting(function_tmpdir):
 @pytest.mark.parametrize("verbose", [True, False])
 def test_mp7sim_replacement(function_tmpdir, capfd, verbose):
     mf6sim = Mp7Cases.mf6(function_tmpdir)
-    mf6sim.write_simulation()
-    mf6sim.run_simulation()
+    mf6sim.write_simulation(silent=True)
+    mf6sim.run_simulation(silent=True)
 
     # create mp7 model
     mp = Modpath7(
@@ -954,5 +954,5 @@ def test_mp7sim_replacement(function_tmpdir, capfd, verbose):
     assert verbose == (msg in cap.out)
 
     mp.write_input()
-    success, buff = mp.run_model()
+    success, buff = mp.run_model(silent=True,report=True)
     assert success, f"modpath model ({mp.name}) did not run"

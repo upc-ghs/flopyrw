@@ -176,8 +176,8 @@ class Mp7Cases:
     @staticmethod
     def mp7_mf6(function_tmpdir):
         sim = Mp7Cases.mf6(function_tmpdir)
-        sim.write_simulation()
-        success, buff = sim.run_simulation()
+        sim.write_simulation(silent=True)
+        success, buff = sim.run_simulation(silent=True)
         assert success, "mf6 model did not run"
 
         # create modpath files
@@ -277,7 +277,7 @@ class Mp7Cases:
     def mp7_mf2005(function_tmpdir):
         m = Mp7Cases.mf2005(function_tmpdir)
         m.write_input()
-        success, buff = m.run_model()
+        success, buff = m.run_model(silent=True,report=True)
         assert success, "mf2005 model did not run"
 
         # create modpath files
