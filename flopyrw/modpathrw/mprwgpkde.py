@@ -1090,7 +1090,12 @@ class ModpathRWGpkde( Package ):
             )
 
         # read data
-        recdata = loadtxt( os.path.join( self._parent.model_ws, self.outputfilename ), dtype=dtype, skiprows=0 )
+        recdata = loadtxt(
+            os.path.join( self._parent.model_ws, self.outputfilename ),
+            dtype=dtype,
+            skiprows=0, 
+            use_pandas=use_pandas,
+        )
 
         # To python zero-based indexes those quantities 
         # that need this treatment. Leave tid as it came.
