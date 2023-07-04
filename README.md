@@ -2,7 +2,7 @@
 An extension of [FloPy](https://github.com/modflowpy/flopy) to write input simulation files for [MODPATH-RW](https://gitub.com/upc-ghs/modpath-rw) with Python.
 
 ### Overview
-Provides classes extended from the `modpath` module in `flopy` adapted to specific structures required by MODPATH-RW. Also introduces new package writers required by the program, consistent with the [Documentation of Input-Output](https://github.com/upc-ghs/modpath-rw/doc/modpath-rw_IO_v100_.pdf). 
+Provides classes extended from the `modpath` module in `flopy` adapted to specific structures required by MODPATH-RW. Also introduces new package writers required by the program, consistent with the [Documentation of Input-Output](https://github.com/upc-ghs/modpath-rw/blob/develop/doc/modpath-rw_IO_v100_.pdf). 
 
 
 ### Quickstart
