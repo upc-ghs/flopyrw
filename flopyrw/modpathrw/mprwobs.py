@@ -314,12 +314,12 @@ class ModpathRWObs( Package ):
                     )
                 # Transform to numpy array
                 cells = np.array( cells )
-
+                
                 if self.structured: 
                     # The case of a single list/tuple with cell id
                     if ( (len(cells.shape)==1) ): 
                         if ( len(cells)==3 ):
-                            cells = cells.transpose()
+                            cells = np.expand_dims( cells, axis=0 )
                         else:
                             raise ValueError(
                                 f"{self.__class__.__name__}:"

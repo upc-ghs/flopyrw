@@ -34,6 +34,7 @@ def test_mprw_obs_input_mf6(function_tmpdir):
     # by default cellinputoption = 0 (list of cells)
     # by default the input structured = None
     # and is infered from the modelgrid type.
+
     cells = [(0,3,6)]
     with pytest.raises(ValueError):
         # define without list of cells
@@ -65,6 +66,8 @@ def test_mprw_obs_input_mf6(function_tmpdir):
 
     # obs: define a consistent observation
     modpathrw.ModpathRWObs(mp, cells=cells)
+    # obs: it should be treated equally to cells 
+    modpathrw.ModpathRWObs(mp, cells=cells[0])
     
     # write distributed # 
     #-------------------#
