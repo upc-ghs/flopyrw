@@ -1,5 +1,5 @@
 ## flopyrw
-An extension of [FloPy](https://github.com/modflowpy/flopy) to write input simulation files for [MODPATH-RW](https://gitub.com/upc-ghs/modpath-rw) with Python.
+An extension of [FloPy](https://github.com/modflowpy/flopy) to write input simulation files for [MODPATH-RW](https://github.com/upc-ghs/modpath-rw) with Python.
 
 ### Overview
 Provides classes extended from the `modpath` module in `flopy` adapted to specific structures required by MODPATH-RW. Also introduces new package writers required by the program, consistent with the [Documentation of Input-Output](https://github.com/upc-ghs/modpath-rw/blob/develop/doc/modpath-rw_IO_v100_.pdf). 
@@ -130,7 +130,7 @@ pmv.plot_endpoint( epoint.get_alldata(), zorder=10, s=4, linewidth=0.5, edgecolo
 ```
 <img src="img/quickstart.png" alt="plot" style="width:30;height:30">
 
-**Note**: In order to run a model via the interface a [MODPATH-RW](https://gitub.com/upc-ghs/modpath-rw) executable is required. 
+**Note**: In order to run a model via the interface a [MODPATH-RW](https://github.com/upc-ghs/modpath-rw) executable is required. 
 
 
 ### Testing
