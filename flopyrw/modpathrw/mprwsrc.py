@@ -344,7 +344,7 @@ class ModpathRWSrc( Package ):
                     # Create data format for AUX input 
                     fmts = []
                     fmts.append("{:20s}")  # auxvarname
-                    fmts.append("{:.6f}")  # particles mass
+                    fmts.append("{:.16f}") # particles mass
                     for nt in range(3):    # (nx,ny,nz)
                         fmts.append("{:3d}")
                     istart = 0
@@ -475,7 +475,7 @@ class ModpathRWSrc( Package ):
                         # Format for particles mass
                         mfmt = []
                         for nm in range(src['nspecies']):   
-                            mfmt.append("{:.6f}")
+                            mfmt.append("{:.16f}")
                         mfmt = " " + " ".join(mfmt) + "\n"
 
                         # Write the mass
@@ -513,20 +513,20 @@ class ModpathRWSrc( Package ):
 
                         # And finally the time and concentration data
                         dfmt = []
-                        dfmt.append("{:.6f}") # ts
-                        dfmt.append("{:.6f}") # te
+                        dfmt.append("{:.16f}") # ts
+                        dfmt.append("{:.16f}") # te
                         if ( src['cellinput'] in [0,2] ):
                             # One concentration column per species
                             for ns in range(src['nspecies']):   
-                                dfmt.append("{:.6f}")
+                                dfmt.append("{:.16f}")
                         elif ( (src['cellinput'] == 1)and(src['concpercell']==0) ):
                             # One concentration column per species
                             for ns in range(src['nspecies']):   
-                                dfmt.append("{:.6f}")
+                                dfmt.append("{:.16f}")
                         elif ( (src['cellinput'] == 1)and(src['concpercell']==1) ):
                             # nspecies concentrations per cell
                             for ns in range(src['nspecies']):   
-                                dfmt.append("{:.6f}")
+                                dfmt.append("{:.16f}")
                         dfmt = " " + " ".join(dfmt) + "\n"
 
                         # Write the number of time intervals
