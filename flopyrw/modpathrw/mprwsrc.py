@@ -1179,7 +1179,7 @@ class ModpathRWSrc( Package ):
                     # Assign the default multiple times ( or throw exception ? ) 
                     src['particlesmass'] = list(np.ones(shape=(nsp,))*src['particlesmass'])
             else:
-                if( not ( len( src['particlesmass'] == nsp ) ) ):
+                if( not ( len( src['particlesmass'] ) == nsp ) ):
                     raise ValueError(
                         f"{self.__class__.__name__}:"
                         f" Invalid source specification. The number of"
@@ -1286,9 +1286,13 @@ class ModpathRWSrc( Package ):
                         f" input option is 1 but no list of cells was given."
                     )
                 # Requires something to validate versus the structured parameter
-                # Concpercell ? 
                 cells          = np.array(src['cells'])
                 ncellsforinput = cells.shape[0]
+                # If specifying the same concentration for all cells 
+                # then update ncellsforinput to only one cell 
+                if ( src['concpercell'] == 0 ):
+                    ncellsforinput = 1
+                
             if ( src['cellinput'] == 2 ):
                 # Same concentration for all cells
                 cells = src['cells']
@@ -1358,7 +1362,7 @@ class ModpathRWSrc( Package ):
                         f" ({str(conc.shape[0])}) is not consistent with the"
                         f" number of time intervals ({str(ntin)})."
                     )
-                # Verifies how many concentrations  
+                # Verifies how many concentrations 
                 if ( conc.shape[1] != nsp*ncellsforinput ):
                     raise ValueError(
                         f"{self.__class__.__name__}:"
