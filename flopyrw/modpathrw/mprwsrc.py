@@ -24,98 +24,110 @@ class ModpathRWSrc( Package ):
         The model object (of type :class: ModpathRW) to which
         this package will be added.
     inputformat : str 
-        The format specification for this source. Allowed values are:
-            * AUX or AUXILIARY: defines the source from aux variables
-              stored in the flow model. Configured ONLY via the sources
-              keyword argument and ifaceoption.
-            * SPEC or SPECIFIED: user specifies time intervals,
-              concentrations and other properties of the injection.
-              Can be configured via the sources keyword or by 
-              specifying the individual keyword arguments of the __init__ 
-              function. 
+        The format of the specification for this source. Allowed values are:
+          * AUX or AUXILIARY: build the source of particles from aux
+            variables stored in the flow model. Configured ONLY via the 
+            sources keyword argument (see below) and the ifaceoption.
+          * SPEC or SPECIFIED: the user specifies time intervals,
+            concentrations and other properties of the injection.
+            Can be configured via the sources keyword or by 
+            specifying the individual keyword arguments of the __init__ 
+            function. 
     sources : list, tuple
-        The specification of sources to be used. 
-        * While using the AUX/AUXILIARY format parameter expects the data structure:
+        The specification of sources to be used. This parameter adopts
+        different forms depending on the inputformat.
 
-              sources = [
-                  [ package_name, aux_var_name, particles_mass, (nx,ny,nz), speciesid ],
-                  ...
-              ]
+        * AUX/AUXILIARY format expects the data structure:
 
-            or:
+            sources = [
+                [ budgetname, auxvar, particlesmass, (nx,ny,nz), speciesid ],
+                ...
+            ]
 
-              sources = [
-                  [
-                      package_name,
-                      [
-                          [ aux_var_name_1, particles_mass_1, (nx,ny,nz)_1, speciesid_1 ],
-                          [ aux_var_name_2, particles_mass_2, (nx,ny,nz)_2, speciesid_2 ],
-                          ...
-                      ]
-                  ],
-                  ...
-              ]
+          or:
 
-            where:
-
-              * package name : str : indicates the package name from where to extract 
-                                     the aux variables.
-              * aux_var_name : str : is the name of auxiliary variable.
-              * particles_mass : float : the mass assigned to particles. It should be 
-                                         greater than zero.
-              * (nx,ny,nz) : int : a template for particles release. It could be a 
-                                   single int for a uniform template. It should be 
-                                   greater than one.
-              * speciesid : int : zero-based index of species to which the auxiliary 
-                                  variable will be related. It will only be written to 
-                                  the file if particlesmassoption == 2. It should be 
-                                  greater or equal to zero.
-            notes: 
-              * The class will verify that pairs (package_name,aux_var_name) are unique.
-              * The minimum required specification is the package_name and aux_var_name,
-                and the rest of parameters are interpreted incrementally, meaning for
-                example that if particles_mass is not given, none of the following 
-                will be interpreted and default values are assigned.
-        * While using the SPEC/SPECIFIED input format, sources could be given as a list 
-          of dictionaries with keys as the keyword parameters of the __init__ function
-          starting from budgetname until particlesmass, like:
-            
-                sources = [
-                    {
-                        'budgetname': 'WEL', 
-                        'timeintervals' : [
-                            [ts1,te1],
-                            [ts2,te2],
-                            ...
-                        ],
-                        'cellinput': 0, 
+            sources = [
+                [
+                    budgetname,
+                    [
+                        [ auxvar_1, particlesmass_1, (nx,ny,nz)_1, speciesid_1 ],
+                        [ auxvar_2, particlesmass_2, (nx,ny,nz)_2, speciesid_2 ],
                         ...
-                    },
+                    ]
+                ],
+                ...
+            ]
+
+          where:
+
+            * budgetname    : str : The budget header/package from where to read the auxvar.
+                                    The auxvar is interpreted as concentration, and the program 
+                                    will extract the flow-rates from the budget. These two, and 
+                                    the particlesmass, are combined to create a solute mass flux
+                                    (a flux of particles). For mf6, this value can be the specific
+                                    name given to the package stored in TXT2ID2 (see mf6io.docs). 
+            * auxvar        : str : is the name of auxiliary variable.
+            * particlesmass : float : the mass assigned to particles. It should be 
+                                      greater than zero.
+            * (nx,ny,nz) : int : a template for particles release. It could be a 
+                                 single int for a uniform template. It should be 
+                                 greater than one.
+            * speciesid  : int : zero-based index of species to which the auxiliary 
+                                 variable will be related. It will only be written to 
+                                 the file if particlesmassoption == 2. It should be 
+                                 greater or equal to zero.
+          notes: 
+            * The class will verify that pairs (budgetname,auxvar) are unique.
+            * The minimum required specification is the budgetname and auxvar,
+              and the rest of parameters are interpreted incrementally, meaning for
+              example that if particlesmass is not given, none of the following 
+              parameters will be interpreted and default values are assigned.
+
+        * While using the SPEC/SPECIFIED inputformat, sources could be given as a list 
+          of dictionaries with keys following the keyword arguments of the __init__ 
+          function, starting from budgetname until particlesmass, like:
+            
+            sources = [
+                {
+                    'budgetname': 'WEL', 
+                    'timeintervals' : [
+                        [ts1,te1],
+                        [ts2,te2],
+                        ...
+                    ],
+                    'cellinput': 0, 
                     ...
-                ]
-            notes: if the format is SPEC/SPECIFIED and sources is given as before, then
-                   the keyword parameters are overriden. If sources=None, then a 
-                   dictionary will be filled by the class with the values obtained from
-                   the keyword arguments, creating a single source.
+                },
+                ...
+            ]
+
+          notes: 
+            * A detailed description of each keyword is given below.
+            * if the format is SPEC/SPECIFIED and sources are given as a list of 
+              dictionaries, then keyword arguments given to the constructor are 
+              overriden. If sources=None, then a dictionary will be filled 
+              with values obtained from the keyword arguments, creating a single 
+              source specification.
 
     budgetname : str
-        The budget header from where to extract flow-rates. For mf6 can be the specific 
-        name given to the package, stored in TXT2ID2 (see mf6io.docs). 
+        The budget header/package from where to extract flow-rates. For mf6, this value
+        can be the specific name given to the package, stored in TXT2ID2 (see mf6io.docs). 
     timeintervals : list[ [float,float] ]
         A list of time intervals delimited by [tstart,tend]. Each interval defines 
-        the duration of an injection at a given concentration. 
+        the duration of an injection with a given concentration. 
     cellinput : int
         Determines how to define the cells related to the source. Allowed values are:
-            * 0: extract the cells from the budget file. Use all the cells related
-                 to the budgetname.
-            * 1: cells are given as a list of cell ids in the cells keyword argument.
-            * 2: cells are given as an array with u3d where 1 indicate that the cells
-                 should be considered.
-        notes: all of the given cells, regardless the specification format, will 
-               release particles during the time intervals in which the flow-rate
-               stored in budget is positive (into the aquifer).
+          * 0: extract the cells from the budget file. Use all the cells related
+               to the budgetname.
+          * 1: cells are given as a list of cell ids in the cells keyword argument.
+          * 2: cells are given as an array with u3d where 1 indicate that the cells
+               should be considered.
+        notes:
+          * all of the given cells, regardless the specification format, will 
+            release particles during the time intervals in which the flow-rate
+            stored in budget is positive (into the aquifer).
     cells : list, np.ndarray
-        The list of cell ids to be related to the injection. If cellinput==2 then
+        The list of cell ids to be related to the injection. If cellinput == 2 then
         this should be the modelgrid array with 1 for cells to be considered 
         and 0 for those to be excluded.
     structured : bool
@@ -124,14 +136,15 @@ class ModpathRWSrc( Package ):
     ifaceoption : int
         Flag to indicate whether an iface shall be applied for injection cells.
         iface can be specified individually for each cell.
-            * 0: do not read iface
-            * 1: read iface
-        notes: if the source format is AUX/AUXILIARY, this flag will indicate 
-               whether to extract or not the value of iface from the budget file.
-               In the context of the source package, the iface value modifies
-               a given particle template to be consistent with the idea of 
-               releasing from a given cell face, compressing the corresponding
-               orthogonal dimension.
+          * 0: do not read iface
+          * 1: read iface
+        notes: 
+          * if the source format is AUX/AUXILIARY, this flag will indicate 
+            whether to extract or not the value of iface from the budget file.
+            In the context of the source package, the iface value modifies
+            a given particle template to be consistent with the idea of 
+            releasing from a given cell face, compressing the corresponding
+            orthogonal dimension.
     defaultiface : int
         Default value of iface for cells without an explicitly given value, 
         when ifaceoption==1. Only applies for the format SPEC/SPECIFIED. 
@@ -139,14 +152,14 @@ class ModpathRWSrc( Package ):
     concpercell : int
         Flag to indicate that different concentrations are given for each 
         cell in the source. Only applies if cellinput == 1.
-            * 0: all cells with the same concentration.
-            * 1: cells with specific concentration.
+          * 0: all cells with the same concentration.
+          * 1: cells with specific concentration.
     nspecies : int
         The number of species being injected. Defines how many concentrations 
         per time interval shall be written to the package file. At least 1.
     speciesid : list[int]
         The zero based indexes of species to which relate concentrations. Only 
-        written to the package file if particlesmassoption==2.
+        written to the package file if particlesmassoption == 2 (see ModpathRWSim).
     concentration : list
         The concentrations for each time interval. The list should have as 
         many entries as time intervals, and each entry is expected to as many 
