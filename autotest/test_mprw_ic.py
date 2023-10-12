@@ -73,6 +73,12 @@ def test_mprw_ic_input_mf6(function_tmpdir):
     with pytest.raises(ValueError):
         # define with invalid particlesdist string value
         modpathrw.ModpathRWIc(mp, particlesdist='thedistribution', concentration=concentration )
+    with pytest.raises(ValueError):
+        # define with invalid drape value
+        modpathrw.ModpathRWIc(mp, drape=-10, concentration=concentration )
+    with pytest.raises(TypeError):
+        # define with invalid drape type
+        modpathrw.ModpathRWIc(mp, drape='thedrape', concentration=concentration )
     with pytest.raises(TypeError):
         # define with invalid particlesdist type
         modpathrw.ModpathRWIc(mp, particlesdist=None, concentration=concentration )

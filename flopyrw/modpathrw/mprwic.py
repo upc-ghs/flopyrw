@@ -76,6 +76,14 @@ class ModpathRWIc( Package ):
             a random number following a uniform distribution U[-1,1], proportional 
             to half the particle spacing.
           * 2 ('ran','random'): particles are placed randomly inside the cell. 
+    drape : int 
+        Determines the treatment of particles placed on initially dry cells. 
+        Allowed values are: 
+          * 0 : particles are unreleased. 
+          * 1 : particles are vertically transfered to the next uppermost active cell. 
+        notes:
+          The drape option only applies for MODFLOW models solved with the standard formulation. 
+          Models solved with Newton-Raphson are not affected by this parameter.
     speciesid : int 
         The species id to which this initial concentration is related. Will only 
         be written if particlesmassoption == 2. It should be given as the zero-based 
@@ -102,6 +110,7 @@ class ModpathRWIc( Package ):
         particlesmass = 1.0 ,
         concentration = 0.0 ,
         particlesdist = 0   ,
+        drape         = 0   ,
         speciesid     = 0   , 
         stringid      = None,
         extension     = 'ic',
@@ -190,6 +199,24 @@ class ModpathRWIc( Package ):
                     f" The allowed values are equ/equispaced, qra/quasirandom"
                     f" or ran/random."
                 )
+
+        # Drape option 
+        if ( drape is not None ):
+            if not isinstance( drape, int ): 
+                raise TypeError(
+                    f"{self.__class__.__name__}:"
+                    f" Invalid type for drape. It should be integer,"
+                    f" but {str(type(drape))} was given."
+                )
+            if (drape not in [0,1]):
+                raise ValueError(
+                    f"{self.__class__.__name__}:" 
+                    f" Invalid value for drape. It should be"
+                    f" 0 or 1."
+                )
+        else:
+            drape = 0
+        self.drape = drape
 
         # A species id, will only be written 
         # if particlesmassoption == 2
@@ -309,8 +336,8 @@ class ModpathRWIc( Package ):
                 # Write string id 
                 f.write(f"{ins.stringid}\n")
 
-                # Kind/format of initial condition and particles distribution 
-                f.write(f"{ins.kind}    {ins.particlesdist}\n")
+                # Kind/format of initial condition, particles distribution and drape
+                f.write(f"{ins.kind}   {ins.particlesdist}   {ins.drape}\n")
 
                 # 0,1: resident concentration array  
                 if ( ins.kind in [0,1] ):
