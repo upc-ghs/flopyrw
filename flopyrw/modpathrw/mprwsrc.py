@@ -180,6 +180,14 @@ class ModpathRWSrc( Package ):
         The particlemass for each species.
     nparticles : int
         If a template is not given, it will be filled with (nparticles nparticles nparticles).
+    drape : int 
+        Determines the treatment of particles placed on initially dry cells. 
+        Allowed values are: 
+          * 0 : particles are unreleased. 
+          * 1 : particles are vertically transfered to the next uppermost active cell. 
+        notes:
+          The drape option only applies for MODFLOW models solved with the standard formulation. 
+          Models solved with Newton-Raphson are not affected by this parameter.
     stringid : str, optional
         An id for the dispersion specification. If not given is automatically 
         filled with the package ftype and an integer id. 
@@ -201,6 +209,7 @@ class ModpathRWSrc( Package ):
     defaulttemplateoption = 0
     defaultparticlesmass  = 1.0
     defaultnparticles     = 2
+    defaultdrape          = 0
 
 
     @staticmethod
@@ -229,6 +238,7 @@ class ModpathRWSrc( Package ):
         templateoption = defaulttemplateoption, 
         particlesmass  = defaultparticlesmass, 
         nparticles     = defaultnparticles, 
+        drape          = defaultdrape,
         stringid       = None, 
         extension      = 'src',
     ):
@@ -273,7 +283,16 @@ class ModpathRWSrc( Package ):
                 f" Allowed values are AUX (AUXILIARY) or SPEC (SPECIFIED)."
             )
         self.inputformat = inputformat.upper()
+
         # Save ifaceoption
+        if ( ifaceoption is None ): 
+            ifaceoption = 0
+        if not isinstance( ifaceoption, int ): 
+            raise TypeError(
+                f"{self.__class__.__name__}:"
+                f" Invalid type for ifaceoption. It should be integer,"
+                f" but {str(type(ifaceoption))} was given."
+            )
         if ( ifaceoption not in [0,1] ): 
             raise ValueError(
                 f"{self.__class__.__name__}:"
@@ -282,6 +301,23 @@ class ModpathRWSrc( Package ):
                 f" or 1 (read from budgets)."
             )
         self.ifaceoption = ifaceoption
+
+        # Save drape
+        if ( drape is None ): 
+            drape = 0
+        if not isinstance( drape, int ): 
+            raise TypeError(
+                f"{self.__class__.__name__}:"
+                f" Invalid type for drape. It should be integer,"
+                f" but {str(type(drape))} was given."
+            )
+        if ( drape not in [0,1] ): 
+            raise ValueError(
+                f"{self.__class__.__name__}:"
+                f" Invalid drape {str(drape)}."
+                f" The allowed values are 0 or 1."
+            )
+        self.drape = drape
 
 
         # Process sources on the given format 
@@ -306,6 +342,7 @@ class ModpathRWSrc( Package ):
                     templateoption = templateoption,
                     particlesmass  = particlesmass ,
                     nparticles     = nparticles    ,
+                    drape          = drape
                 )
 
         # String id 
@@ -388,9 +425,16 @@ class ModpathRWSrc( Package ):
 
                         # Write src name
                         if ( ins.ifaceoption == 1 ): 
-                            f.write(f"{src.upper()}    {ins.ifaceoption}\n")
+                            if ( ins.drape == 0 ): 
+                                f.write(f"{src.upper()}  {ins.ifaceoption}\n")
+                            else:
+                                f.write(f"{src.upper()}  {ins.ifaceoption}  {ins.drape}\n")
                         else:
-                            f.write(f"{src.upper()}\n")
+                            if ( ins.drape == 0 ): 
+                                f.write(f"{src.upper()}\n")
+                            else:
+                                f.write(f"{src.upper()}  0  {ins.drape}\n")
+
 
                         # Write the number of aux vars
                         f.write(f"{len(ins.allauxnames[isrc])}\n")
@@ -417,13 +461,23 @@ class ModpathRWSrc( Package ):
                     for isrc, src in enumerate( ins.sources ):
                     
                         if ( src['ifaceoption'] == 0 ):
-                            # Only the budgetname
-                            f.write(f"{src['budgetname'].upper()}\n")
+                            if ( src['drape'] == 0 ):
+                                # Only the budgetname
+                                f.write(f"{src['budgetname'].upper()}\n")
+                            else:
+                                # Write with defaults 
+                                f.write(f"{src['budgetname'].upper()}  0  0  {src['drape']}\n")
                         elif ( src['ifaceoption'] == 1 ):
-                            # The budgetname plus iface options
-                            f.write(
-                                f"{src['budgetname'].upper()}    1    {src['defaultiface']}\n"
-                            )
+                            if ( src['drape'] == 0 ):
+                                # The budgetname plus iface options
+                                f.write(
+                                    f"{src['budgetname'].upper()}  1  {src['defaultiface']}\n"
+                                )
+                            else:
+                                # Write all 
+                                f.write(
+                                    f"{src['budgetname'].upper()}  1  {src['defaultiface']}  {src['drape']}\n"
+                                )
 
                         if ( src['cellinput'] in [0,2] ):
                             f.write(f"{src['cellinput']}\n")
@@ -1261,6 +1315,21 @@ class ModpathRWSrc( Package ):
                     f" parameter is not 0 or 1."
                     f" {str(src['concpercell'])} was given."
                 )
+
+            # drape
+            if ('drape' not in keys ):
+                # Give the default
+                src['drape'] = self.__class__.defaultdrape
+            if ( src['drape'] is None ):
+                src['drape'] = self.__class__.defaultdrape
+            if ( src['drape'] not in [0,1] ):
+                raise ValueError(
+                    f"{self.__class__.__name__}:"
+                    f" Invalid source specification. The drape"
+                    f" parameter is not 0 or 1."
+                    f" {str(src['drape'])} was given."
+                )
+
 
             # templateoption 
             if ('templateoption' not in keys ):
