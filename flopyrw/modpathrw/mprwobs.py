@@ -771,10 +771,14 @@ class ModpathRWObs( Package ):
             if self.outputoption in [1,2]:
                 # Loading structure at this point only for btc's
                 # with specific time vector
+                # This needs some review: in simulations 
+                # with adaptgridtocoords = true (an endpoint for example)
+                # the time vector can also be different for each species, 
+                # although interpolation was applied.
                 if (
                     ( self.histogramoptions==1 ) and (
-                        ( self.binoption in [2,3] ) or
-                        ( self.timestepout is not None )
+                        ( self.binoption in [2,3] ) 
+                        #or ( self.timestepout is not None )
                     )
                 ):
                     raise NotImplementedError(
