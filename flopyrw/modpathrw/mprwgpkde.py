@@ -191,7 +191,7 @@ class ModpathRWGpkde( Package ):
         maxhd                  = 0.1 ,
         deltahd                = 10.0,
         initialsmoothingformat = 0, 
-        binsizefactor          = 5.0, 
+        binsizefactor          = 1.0, 
         asconcentration        = True,
         effectiveweightformat  = 0,
         timepointdata          = None,
