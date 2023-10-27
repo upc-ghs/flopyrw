@@ -71,9 +71,9 @@ class ModpathRWSpc( Package ):
         # Assign dispersion
         if not isinstance( dispersion, ModpathRWDsp ):
             raise TypeError(
-                self.__class__.__name__ + ':' 
-                + ' Invalid dispersion parameter of type ' + str(type(dispersion))
-                + '. It should be type ModpathRWDsp.'
+                f"{self.__class__.__name__}:"
+                f" Invalid dispersion parameter of type {str(type(dispersion))}."
+                f" It should be type ModpathRWDsp."
             )
         self.dispersion = dispersion
 
@@ -81,9 +81,9 @@ class ModpathRWSpc( Package ):
         if pgroups is not None:
             if not isinstance(pgroups, (int,list,np.ndarray)):
                 raise TypeError(
-                    self.__class__.__name__ + ':'
-                    + ' Invalid pgroups parameter of type ' +str(type(pgroups))
-                    + '. It should be of type int, list or np.ndarray.'
+                    f"{self.__class__.__name__}:"
+                    f" Invalid pgroups parameter of type {str(type(pgroups))}."
+                    f" It should be of type int, list or np.ndarray."
                 )
             if isinstance( pgroups, list ):
                 pgroups = np.array( pgroups )
@@ -93,9 +93,9 @@ class ModpathRWSpc( Package ):
             for pg in pgroups: 
                 if ( not isinstance( pg, (int,np.int32,np.int64) ) ):
                     raise TypeError(
-                        self.__class__.__name__ + ':'
-                        + ' Invalid pgroups parameter of type ' +str(type(pg))
-                        + '. It should be of type an integer pgroup id.'
+                        f"{self.__class__.__name__}:"
+                        f" Invalid pgroups parameter of type {str(type(pg))}."
+                        f" It should be an integer pgroup id."
                     )
 
         # Might be worth considering a verification versus 
@@ -178,16 +178,16 @@ class ModpathRWSpc( Package ):
                             f.write(f"{pg+1}\n")
                     else:
                         raise ValueError(
-                            self.__class__.__name__ + ':' + 
-                            ' Invalid pgroups parameter of type ' +str(type(ins.pgroups))+
-                            '. While using particlesmassoption != 2, the ModpathRWSpc package '+
-                            'requires the list of pgroups indexes related to this species.'
+                            f"{self.__class__.__name__}:"
+                            f" Invalid pgroups parameter of type {str(type(ins.pgroups))}."
+                            f" While using particlesmassoption != 2, the ModpathRWSpc package"
+                            f" requires the list of pgroups indexes related to this species."
                         )
                 if ( not hasattr(self.parent,'speciesdispersionoption') ):
                     raise Exception( 
-                        self.__class__.__name__ + ':' + 
-                        ' The speciesdispersionoption was not found in parent package. ' + 
-                        'Did you define a ModpathRWSim package ? '
+                        f"{self.__class__.__name__}:"
+                        f" The speciesdispersionoption was not found in parent package." 
+                        f" Did you define a ModpathRWSim package ?"
                     )
                 # Write dispersion "foreign key", only if
                 # speciesdispersionoption == 1
