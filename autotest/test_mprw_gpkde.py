@@ -79,6 +79,7 @@ def test_mprw_gpkde_input_mf6(function_tmpdir):
 
 
     # define consistent package 
+    mp.remove_package('gpkde')
     gpkde = modpathrw.ModpathRWGpkde(mp)
 
     # verify assignment to the main model
@@ -164,6 +165,7 @@ def test_mprw_gpkde_input_mf6disv(function_tmpdir):
         )
 
     # define consistent package 
+    mp.remove_package('gpkde')
     gpkde = modpathrw.ModpathRWGpkde(mp)
 
     # verify assignment to the main model
@@ -248,6 +250,7 @@ def test_mprw_gpkde_input_mf2005(function_tmpdir):
 
 
     # define consistent package 
+    mp.remove_package('gpkde')
     gpkde = modpathrw.ModpathRWGpkde(mp)
 
     # verify assignment to the main model

@@ -124,6 +124,11 @@ class ModpathRWSim( mp7.Modpath7Sim ):
             extension = "mprw"
 
         # Call parent constructor
+        # This function calls add_package().
+        # It maybe worth considering to remove 
+        # the package in case that any of exceptions 
+        # below is triggered, to avoid manually removing
+        # while testing.
         super().__init__(*args,**kwargs, extension=extension)
         
         # Not the most elegant solution but consistent

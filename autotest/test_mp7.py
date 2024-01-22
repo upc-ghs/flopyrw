@@ -254,7 +254,6 @@ def test_default_modpath(ex01b_mf6_model):
 
 
 @requires_exe("mf6", "mpathrw")
-@requires_pkg("pandas")
 def test_faceparticles_is1(ex01b_mf6_model):
     sim, function_tmpdir = ex01b_mf6_model
 
@@ -441,7 +440,6 @@ def test_facenode_is2a(ex01b_mf6_model):
 
 
 @requires_exe("mf6", "mpathrw")
-@requires_pkg("pandas")
 def test_cellparticles_is1(ex01b_mf6_model):
     sim, function_tmpdir = ex01b_mf6_model
     grid = sim.get_model(ex01b_mf6_model_name).modelgrid
@@ -791,11 +789,11 @@ def test_pathline_output(function_tmpdir):
     case_mf6 = Mp7Cases.mp7_mf6(function_tmpdir)
 
     case_mf2005.write_input()
-    success, buff = case_mf2005.run_model(silent=True,report=True)
+    success, buff = case_mf2005.run_model(silent=True, report=True)
     assert success, f"modpath model ({case_mf2005.name}) did not run"
 
     case_mf6.write_input()
-    success, buff = case_mf6.run_model(silent=True,report=True)
+    success, buff = case_mf6.run_model(silent=True, report=True)
     assert success, f"modpath model ({case_mf6.name}) did not run"
 
     fpth0 = Path(case_mf2005.model_ws) / "ex01_mf2005_mp.mppth"
@@ -817,18 +815,17 @@ def test_pathline_output(function_tmpdir):
     assert maxid0 == maxid1, msg
 
 
-@requires_pkg("pandas")
 @requires_exe("mf2005", "mf6", "mpathrw")
 def test_endpoint_output(function_tmpdir):
     case_mf2005 = Mp7Cases.mp7_mf2005(function_tmpdir)
     case_mf6 = Mp7Cases.mp7_mf6(function_tmpdir)
 
     case_mf2005.write_input()
-    success, buff = case_mf2005.run_model(silent=True,report=True)
+    success, buff = case_mf2005.run_model(silent=True, report=True)
     assert success, f"modpath model ({case_mf2005.name}) did not run"
 
     case_mf6.write_input()
-    success, buff = case_mf6.run_model(silent=True,report=True)
+    success, buff = case_mf6.run_model(silent=True, report=True)
     assert success, f"modpath model ({case_mf6.name}) did not run"
 
     # if models not run then there will be no output
@@ -876,7 +873,7 @@ def test_endpoint_output(function_tmpdir):
 def test_pathline_plotting(function_tmpdir):
     ml = Mp7Cases.mp7_mf6(function_tmpdir)
     ml.write_input()
-    success, buff = ml.run_model(silent=True,report=True)
+    success, buff = ml.run_model(silent=True, report=True)
     assert success, f"modpath model ({ml.name}) did not run"
 
     modelgrid = ml.flowmodel.modelgrid
@@ -899,8 +896,7 @@ def test_pathline_plotting(function_tmpdir):
 
 
 @requires_exe("mf6", "mpathrw")
-@pytest.mark.parametrize("verbose", [True, False])
-def test_mp7sim_replacement(function_tmpdir, capfd, verbose):
+def test_mp7sim_replacement(function_tmpdir, capfd):
     mf6sim = Mp7Cases.mf6(function_tmpdir)
     mf6sim.write_simulation(silent=True)
     mf6sim.run_simulation(silent=True)
@@ -911,7 +907,6 @@ def test_mp7sim_replacement(function_tmpdir, capfd, verbose):
         flowmodel=mf6sim.get_model(mf6sim.name),
         exe_name="mpathrw",
         model_ws=mf6sim.sim_path,
-        verbose=verbose,
     )
     defaultiface6 = {"RCH": 6, "EVT": 6}
     mpbas = Modpath7Bas(mp, porosity=0.1, defaultiface=defaultiface6)
@@ -931,28 +926,26 @@ def test_mp7sim_replacement(function_tmpdir, capfd, verbose):
         zones=Mp7Cases.zones,
         particlegroups=Mp7Cases.particlegroups,
     )
-    # add a duplicate mp7sim package
-    mpsim = Modpath7Sim(
-        mp,
-        simulationtype="combined",
-        trackingdirection="forward",
-        weaksinkoption="pass_through",
-        weaksourceoption="pass_through",
-        budgetoutputoption="summary",
-        budgetcellnumbers=[1049, 1259],
-        traceparticledata=[1, 1000],
-        referencetime=[0, 0, 0.0],
-        stoptimeoption="extend",
-        timepointdata=[500, 1000.0],
-        zonedataoption="on",
-        zones=Mp7Cases.zones,
-        particlegroups=Mp7Cases.particlegroups,
-    )
 
-    cap = capfd.readouterr()
-    msg = "Two packages of the same type"
-    assert verbose == (msg in cap.out)
+    # add a duplicate mp7sim package
+    with pytest.warns(UserWarning, match="Two packages of the same type"):
+        mpsim = Modpath7Sim(
+            mp,
+            simulationtype="combined",
+            trackingdirection="forward",
+            weaksinkoption="pass_through",
+            weaksourceoption="pass_through",
+            budgetoutputoption="summary",
+            budgetcellnumbers=[1049, 1259],
+            traceparticledata=[1, 1000],
+            referencetime=[0, 0, 0.0],
+            stoptimeoption="extend",
+            timepointdata=[500, 1000.0],
+            zonedataoption="on",
+            zones=Mp7Cases.zones,
+            particlegroups=Mp7Cases.particlegroups,
+        )
 
     mp.write_input()
-    success, buff = mp.run_model(silent=True,report=True)
+    success, buff = mp.run_model(silent=True, report=True)
     assert success, f"modpath model ({mp.name}) did not run"

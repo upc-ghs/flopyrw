@@ -62,7 +62,8 @@ class ModpathRWSpc( Package ):
                 model,
                 extension,
                 ftype,
-                model.multipackage[ftype]['unitnumber']
+                model.multipackage[ftype]['unitnumber'],
+                allowDuplicates=True,
             )
         else:
             # Pass the parent

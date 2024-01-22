@@ -49,6 +49,8 @@ def test_mprw_sim_input_mf6(function_tmpdir):
             **simconfig, 
             timeseriesoutputoption=None,
         )
+    # To avoid warning
+    mp.remove_package('mprwsim')
     with pytest.raises(TypeError):
         # invalid type for timeseriesoutputoption 
         modpathrw.ModpathRWSim(
@@ -56,6 +58,8 @@ def test_mprw_sim_input_mf6(function_tmpdir):
             **simconfig, 
             timeseriesoutputoption=[0],
         )
+    # To avoid warning
+    mp.remove_package('mprwsim')
     with pytest.raises(ValueError):
         # invalid int value for timeseriesoutputoption 
         modpathrw.ModpathRWSim(
@@ -63,6 +67,8 @@ def test_mprw_sim_input_mf6(function_tmpdir):
             **simconfig, 
             timeseriesoutputoption=10,
         )
+    # To avoid warning
+    mp.remove_package('mprwsim')
     with pytest.raises(ValueError):
         # invalid str value for timeseriesoutputoption 
         modpathrw.ModpathRWSim(
@@ -70,6 +76,8 @@ def test_mprw_sim_input_mf6(function_tmpdir):
             **simconfig, 
             timeseriesoutputoption='theoption',
         )
+    # To avoid warning
+    mp.remove_package('mprwsim')
     with pytest.raises(TypeError):
         # invalid type for particlesmassoption 
         modpathrw.ModpathRWSim(
@@ -77,6 +85,8 @@ def test_mprw_sim_input_mf6(function_tmpdir):
             **simconfig, 
             particlesmassoption=None,
         )
+    # To avoid warning
+    mp.remove_package('mprwsim')
     with pytest.raises(TypeError):
         # invalid type for particlesmassoption 
         modpathrw.ModpathRWSim(
@@ -84,6 +94,8 @@ def test_mprw_sim_input_mf6(function_tmpdir):
             **simconfig, 
             particlesmassoption=[0],
         )
+    # To avoid warning
+    mp.remove_package('mprwsim')
     with pytest.raises(ValueError):
         # invalid int value for particlesmassoption 
         modpathrw.ModpathRWSim(
@@ -91,6 +103,8 @@ def test_mprw_sim_input_mf6(function_tmpdir):
             **simconfig, 
             particlesmassoption=10,
         )
+    # To avoid warning
+    mp.remove_package('mprwsim')
     with pytest.raises(ValueError):
         # invalid str value for particlesmassoption 
         modpathrw.ModpathRWSim(
@@ -98,6 +112,8 @@ def test_mprw_sim_input_mf6(function_tmpdir):
             **simconfig, 
             particlesmassoption='theoption',
         )
+    # To avoid warning
+    mp.remove_package('mprwsim')
     with pytest.raises(TypeError):
         # invalid type for speciesdispersionoption 
         modpathrw.ModpathRWSim(
@@ -105,6 +121,8 @@ def test_mprw_sim_input_mf6(function_tmpdir):
             **simconfig, 
             speciesdispersionoption=None,
         )
+    # To avoid warning
+    mp.remove_package('mprwsim')
     with pytest.raises(TypeError):
         # invalid type for speciesdispersionoption 
         modpathrw.ModpathRWSim(
@@ -112,6 +130,8 @@ def test_mprw_sim_input_mf6(function_tmpdir):
             **simconfig, 
             speciesdispersionoption=[0],
         )
+    # To avoid warning
+    mp.remove_package('mprwsim')
     with pytest.raises(ValueError):
         # invalid int value for speciesdispersionoption 
         modpathrw.ModpathRWSim(
@@ -119,6 +139,8 @@ def test_mprw_sim_input_mf6(function_tmpdir):
             **simconfig, 
             speciesdispersionoption=10,
         )
+    # To avoid warning
+    mp.remove_package('mprwsim')
     with pytest.raises(ValueError):
         # invalid str value for speciesdispersionoption 
         modpathrw.ModpathRWSim(
@@ -127,6 +149,8 @@ def test_mprw_sim_input_mf6(function_tmpdir):
             speciesdispersionoption='theoption',
         )
 
+    # To avoid warning
+    mp.remove_package('mprwsim')
     # valid sim 
     simconfig['timeseriesoutputoption']  = 2
     simconfig['particlesmassoption']     = 0
@@ -147,6 +171,8 @@ def test_mprw_sim_input_mf6(function_tmpdir):
     simconfig['timeseriesoutputoption']  = 'skip'
     simconfig['particlesmassoption']     = 'off'
     simconfig['speciesdispersionoption'] = 'unique'
+    # To avoid warning
+    mp.remove_package('mprwsim')
     mprwsim = modpathrw.ModpathRWSim(
         mp, 
         **simconfig
