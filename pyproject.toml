@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools"]
+requires = ["setuptools >=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -9,7 +9,7 @@ keywords = ["MODPATH-RW", "hydrogeology", "rwpt"]
 classifiers = []
 requires-python = ">=3.8"
 dependencies = [
-    "flopy >=3.4.1",
+    "flopy >=3.5",
 ]
 dynamic = ["readme","version"]
 
@@ -19,7 +19,7 @@ version =  {attr = "flopyrw.version.__version__"}
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["flopyrw"]
+include = ["flopyrw", "flopyrw.*"]
 namespaces = false
 
 [project.optional-dependencies]
