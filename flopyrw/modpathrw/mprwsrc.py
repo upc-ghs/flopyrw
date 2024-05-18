@@ -504,10 +504,7 @@ class ModpathRWSrc( Package ):
                                 fmt = " " + " ".join(fmts) + "\n"
                                 for oc in src['cells']:
                                     woc = np.array(oc).astype(np.int32)+1 # Correct the zero-based indexes
-                                    if src['structured']:
-                                        f.write(fmt.format(*woc))
-                                    else:
-                                        f.write(fmt.format(woc))
+                                    f.write(fmt.format(*woc))
 
                             # Think what to do with specific ifaces when ifaceoption == 1
                             elif ( src['ifaceoption'] == 1 ):
@@ -522,10 +519,7 @@ class ModpathRWSrc( Package ):
                                 fmt = " " + " ".join(fmts) + "\n"
                                 for oc in src['cells']:
                                     woc = np.array(oc).astype(np.int32)+1 # Correct the zero-based indexes
-                                    if src['structured']:
-                                        f.write(fmt.format(*woc))
-                                    else:
-                                        f.write(fmt.format(woc))
+                                    f.write(fmt.format(*woc))
 
                         # Write nspecies and template option
                         f.write(f"{src['nspecies']}  {src['templateoption']}\n")
