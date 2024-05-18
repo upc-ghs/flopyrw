@@ -1193,8 +1193,10 @@ class ModpathRWSrc( Package ):
 
             # nspecies
             if ('nspecies' not in keys ):
-                # Give the default
+                # Give the defaults
                 src['nspecies'] = self.__class__.defaultnspecies
+                if ('speciesid' not in keys ):
+                    src['speciesid'] = self.__class__.defaultspeciesid
             if ( not isinstance( src['nspecies'], int ) ): 
                 raise TypeError(
                     f"{self.__class__.__name__}:"
@@ -1214,6 +1216,11 @@ class ModpathRWSrc( Package ):
             # This is finally validated while writing, 
             # as is the only place where particlesmassoption 
             # can be accessed.
+            if ( 'speciesid' not in keys ):
+                # initialize with the same number of ids as the 
+                # one given in nspecies. Still it might need validation 
+                # with respect to the total number of given concentrations. 
+                src['speciesid'] = [ sid for sid in range(src['nspecies']) ]
             if ( isinstance( src['speciesid'], int ) ): 
                 # Create a list
                 src['speciesid'] = [src['speciesid']]
@@ -1309,6 +1316,7 @@ class ModpathRWSrc( Package ):
                     f" parameter is not 0 or 1."
                     f" {str(src['concpercell'])} was given."
                 )
+            concpercell = src['concpercell']
 
             # drape
             if ('drape' not in keys ):
@@ -1443,8 +1451,12 @@ class ModpathRWSrc( Package ):
                     raise ValueError(
                         f"{self.__class__.__name__}:"
                         f" Invalid source specification. The given"
-                        f" concentrations in axis = 1 ({str(conc.shape[1])}) is not consistent"
-                        f" with the number of species and cells for the given concpercell parameter."
+                        f" number of concentrations/columns ({str(conc.shape[1])}) is not consistent"
+                        f" with the expected number ({str(nsp*ncellsforinput)})."
+                        f" The expected number of concentrations is obtained as"
+                        f" the product between the given number of species ({str(nsp)})"
+                        f" and the expected number of cell-specific concentrations ({str(ncellsforinput)}),"
+                        f" due to the given concpercell ({str(concpercell)}) parameter."
                     )
                 # Pass it back 
                 src['concentration'] = conc.tolist()
