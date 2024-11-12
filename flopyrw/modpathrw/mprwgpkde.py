@@ -1211,7 +1211,6 @@ class ModpathRWGpkde( Package ):
 
         # If no grid indexes, return
         if ( self.outputcolformat == 2 ):
-            # return
             return filtdata
 
         # The following would only work for
@@ -1264,4 +1263,128 @@ class ModpathRWGpkde( Package ):
             return filtdata
 
 
+    def get_alldata(self, which='cgpkde', speciesid=None):
+        '''
+        Get output data array for all times
+
+        For a reconstruction grid coincident with the flowmodel grid of 
+        type StructuredGrid and is_regular=True, will fill an array with shape 
+        (ntimes,nlay,nrow,ncol), with the concentration data requested in 'which'.
+          * which=cgpkde returns the smoothed reconstruction. 
+          * which=chist returns the histogram reconstruction. 
+
+        In case the grid is not of type StructuredGrid or not regular, 
+        will filter the recarray data by speciesid, and not by 'which'.
+        The same applies for the case in which self.outputcolformat == 2, where 
+        reconstruction grid indexes are not given in the output file. 
+
+        Note: the gpkde reconstruction grid follows the modpath convention of 
+              coordinates and not the lay,row,col convention so there should an
+              adequate reinterpration of grid indexes.
+        '''
+    
+        # Default value for non existent indexes
+        defaultnan = 0.0
+
+        # Validate which
+        if not isinstance(which,str):
+            raise TypeError(
+                f"{self.__class__.__name__}:get_alldata:" 
+                f" Invalid type for which parameter, it should be str but {str(type(which))} was given."
+            )
+        if (which.lower() not in ['cgpkde', 'chist']):
+            raise ValueError(
+                f"{self.__class__.__name__}:get_alldata:"
+                f" Invalid value for which parameter. It can be"
+                f" cgpkde or chist, but {str(which)} was given."
+            )
+        which = which.lower()
+
+        # Load the output file if not loaded already
+        try: 
+            recdata = self.outputrecdata
+        except AttributeError:
+            recdata = self.get_output()
+
+        # get total number of times 
+        ntimes = self.times.shape[0]
+
+        # Get a speciesid, by default the last
+        if speciesid is None: 
+            speciesid = self.speciesids[-1]
+        else:
+            spcindex = np.where(self.speciesids==speciesid)[0]
+            if len(spcindex)==0:
+                raise ValueError(
+                    f"{self.__class__.__name__}:get_alldata:"
+                    f" The given value for speciesid was not found in the array of speciesids. "
+                    f" speciesid={str(speciesid)} was given."
+                )
+            else:
+                speciesid = self.speciesids[spcindex.item()]
+
+        # Filter data: only by speciesid
+        filtdata = recdata[ (recdata['speciesid'] == speciesid) ]
+
+        # If no data, error.
+        if ( len(filtdata) == 0 ):
+            raise Exception(
+                f"{self.__class__.__name__}:get_alldata:"
+                f" No data was found for speciesid={str(speciesid)}"
+            )
+
+        # If no grid indexes, return
+        if ( self.outputcolformat == 2 ):
+            return filtdata
+
+        # The following would only work for StructuredGrid with is_regular=True.
+        # Additional alternatives could be provided, for example interpolating with griddata
+        if isinstance( self.parent.flowmodel.modelgrid, StructuredGrid ):
+
+            # If is regular it can potentially be given with 
+            # the same structure than the flow model.
+            if self.parent.flowmodel.modelgrid.is_regular:
+
+                nlay = self.parent.flowmodel.modelgrid.nlay
+                nrow = self.parent.flowmodel.modelgrid.nrow
+                ncol = self.parent.flowmodel.modelgrid.ncol
+                
+                data = np.empty((ntimes, nlay, nrow, ncol), dtype=np.float32)
+                data[:,:,:,:] = defaultnan
+
+                # If the reconstruction grid has the same 
+                # size than the flow model grid... 
+                # needs checking of consistent sizes. 
+
+                for it, time in enumerate(self.times):
+                    # get data for this time
+                    tdata = filtdata[filtdata['time'] == time]
+
+                    # assign spatial array
+                    layers = np.unique( tdata['idbinz'] )
+                    for lay in layers:
+                        srec = tdata[ tdata['idbinz'] == lay ]
+                        laydata = np.empty((nrow,ncol),dtype=np.float32)
+                        laydata[:,:] = defaultnan
+                        laydata[ nrow - srec['idbiny'] - 1, srec['idbinx'] ] = srec[which] 
+                        data[it, nlay - lay - 1,:,:] = laydata
+
+                return data
+
+            else:
+                print( 
+                    f"Warning: data for flowmodel with non-regular StructuredGrid" 
+                    f" is returned filtered only by speciesid. The user should apply "
+                    f" an adequate coordinates conversion (e.g., scipy.interpolate.griddata)."
+                )
+                # return
+                return filtdata
+        else:
+            print( 
+                f"Warning: data for flowmodel with {str(type(self.parent.flowmodel.modelgrid))} grid "
+                f" is returned filtered only by speciesid. The user should apply "
+                f" an adequate coordinates conversion. "
+            )
+            # return
+            return filtdata
 
