@@ -1038,14 +1038,9 @@ class ModpathRWGpkde( Package ):
             use_pandas = True
         except ImportError:
             use_pandas = False
-       
-
-        if self.outputfileformat == 1:
-            raise NotImplementedError(
-                f"{self.__class__.__name__}:get_output:" 
-                f" Reader for binary output file has not been implemented yet."
-            )
-
+        #
+        # -- define dtype and vartype 
+        #    depending on the output column format
         if self.outputcolformat == 0:
             dtype = np.dtype(
                 [
@@ -1059,6 +1054,16 @@ class ModpathRWGpkde( Package ):
                     ("chist"     , np.float32),
                 ]
             )
+            vartype = [
+                ("tid"      , "<i4"),
+                ("time"     , "<f8"),
+                ("speciesid", "<i4"),
+                ("idbinx"   , "<i4"),
+                ("idbiny"   , "<i4"),
+                ("idbinz"   , "<i4"),
+                ("cgpkde"   , "<f8"),
+                ("chist"    , "<f8"),
+            ]
         elif self.outputcolformat == 1:
             dtype = np.dtype(
                 [
@@ -1075,6 +1080,19 @@ class ModpathRWGpkde( Package ):
                     ("chist"     , np.float32),
                 ]
             )
+            vartype = [
+                ("tid"      , "<i4"),
+                ("time"     , "<f8"),
+                ("speciesid", "<i4"),
+                ("idbinx"   , "<i4"),
+                ("idbiny"   , "<i4"),
+                ("idbinz"   , "<i4"),
+                ("x"        , "<f8"),
+                ("y"        , "<f8"),
+                ("z"        , "<f8"),
+                ("cgpkde"   , "<f8"),
+                ("chist"    , "<f8"),
+            ]
         elif self.outputcolformat == 2:
             dtype = np.dtype(
                 [
@@ -1088,31 +1106,48 @@ class ModpathRWGpkde( Package ):
                     ("chist"     , np.float32),
                 ]
             )
-
-        # read data
-        recdata = loadtxt(
-            os.path.join( self._parent.model_ws, self.outputfilename ),
-            dtype=dtype,
-            skiprows=0, 
-            use_pandas=use_pandas,
-        )
-
-        # To python zero-based indexes those quantities 
-        # that need this treatment. Leave tid as it came.
+            vartype = [
+                ("tid"      , "<i4"),
+                ("time"     , "<f8"),
+                ("speciesid", "<i4"),
+                ("x"        , "<f8"),
+                ("y"        , "<f8"),
+                ("z"        , "<f8"),
+                ("cgpkde"   , "<f8"),
+                ("chist"    , "<f8"),
+            ]
+        #
+        # -- read data
+        if self.outputfileformat == 0:
+            # -- from text-plain file
+            recdata = loadtxt(
+                os.path.join( self._parent.model_ws, self.outputfilename ),
+                dtype=dtype,
+                skiprows=0, 
+                use_pandas=use_pandas,
+            )
+        elif self.outputfileformat == 1:
+            # -- from binary file
+            file = open( os.path.join( self._parent.model_ws, self.outputfilename ), 'rb' )
+            data = np.fromfile(file, vartype)
+            recdata = data.view(np.recarray)
+        #
+        # -- to python zero-based indexes those quantities 
+        #    that need this treatment. leave tid as it came.
         recdata['speciesid'] = recdata['speciesid'] - 1
         if self.outputcolformat != 2:
             recdata['idbinx'] = recdata['idbinx'] - 1
             recdata['idbiny'] = recdata['idbiny'] - 1
             recdata['idbinz'] = recdata['idbinz'] - 1
-
-        # store variables
+        # 
+        # -- store variables
         self.times = np.unique(recdata['time'])
         self.speciesids = np.unique(recdata['speciesid'])
-
-        # useful, heavy ?
+        #
+        # -- useful, heavy ?
         self.outputrecdata = recdata
-
-        # return
+        #
+        # -- return
         return recdata 
 
 
