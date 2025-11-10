@@ -107,11 +107,11 @@ class ModpathRWGpkde( Package ):
         Minimum ratio smoothing(h)/binsize(l). It is written to the package file 
         if kerneldatabase=True or boundkernelsize = 1.
     deltahd : float
-        Step of ration smoothing(h)/binsize(l) used for defining a set of discrete
+        Step of ratio smoothing(h)/binsize(l) used for defining a set of discrete
         kernel sizes for the kernel database. Only written to the package file 
         if kerneldatabase=True.
     maxhd : float
-        Maximum ration smoothing(h)/binsize(l). It is written to the package file if
+        Maximum ratio smoothing(h)/binsize(l). It is written to the package file if
         kerneldatabase=True or boundkernelsize = 1.
     initialsmoothingformat : int
         Determines the protocol for selection of the initial kernel size from where to
@@ -1132,7 +1132,7 @@ class ModpathRWGpkde( Package ):
         Get output data array
 
         For a reconstruction grid coincident with the flowmodel grid of 
-        type StructuredGrid and is_regular=True, will fill an array with shape 
+        type StructuredGrid and regular cell sizes, will fill an array with shape 
         (nlay,nrow,ncol), with the concentration data requested in 'which'.
           * which=cgpkde returns the smoothed reconstruction. 
           * which=chist returns the histogram reconstruction. 
@@ -1213,27 +1213,81 @@ class ModpathRWGpkde( Package ):
         if ( self.outputcolformat == 2 ):
             return filtdata
 
-        # The following would only work for
-        # StructuredGrid with is_regular=True.
-        # Additional alternatives could be provided 
-        # by for example interpolating with griddata
+        # 
+        # The following would work for StructuredGrid with regular cell sizes. 
+        # Additional alternatives could be provided, for example interpolating 
+        # with griddata for unstructred grids.
         if isinstance( self.parent.flowmodel.modelgrid, StructuredGrid ):
-
-            # If is regular it can potentially be given with 
-            # the same structure than the flow model
+            #
+            # -- flag to determine whether it is possible to load 
+            #    gpkde data with the same structure than a modflow 
+            #    grid.
+            canloaddata = False
+            # 
+            # -- evaluate the condition 
             if self.parent.flowmodel.modelgrid.is_regular:
-
-                nlay = self.parent.flowmodel.modelgrid.nlay
-                nrow = self.parent.flowmodel.modelgrid.nrow
-                ncol = self.parent.flowmodel.modelgrid.ncol
-                
+                # -- if the grid is regular, cubic cells, then 
+                #    it is possible 
+                canloaddata = True
+            elif (
+                self.parent.flowmodel.modelgrid.is_regular_x and 
+                self.parent.flowmodel.modelgrid.is_regular_y and 
+                self.parent.flowmodel.modelgrid.is_regular_z  ):
+                # -- if the grid is regular in each axis.
+                #    this case is possible when cell sizes are 
+                #    are not the same, but regular for each axis.
+                canloaddata = True
+            # 
+            # -- here let's do a simple evaluation on the 
+            #    number of cells
+            nbins = np.zeros(shape=(3,))
+            for ib in range(3):
+                if self.binsize[ib] == 0:
+                    continue
+                # -- follows the x,y,z convention
+                nbins[ib] = int(self.domainsize[ib]/self.binsize[ib])
+            # 
+            # -- get the modflow grid size
+            nlay = self.parent.flowmodel.modelgrid.nlay
+            nrow = self.parent.flowmodel.modelgrid.nrow
+            ncol = self.parent.flowmodel.modelgrid.ncol
+            # 
+            # -- validate same grid size.
+            #    if binsize is zero, then allow
+            #    loading if the modflow grid has only
+            #    one element in the given dimension
+            # 
+            # -- x 
+            if (nbins[0] != 0):
+                if ( nbins[0] != ncol ): 
+                    canloaddata = False
+            else:
+                if ( ncol != 1 ): 
+                    canloaddata = False
+            # 
+            # -- y
+            if (nbins[1] != 0):
+                if ( nbins[1] != nrow ): 
+                    canloaddata = False
+            else:
+                if ( nrow != 1 ): 
+                    canloaddata = False
+            # 
+            # -- z
+            if (nbins[2] != 0):
+                if ( nbins[2] != nlay ): 
+                    canloaddata = False
+            else:
+                if ( nlay != 1 ): 
+                    canloaddata = False
+            #
+            # -- load the gpkde data into an array
+            if canloaddata:
+                # 
                 data = np.empty((nlay, nrow, ncol), dtype=np.float32)
-                data[:, :, :] = defaultnan
-
-                # If the reconstruction grid has the same 
-                # size than the flow model grid... 
-                # needs checking of consistent sizes. 
-
+                data[:,:,:] = defaultnan
+                #
+                # -- load for the requested time 
                 layers = np.unique( filtdata['idbinz'] )
                 for lay in layers:
                     srec = filtdata[ filtdata['idbinz'] == lay ]
@@ -1241,22 +1295,20 @@ class ModpathRWGpkde( Package ):
                     laydata[:,:] = defaultnan
                     laydata[ nrow - srec['idbiny'] - 1, srec['idbinx'] ] = srec[which] 
                     data[nlay - lay - 1,:,:] = laydata
-
-
+                # -- return
                 return data
-
             else:
                 print( 
                     f"Warning: data for flowmodel with non-regular StructuredGrid" 
-                    f" is returned filtered only by totim and speciesid. The user should apply "
+                    f" is returned filtered only by totim and speciesid. The user should apply"
                     f" an adequate coordinates conversion (e.g., scipy.interpolate.griddata)."
                 )
-                # return
+                # -- return
                 return filtdata
         else:
             print( 
-                f"Warning: data for flowmodel with {str(type(self.parent.flowmodel.modelgrid))} grid "
-                f" is returned filtered only by totim and speciesid. The user should apply "
+                f"Warning: data for flowmodel with {str(type(self.parent.flowmodel.modelgrid))} grid"
+                f" is returned filtered only by totim and speciesid. The user should apply"
                 f" an adequate coordinates conversion. "
             )
             # return
@@ -1268,7 +1320,7 @@ class ModpathRWGpkde( Package ):
         Get output data array for all times
 
         For a reconstruction grid coincident with the flowmodel grid of 
-        type StructuredGrid and is_regular=True, will fill an array with shape 
+        type StructuredGrid and regular cell sizes, will fill an array with shape 
         (ntimes,nlay,nrow,ncol), with the concentration data requested in 'which'.
           * which=cgpkde returns the smoothed reconstruction. 
           * which=chist returns the histogram reconstruction. 
@@ -1332,35 +1384,90 @@ class ModpathRWGpkde( Package ):
                 f"{self.__class__.__name__}:get_alldata:"
                 f" No data was found for speciesid={str(speciesid)}"
             )
-
+        
         # If no grid indexes, return
         if ( self.outputcolformat == 2 ):
             return filtdata
-
-        # The following would only work for StructuredGrid with is_regular=True.
-        # Additional alternatives could be provided, for example interpolating with griddata
+        # 
+        # The following would work for StructuredGrid with regular cell sizes. 
+        # Additional alternatives could be provided, for example interpolating 
+        # with griddata for unstructred grids.
         if isinstance( self.parent.flowmodel.modelgrid, StructuredGrid ):
-
-            # If is regular it can potentially be given with 
-            # the same structure than the flow model.
+            #
+            # -- flag to determine whether it is possible to load 
+            #    gpkde data with the same structure than a modflow 
+            #    grid.
+            canloaddata = False
+            # 
+            # -- evaluate the condition 
             if self.parent.flowmodel.modelgrid.is_regular:
-
-                nlay = self.parent.flowmodel.modelgrid.nlay
-                nrow = self.parent.flowmodel.modelgrid.nrow
-                ncol = self.parent.flowmodel.modelgrid.ncol
-                
+                # -- if the grid is regular, cubic cells, then 
+                #    it is possible 
+                canloaddata = True
+            elif (
+                self.parent.flowmodel.modelgrid.is_regular_x and 
+                self.parent.flowmodel.modelgrid.is_regular_y and 
+                self.parent.flowmodel.modelgrid.is_regular_z  ):
+                # -- if the grid is regular in each axis.
+                #    this case is possible when cell sizes are 
+                #    are not the same, but regular for each axis.
+                canloaddata = True
+            # 
+            # -- here let's do a simple evaluation on the 
+            #    number of cells
+            nbins = np.zeros(shape=(3,))
+            for ib in range(3):
+                if self.binsize[ib] == 0:
+                    continue
+                # -- follows the x,y,z convention
+                nbins[ib] = int(self.domainsize[ib]/self.binsize[ib])
+            # 
+            # -- get the modflow grid size
+            nlay = self.parent.flowmodel.modelgrid.nlay
+            nrow = self.parent.flowmodel.modelgrid.nrow
+            ncol = self.parent.flowmodel.modelgrid.ncol
+            # 
+            # -- validate same grid size.
+            #    if binsize is zero, then allow
+            #    loading if the modflow grid has only
+            #    one element in the given dimension
+            # 
+            # -- x 
+            if (nbins[0] != 0):
+                if ( nbins[0] != ncol ): 
+                    canloaddata = False
+            else:
+                if ( ncol != 1 ): 
+                    canloaddata = False
+            # 
+            # -- y
+            if (nbins[1] != 0):
+                if ( nbins[1] != nrow ): 
+                    canloaddata = False
+            else:
+                if ( nrow != 1 ): 
+                    canloaddata = False
+            # 
+            # -- z
+            if (nbins[2] != 0):
+                if ( nbins[2] != nlay ): 
+                    canloaddata = False
+            else:
+                if ( nlay != 1 ): 
+                    canloaddata = False
+            #
+            # -- load the gpkde data into an array
+            if canloaddata:
+                # 
                 data = np.empty((ntimes, nlay, nrow, ncol), dtype=np.float32)
                 data[:,:,:,:] = defaultnan
-
-                # If the reconstruction grid has the same 
-                # size than the flow model grid... 
-                # needs checking of consistent sizes. 
-
+                #
+                # -- load for all times
                 for it, time in enumerate(self.times):
-                    # get data for this time
+                    # -- get data for this time
                     tdata = filtdata[filtdata['time'] == time]
-
-                    # assign spatial array
+                    #
+                    # -- assign spatial array
                     layers = np.unique( tdata['idbinz'] )
                     for lay in layers:
                         srec = tdata[ tdata['idbinz'] == lay ]
@@ -1368,21 +1475,20 @@ class ModpathRWGpkde( Package ):
                         laydata[:,:] = defaultnan
                         laydata[ nrow - srec['idbiny'] - 1, srec['idbinx'] ] = srec[which] 
                         data[it, nlay - lay - 1,:,:] = laydata
-
+                # -- return
                 return data
-
             else:
                 print( 
                     f"Warning: data for flowmodel with non-regular StructuredGrid" 
-                    f" is returned filtered only by speciesid. The user should apply "
+                    f" is returned filtered only by speciesid. The user should apply"
                     f" an adequate coordinates conversion (e.g., scipy.interpolate.griddata)."
                 )
-                # return
+                # -- return
                 return filtdata
         else:
             print( 
-                f"Warning: data for flowmodel with {str(type(self.parent.flowmodel.modelgrid))} grid "
-                f" is returned filtered only by speciesid. The user should apply "
+                f"Warning: data for flowmodel with {str(type(self.parent.flowmodel.modelgrid))} grid"
+                f" is returned filtered only by speciesid. The user should apply"
                 f" an adequate coordinates conversion. "
             )
             # return
